@@ -2,9 +2,10 @@
 
 import { formatCurrency } from "@/lib/delivery";
 import { format } from "date-fns";
-import { Plus, Users } from "lucide-react";
+import { Minus, Plus, Users } from "lucide-react";
 import type { Product, ProductTag } from "@/lib/types";
 import { getUnitPrice } from "@/lib/pricing";
+import { useCart } from "@/components/store/CartProvider";
 import Image from "next/image";
 
 const TAG_LABELS: Record<ProductTag, string> = {
@@ -21,10 +22,19 @@ interface ProductCardProps {
 }
 
 export function ProductCard({ product, onSelect, onAdd }: ProductCardProps) {
+  const { items, addItem, updateQuantity } = useCart();
   const unitPrice = getUnitPrice(product);
   const hasDiscount = (product.discount_percent ?? 0) > 0;
   const soldOut = product.sold_out_today || !product.is_active;
   const compact = Boolean(onAdd);
+  const quantity =
+    items.find((item) => item.productId === product.id)?.quantity ?? 0;
+  const inCart = quantity > 0;
+
+  const handleAdd = () => {
+    if (onAdd) onAdd(product);
+    else addItem(product.id);
+  };
 
   return (
     <article
@@ -106,17 +116,43 @@ export function ProductCard({ product, onSelect, onAdd }: ProductCardProps) {
         </div>
       </button>
 
-      {!soldOut && onAdd && (
+      {!soldOut && compact && (
         <div className="border-t border-chocolate/5 px-3 py-2.5">
-          <button
-            type="button"
-            onClick={() => onAdd(product)}
-            className="flex w-full items-center justify-center gap-1.5 rounded-full bg-chocolate py-2 text-xs font-medium text-cream transition hover:bg-chocolate-dark active:scale-[0.98]"
-            aria-label={`Add ${product.title} to cart`}
-          >
-            <Plus size={14} strokeWidth={2.5} />
-            Add
-          </button>
+          {inCart ? (
+            <div className="flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => updateQuantity(product.id, quantity - 1)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-cream text-chocolate transition active:scale-95"
+                  aria-label={`Decrease ${product.title} quantity`}
+                >
+                  <Minus size={14} strokeWidth={2.5} />
+                </button>
+                <span className="min-w-[1.25rem] text-center text-sm font-semibold text-chocolate">
+                  {quantity}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => updateQuantity(product.id, quantity + 1)}
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-chocolate text-cream transition active:scale-95"
+                  aria-label={`Increase ${product.title} quantity`}
+                >
+                  <Plus size={14} strokeWidth={2.5} />
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={handleAdd}
+              className="flex w-full items-center justify-center gap-1.5 rounded-full bg-chocolate py-2 text-xs font-medium text-cream transition hover:bg-chocolate-dark active:scale-[0.98]"
+              aria-label={`Add ${product.title} to cart`}
+            >
+              <Plus size={14} strokeWidth={2.5} />
+              Add to cart
+            </button>
+          )}
         </div>
       )}
     </article>

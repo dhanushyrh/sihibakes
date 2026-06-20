@@ -13,17 +13,18 @@ import { TAG_OPTIONS } from "@/lib/constants";
 
 export function DeliveryMenuClient({ products: initialProducts }: { products: Product[] }) {
   const router = useRouter();
-  const { isLocationReady } = useDeliverySession();
-  const { addItem } = useCart();
+  const { sessionReady, isLocationReady } = useDeliverySession();
+  const { addItem, itemCount } = useCart();
   const [products, setProducts] = useState(initialProducts);
   const [selected, setSelected] = useState<Product | null>(null);
   const [tagFilter, setTagFilter] = useState<ProductTag | "all">("all");
 
   useEffect(() => {
+    if (!sessionReady) return;
     if (!isLocationReady) {
       router.replace("/orders/delivery");
     }
-  }, [isLocationReady, router]);
+  }, [sessionReady, isLocationReady, router]);
 
   useEffect(() => {
     setProducts(initialProducts);
@@ -36,7 +37,7 @@ export function DeliveryMenuClient({ products: initialProducts }: { products: Pr
     });
   }, [products, tagFilter]);
 
-  if (!isLocationReady) return null;
+  if (!sessionReady || !isLocationReady) return null;
 
   return (
     <div className="flex min-h-screen flex-col pb-24">
@@ -96,12 +97,14 @@ export function DeliveryMenuClient({ products: initialProducts }: { products: Pr
           </div>
         )}
 
-        <Link
-          href="/orders/delivery/cart"
-          className="fixed bottom-4 left-4 right-4 z-30 mx-auto block max-w-lg rounded-full bg-chocolate py-4 text-center text-sm font-medium text-cream shadow-lg md:hidden"
-        >
-          View cart
-        </Link>
+        {itemCount > 0 && (
+          <Link
+            href="/orders/delivery/cart"
+            className="fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-4 right-4 z-30 mx-auto block max-w-lg rounded-full bg-chocolate py-3.5 text-center text-sm font-medium text-cream shadow-lg"
+          >
+            View cart · {itemCount} {itemCount === 1 ? "item" : "items"}
+          </Link>
+        )}
       </main>
 
       <ProductDetailModal

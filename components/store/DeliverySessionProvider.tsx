@@ -20,6 +20,7 @@ import {
 
 type DeliverySessionContextValue = {
   session: DeliverySession;
+  sessionReady: boolean;
   isLocationReady: boolean;
   setLocation: (lat: number, lng: number, delivery: DeliveryCalculation | null) => void;
   setAddress: (fields: Partial<Pick<DeliverySession, "house" | "street" | "landmark" | "pincode">>) => void;
@@ -55,6 +56,30 @@ export function DeliverySessionProvider({
     },
     []
   );
+
+  useEffect(() => {
+    if (!hydrated) return;
+    if (session.lat == null || session.lng == null) return;
+    if (session.delivery != null) return;
+
+    let cancelled = false;
+    fetch("/api/delivery/calculate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lat: session.lat, lng: session.lng }),
+    })
+      .then((r) => r.json())
+      .then((data: DeliveryCalculation) => {
+        if (!cancelled) {
+          setSession((prev) => ({ ...prev, delivery: data }));
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [hydrated, session.lat, session.lng, session.delivery]);
 
   const setAddress = useCallback(
     (fields: Partial<Pick<DeliverySession, "house" | "street" | "landmark" | "pincode">>) => {
@@ -94,6 +119,7 @@ export function DeliverySessionProvider({
     <DeliverySessionContext.Provider
       value={{
         session,
+        sessionReady: hydrated,
         isLocationReady,
         setLocation,
         setAddress,

@@ -83,6 +83,12 @@ export function whatsappHref(phone: string, message?: string): string {
   return message ? `${base}?text=${encodeURIComponent(message)}` : base;
 }
 
+export function instagramHref(): string {
+  const url = process.env.NEXT_PUBLIC_INSTAGRAM_URL?.trim();
+  if (url) return url.startsWith("http") ? url : `https://${url}`;
+  return "https://instagram.com/sihibakes";
+}
+
 export function hasStoreContact(details: StorefrontDetails): boolean {
   return Boolean(
     details.store_address ||

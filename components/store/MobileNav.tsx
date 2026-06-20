@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, ClipboardList, ShoppingBag } from "lucide-react";
+import { ClipboardList, ShoppingBag } from "lucide-react";
 import { useCart } from "./CartProvider";
 
 export function MobileNav() {
@@ -21,7 +21,6 @@ export function MobileNav() {
   const cartHref = inDeliveryFlow ? "/orders/delivery/cart" : "/cart";
 
   const links = [
-    { href: "/", label: "Home", icon: Home },
     { href: "/orders", label: "Order", icon: ClipboardList },
     { href: cartHref, label: "Cart", icon: ShoppingBag, badge: itemCount },
   ];

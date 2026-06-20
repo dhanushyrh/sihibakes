@@ -8,7 +8,7 @@ export default async function OrdersPage() {
   const store = getStorefrontDetails(settings);
 
   return (
-    <div className="min-h-screen bg-cream">
+    <div className="min-h-screen bg-cream pb-[env(safe-area-inset-bottom)]">
       <ShopStatusBanner />
       <OrdersHub store={store} />
     </div>
