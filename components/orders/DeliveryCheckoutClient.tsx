@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Script from "next/script";
 import { format, parseISO } from "date-fns";
 import { Check } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
@@ -12,6 +13,7 @@ import {
   writeAppliedCoupon,
   type AppliedCoupon,
 } from "@/lib/applied-coupon";
+import { BRAND } from "@/lib/constants";
 import { formatCurrency } from "@/lib/delivery";
 import { normalizePhone } from "@/lib/storefront";
 import { getUnitPrice } from "@/lib/pricing";
@@ -20,6 +22,7 @@ import {
   getSlotsForBookableDate,
 } from "@/lib/customer-delivery-slots";
 import type { DeliverySlot, Product } from "@/lib/types";
+import "@/lib/razorpay-checkout";
 
 export function DeliveryCheckoutClient({
   initialSlots,
@@ -46,12 +49,13 @@ export function DeliveryCheckoutClient({
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [error, setError] = useState("");
+  const completingOrderRef = useRef(false);
 
   useEffect(() => {
-    if (!sessionReady) return;
+    if (!sessionReady || completingOrderRef.current || placingOrder) return;
     if (!isLocationReady) router.replace("/orders/delivery");
     else if (itemCount === 0) router.replace("/orders/delivery/cart");
-  }, [sessionReady, isLocationReady, itemCount, router]);
+  }, [sessionReady, isLocationReady, itemCount, placingOrder, router]);
 
   useEffect(() => {
     setAppliedCoupon(readAppliedCoupon());
@@ -141,49 +145,98 @@ export function DeliveryCheckoutClient({
       order_number: data.order_number as string,
       total_inr: data.total_inr as number,
       phone,
+      razorpay_order_id: (data.razorpay_order_id as string | null) ?? null,
+      razorpay_key: (data.razorpay_key as string | null) ?? null,
     };
   };
 
-  const completeMockPayment = async (order: {
-    order_id: string;
-    order_number: string;
-    phone: string;
-  }) => {
-    const res = await fetch("/api/orders/mock-payment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        order_id: order.order_id,
-        order_number: order.order_number,
-        phone: order.phone,
-      }),
-    });
-    const data = await res.json();
-    if (!res.ok) {
-      throw new Error(data.error || "Could not confirm order");
-    }
+  const finishOrder = (orderNumber: string, phone: string) => {
+    completingOrderRef.current = true;
+    router.push(`/order/${orderNumber}?phone=${encodeURIComponent(phone)}`);
+    clearCart();
+    clearSession();
+    writeAppliedCoupon(null);
   };
 
   const placeOrder = async () => {
     setPlacingOrder(true);
     setError("");
+    let openedRazorpay = false;
     try {
       const placed = await createOrder();
-      await completeMockPayment(placed);
-      clearCart();
-      clearSession();
-      writeAppliedCoupon(null);
-      router.push(
-        `/order/${placed.order_number}?phone=${encodeURIComponent(placed.phone)}`
-      );
+
+      if (placed.razorpay_order_id && placed.razorpay_key) {
+        if (!window.Razorpay) {
+          throw new Error("Payment is still loading. Please wait a moment and try again.");
+        }
+
+        const rzp = new window.Razorpay({
+          key: placed.razorpay_key,
+          amount: placed.total_inr * 100,
+          currency: "INR",
+          name: BRAND.name,
+          description: `Order ${placed.order_number}`,
+          image: "/logo.png",
+          order_id: placed.razorpay_order_id,
+          handler: async (response: {
+            razorpay_order_id: string;
+            razorpay_payment_id: string;
+            razorpay_signature: string;
+          }) => {
+            const verifyRes = await fetch("/api/razorpay/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                order_id: placed.order_id,
+                razorpay_order_id: response.razorpay_order_id,
+                razorpay_payment_id: response.razorpay_payment_id,
+                razorpay_signature: response.razorpay_signature,
+              }),
+            });
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok) {
+              setError(verifyData.error || "Payment verification failed");
+              setPlacingOrder(false);
+              return;
+            }
+            finishOrder(placed.order_number, placed.phone);
+          },
+          prefill: {
+            name: session.customerName.trim(),
+            contact: `+91${placed.phone}`,
+          },
+          theme: { color: BRAND.colors.chocolate },
+          modal: {
+            ondismiss: () => setPlacingOrder(false),
+          },
+        });
+        rzp.on("payment.failed", (response) => {
+          setError(response.error?.description || "Payment failed. Please try again.");
+          setPlacingOrder(false);
+        });
+        rzp.open();
+        openedRazorpay = true;
+        return;
+      }
+
+      if (placed.razorpay_order_id) {
+        throw new Error("Could not start payment. Please try again.");
+      }
+
+      finishOrder(placed.order_number, placed.phone);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Order failed");
     } finally {
-      setPlacingOrder(false);
+      if (!openedRazorpay) setPlacingOrder(false);
     }
   };
 
-  if (!sessionReady || !isLocationReady || itemCount === 0) return null;
+  if (
+    !sessionReady ||
+    (!completingOrderRef.current && (!isLocationReady || itemCount === 0))
+  ) {
+    return null;
+  }
 
   if (!storeOpen) {
     return (
@@ -198,6 +251,7 @@ export function DeliveryCheckoutClient({
 
   return (
     <div className="flex min-h-screen flex-col pb-[calc(2rem+env(safe-area-inset-bottom))]">
+      <Script src="https://checkout.razorpay.com/v1/checkout.js" />
       <OrderFlowHeader title="Checkout" backHref="/orders/delivery/cart" />
 
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">
@@ -333,7 +387,7 @@ export function DeliveryCheckoutClient({
             onClick={placeOrder}
             className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
           >
-            {placingOrder ? "Placing order..." : "Place order"}
+            {placingOrder ? "Processing..." : `Pay ${formatCurrency(total)}`}
           </button>
         </div>
       </main>

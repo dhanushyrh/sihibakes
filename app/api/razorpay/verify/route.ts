@@ -31,8 +31,16 @@ async function markOrderPaid(orderId: string, paymentId: string) {
 
 export async function POST(request: Request) {
   try {
+    if (!process.env.RAZORPAY_KEY_SECRET) {
+      return NextResponse.json({ error: "Payment not configured" }, { status: 503 });
+    }
+
     const { razorpay_order_id, razorpay_payment_id, razorpay_signature, order_id } =
       await request.json();
+
+    if (!razorpay_order_id || !razorpay_payment_id || !razorpay_signature || !order_id) {
+      return NextResponse.json({ error: "Missing payment fields" }, { status: 400 });
+    }
 
     const body = razorpay_order_id + "|" + razorpay_payment_id;
     const expected = crypto

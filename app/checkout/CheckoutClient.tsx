@@ -18,14 +18,7 @@ import {
 import { DEFAULT_KITCHEN } from "@/lib/constants";
 import { format, parseISO } from "date-fns";
 import { Check } from "lucide-react";
-
-declare global {
-  interface Window {
-    Razorpay: new (options: Record<string, unknown>) => {
-      open: () => void;
-    };
-  }
-}
+import "@/lib/razorpay-checkout";
 
 interface CheckoutPageProps {
   slots: DeliverySlot[];
