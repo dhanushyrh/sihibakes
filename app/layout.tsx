@@ -6,6 +6,11 @@ import { DeliverySessionProvider } from "@/components/store/DeliverySessionProvi
 import { MobileNav } from "@/components/store/MobileNav";
 import { BRAND } from "@/lib/constants";
 
+export const dynamic = "force-dynamic";
+export const dynamicParams = true;
+export const revalidate = 0;
+export const fetchCache = "force-no-store";
+
 const sora = Sora({
   variable: "--font-sora",
   subsets: ["latin"],

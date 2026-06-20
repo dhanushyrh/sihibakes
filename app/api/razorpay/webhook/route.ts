@@ -3,6 +3,9 @@ import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { incrementProductCountsForOrder } from "@/lib/inventory-server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function POST(request: Request) {
   try {
     const body = await request.text();

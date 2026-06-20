@@ -84,7 +84,7 @@ export function DeliveryMenuClient({ products: initialProducts }: { products: Pr
             No products available right now.
           </p>
         ) : (
-          <div className="mt-5 grid grid-cols-2 gap-3">
+          <div className="mt-5 grid grid-cols-2 gap-4">
             {filtered.map((product) => (
               <ProductCard
                 key={product.id}
