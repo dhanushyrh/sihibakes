@@ -60,7 +60,7 @@ export default function OrderConfirmationClient({
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-chocolate/65">
             Thank you for ordering from Sihi Bakes. We&apos;ll share delivery
-            updates and payment details with you on WhatsApp shortly.
+            updates with you soon.
           </p>
           {orderNumber && (
             <p className="mt-4 inline-block rounded-full bg-white px-4 py-2 text-sm font-medium text-chocolate ring-1 ring-chocolate/10">
@@ -74,11 +74,10 @@ export default function OrderConfirmationClient({
             <MessageCircle size={20} className="mt-0.5 shrink-0 text-[#25D366]" />
             <div>
               <p className="text-sm font-medium text-chocolate">
-                WhatsApp updates
+                Questions about your order?
               </p>
               <p className="mt-1 text-sm leading-relaxed text-chocolate/60">
-                Keep an eye on WhatsApp — we&apos;ll confirm your slot, address,
-                and any payment link if needed.
+                Message us on WhatsApp if you need to confirm your slot or address.
               </p>
               {shopPhone && (
                 <a

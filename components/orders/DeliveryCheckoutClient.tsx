@@ -86,7 +86,8 @@ export function DeliveryCheckoutClient({
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpHint, setOtpHint] = useState("");
-  const [whatsappVerified, setWhatsappVerified] = useState(false);
+  const [otpDemoMode, setOtpDemoMode] = useState(true);
+  const [otpVerified, setOtpVerified] = useState(false);
   const [sendingOtp, setSendingOtp] = useState(false);
   const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [razorpayReady, setRazorpayReady] = useState(false);
@@ -135,7 +136,7 @@ export function DeliveryCheckoutClient({
     setOtp("");
     setOtpSent(false);
     setOtpHint("");
-    setWhatsappVerified(false);
+    setOtpVerified(false);
   }, [session.phone]);
 
   const cartLines = useMemo(() => {
@@ -177,7 +178,7 @@ export function DeliveryCheckoutClient({
       errors.customerName = "Enter your full name";
     }
     if (!isValidIndianPhone(session.phone)) {
-      errors.phone = "Enter a valid 10-digit WhatsApp number";
+      errors.phone = "Enter a valid 10-digit mobile number";
     }
     if (!session.house.trim()) errors.house = "House / flat number is required";
     if (!session.street.trim()) errors.street = "Street / area is required";
@@ -237,7 +238,7 @@ export function DeliveryCheckoutClient({
 
   const sendOtp = async () => {
     if (!isValidIndianPhone(session.phone)) {
-      setError("Enter a valid WhatsApp number before requesting OTP");
+      setError("Enter a valid mobile number before requesting a code");
       return false;
     }
     setSendingOtp(true);
@@ -253,11 +254,20 @@ export function DeliveryCheckoutClient({
         setError(data.error || "Could not send OTP");
         return false;
       }
+      if (data.already_verified) {
+        setOtpVerified(true);
+        setPhoneVerified(true);
+        setOtpDemoMode(Boolean(data.demo_mode));
+        setOtpHint("Phone number already verified — proceed to payment.");
+        setOtpSent(true);
+        return true;
+      }
+      setOtpDemoMode(Boolean(data.demo_mode));
       setOtpSent(true);
       setOtpHint(
         data.debug_otp
-          ? `Demo OTP: ${data.debug_otp}`
-          : "OTP sent to your WhatsApp number"
+          ? `Your verification code: ${data.debug_otp}`
+          : data.message || "Code sent to your WhatsApp number"
       );
       return true;
     } catch {
@@ -377,9 +387,9 @@ export function DeliveryCheckoutClient({
     if (!otpSent) await sendOtp();
   };
 
-  const verifyWhatsappOtp = async () => {
+  const verifyPhoneOtp = async () => {
     if (otp.length !== 6) {
-      setError("Enter the 6-digit WhatsApp OTP");
+      setError("Enter the 6-digit verification code");
       return;
     }
     setVerifyingOtp(true);
@@ -392,20 +402,20 @@ export function DeliveryCheckoutClient({
       });
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok) {
-        throw new Error(verifyData.error || "Invalid WhatsApp OTP");
+        throw new Error(verifyData.error || "Invalid verification code");
       }
+      setOtpVerified(true);
       setPhoneVerified(true);
-      setWhatsappVerified(true);
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not verify WhatsApp number");
+      setError(err instanceof Error ? err.message : "Could not verify phone number");
     } finally {
       setVerifyingOtp(false);
     }
   };
 
   const payWithRazorpay = async () => {
-    if (!whatsappVerified) {
-      setError("Verify your WhatsApp number first");
+    if (!otpVerified) {
+      setError("Verify your phone number first");
       return;
     }
     setPlacingOrder(true);
@@ -520,7 +530,7 @@ export function DeliveryCheckoutClient({
             </div>
 
             <div>
-              <label className="text-xs text-chocolate/55">WhatsApp number</label>
+              <label className="text-xs text-chocolate/55">Mobile number</label>
               <div className="mt-1 flex overflow-hidden rounded-xl border border-chocolate/10 bg-white focus-within:border-chocolate/30">
                 <span className="flex items-center bg-cream px-3 text-sm font-medium text-chocolate/70">
                   +91
@@ -539,7 +549,7 @@ export function DeliveryCheckoutClient({
                 />
               </div>
               <p className="mt-1 text-xs text-chocolate/50">
-                Order updates and OTP will be sent to this WhatsApp number
+                Used for order updates{otpDemoMode ? "" : " via WhatsApp"}
               </p>
               {fieldErrors.phone && (
                 <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p>
@@ -739,7 +749,7 @@ export function DeliveryCheckoutClient({
               onClick={continueToVerification}
               className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream"
             >
-              Continue to WhatsApp verification
+              Continue to phone verification
             </button>
           </div>
         )}
@@ -750,15 +760,23 @@ export function DeliveryCheckoutClient({
               Verify & pay
             </h2>
 
-            {!whatsappVerified ? (
+            {!otpVerified ? (
               <>
                 <p className="text-sm text-chocolate/60">
-                  Step 1 — Enter the WhatsApp OTP sent to +91 {session.phone}
+                  Step 1 — Enter the verification code for +91 {session.phone}
                 </p>
 
                 {otpHint && (
-                  <p className="rounded-xl bg-gold/15 px-3 py-2 text-xs text-chocolate">
+                  <p className="rounded-xl bg-gold/20 px-3 py-3 text-sm font-medium text-chocolate ring-1 ring-gold/40">
                     {otpHint}
+                  </p>
+                )}
+
+                {!otpHint && (
+                  <p className="text-xs text-chocolate/50">
+                    {otpDemoMode
+                      ? "Tap Resend to generate a verification code."
+                      : "Waiting for code… If nothing arrives, tap Resend below."}
                   </p>
                 )}
 
@@ -767,7 +785,7 @@ export function DeliveryCheckoutClient({
                   maxLength={6}
                   value={otp}
                   onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                  placeholder="WhatsApp OTP"
+                  placeholder="6-digit code"
                   className="w-full rounded-xl border border-chocolate/10 bg-white px-3 py-4 text-center text-2xl tracking-[0.4em] outline-none focus:border-chocolate/30"
                 />
 
@@ -777,7 +795,7 @@ export function DeliveryCheckoutClient({
                   onClick={sendOtp}
                   className="text-sm text-chocolate/70 underline"
                 >
-                  {sendingOtp ? "Sending..." : "Resend WhatsApp OTP"}
+                  {sendingOtp ? "Sending..." : "Resend code"}
                 </button>
 
                 {error && <p className="text-sm text-red-600">{error}</p>}
@@ -796,17 +814,17 @@ export function DeliveryCheckoutClient({
                   <button
                     type="button"
                     disabled={otp.length !== 6 || verifyingOtp}
-                    onClick={verifyWhatsappOtp}
+                    onClick={verifyPhoneOtp}
                     className="flex-1 rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
                   >
-                    {verifyingOtp ? "Verifying..." : "Verify WhatsApp"}
+                    {verifyingOtp ? "Verifying..." : "Verify"}
                   </button>
                 </div>
               </>
             ) : (
               <>
                 <p className="rounded-xl bg-green-50 px-3 py-2 text-sm text-green-800 ring-1 ring-green-200">
-                  WhatsApp number verified
+                  Phone number verified
                 </p>
 
                 <p className="text-sm text-chocolate/60">
@@ -820,7 +838,7 @@ export function DeliveryCheckoutClient({
                   </p>
                   <p className="mt-1">
                     On Razorpay&apos;s bank OTP screen, enter a new 6-digit code (e.g.{" "}
-                    <strong>123456</strong>) — not the WhatsApp OTP above.
+                    <strong>123456</strong>) — not the verification code above.
                   </p>
                 </div>
 
@@ -841,8 +859,7 @@ export function DeliveryCheckoutClient({
                   <button
                     type="button"
                     onClick={() => {
-                      setWhatsappVerified(false);
-                      setPhoneVerified(false);
+                      setStep(0);
                       setError("");
                     }}
                     className="flex-1 rounded-full border border-chocolate/20 py-4 text-sm"

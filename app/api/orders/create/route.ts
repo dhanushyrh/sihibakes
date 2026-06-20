@@ -54,7 +54,7 @@ export async function POST(request: Request) {
     const normalizedPhone = String(phone).replace(/\D/g, "").slice(-10);
     if (!isValidIndianPhone(normalizedPhone)) {
       return NextResponse.json(
-        { error: "Enter a valid 10-digit WhatsApp number" },
+        { error: "Enter a valid 10-digit mobile number" },
         { status: 400 }
       );
     }
@@ -63,7 +63,7 @@ export async function POST(request: Request) {
     }
     if (!(await isPhoneVerified(normalizedPhone))) {
       return NextResponse.json(
-        { error: "Please verify your WhatsApp number with OTP before paying" },
+        { error: "Please verify your phone number with OTP before paying" },
         { status: 400 }
       );
     }

@@ -19,6 +19,11 @@ export function isWhatsAppConfigured(): boolean {
   );
 }
 
+/** True when checkout shows the OTP on-screen instead of sending via WhatsApp. */
+export function isPhoneOtpDemoMode(): boolean {
+  return !isWhatsAppConfigured();
+}
+
 export function getWhatsAppConfig(): WhatsAppConfig | null {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();

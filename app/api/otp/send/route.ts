@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
-import { createOtp, OtpResendCooldownError } from "@/lib/otp-store";
-import { isWhatsAppConfigured } from "@/lib/whatsapp/config";
+import { createOtp, isPhoneVerified, OtpResendCooldownError } from "@/lib/otp-store";
+import { isPhoneOtpDemoMode, isWhatsAppConfigured } from "@/lib/whatsapp/config";
 import { sendCheckoutOtp } from "@/lib/whatsapp/notifications";
 
 export const runtime = "nodejs";
@@ -14,6 +14,17 @@ export async function POST(request: Request) {
     }
 
     const normalizedPhone = String(phone);
+    const demoMode = isPhoneOtpDemoMode();
+
+    if (await isPhoneVerified(normalizedPhone)) {
+      return NextResponse.json({
+        ok: true,
+        already_verified: true,
+        demo_mode: demoMode,
+        message: "Phone number already verified",
+      });
+    }
+
     let code: string;
 
     try {
@@ -39,18 +50,15 @@ export async function POST(request: Request) {
       }
     }
 
-    const isDev = process.env.NODE_ENV !== "production";
-
     return NextResponse.json({
       ok: true,
+      demo_mode: demoMode || (!whatsappSent && !whatsappConfigured),
       message: whatsappSent
         ? "OTP sent to your WhatsApp number"
-        : whatsappConfigured
-          ? "OTP generated but WhatsApp delivery failed — try again or contact support"
-          : isDev
-            ? "OTP generated (WhatsApp not configured in dev)"
-            : "OTP sent to your WhatsApp number",
-      ...(isDev && !whatsappSent ? { debug_otp: code } : {}),
+        : demoMode
+          ? "Enter the verification code shown below"
+          : "OTP generated but WhatsApp delivery failed — try again or contact support",
+      ...(!whatsappSent ? { debug_otp: code } : {}),
     });
   } catch (err) {
     console.error("OTP send error:", err);
