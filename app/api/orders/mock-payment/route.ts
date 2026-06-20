@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { markOrderPaid } from "@/lib/order-payment";
+
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
@@ -30,16 +34,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true, already_paid: true });
     }
 
-    const { error: updateError } = await admin
-      .from("orders")
-      .update({
-        payment_status: "paid",
-        razorpay_payment_id: `mock_${Date.now()}`,
-        status: "confirmed",
-      })
-      .eq("id", order_id);
-
-    if (updateError) {
+    const paid = await markOrderPaid(order_id, `mock_${Date.now()}`);
+    if (!paid) {
       return NextResponse.json({ error: "Payment update failed" }, { status: 500 });
     }
 

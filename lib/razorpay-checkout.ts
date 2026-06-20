@@ -2,7 +2,12 @@ export type RazorpayCheckoutInstance = {
   open: () => void;
   on: (
     event: string,
-    handler: (response: { error?: { description?: string } }) => void
+    handler: (response: {
+      error?: {
+        description?: string;
+        reason?: string;
+      };
+    }) => void
   ) => void;
 };
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
+import { notifyOrderStatusChange } from "@/lib/whatsapp/notifications";
 
 export async function POST(
   request: Request,
@@ -56,6 +57,8 @@ export async function POST(
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
+
+  void notifyOrderStatusChange(id, "cancelled");
 
   return NextResponse.json(data);
 }

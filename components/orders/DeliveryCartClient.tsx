@@ -10,6 +10,7 @@ import { useCart } from "@/components/store/CartProvider";
 import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
 import { formatCurrency } from "@/lib/delivery";
 import { getUnitPrice } from "@/lib/pricing";
+import { getMenuProductIds, isMenuProduct } from "@/lib/cart-products";
 import type { Product } from "@/lib/types";
 
 import {
@@ -21,7 +22,7 @@ import {
 export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
   const router = useRouter();
   const { session, sessionReady, isLocationReady } = useDeliverySession();
-  const { items, updateQuantity, removeItem, itemCount } = useCart();
+  const { items, updateQuantity, removeItem, itemCount, pruneItems } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
   const [couponCode, setCouponCode] = useState("");
@@ -56,11 +57,16 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
       .catch(() => setLoading(false));
   }, [items]);
 
+  useEffect(() => {
+    if (loading || products.length === 0) return;
+    pruneItems(getMenuProductIds(products));
+  }, [loading, products, pruneItems]);
+
   const cartLines = useMemo(() => {
     return items
       .map((item) => {
         const product = products.find((p) => p.id === item.productId);
-        if (!product) return null;
+        if (!product || !isMenuProduct(product)) return null;
         const unitPrice = getUnitPrice(product);
         return { ...item, product, unitPrice, lineTotal: unitPrice * item.quantity };
       })
@@ -74,11 +80,8 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
   }, [items, products]);
 
   const subtotal = cartLines.reduce((s, l) => s + l.lineTotal, 0);
-  const deliveryFee = appliedCoupon?.free_delivery
-    ? 0
-    : (session.delivery?.delivery_fee_inr ?? 0);
   const couponDiscount = appliedCoupon?.discount_inr ?? 0;
-  const estimatedTotal = Math.max(0, subtotal - couponDiscount + deliveryFee);
+  const estimatedSubtotal = Math.max(0, subtotal - couponDiscount);
 
   const applyCoupon = async () => {
     if (!couponCode.trim()) return;
@@ -139,7 +142,7 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
 
         {loading && itemCount > 0 ? (
           <p className="mt-8 text-center text-sm text-chocolate/50">Loading...</p>
-        ) : itemCount === 0 ? (
+        ) : cartLines.length === 0 ? (
           <div className="mt-16 text-center">
             <p className="text-sm text-chocolate/60">Your cart is empty</p>
             <Link
@@ -265,18 +268,15 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
                   <span>-{formatCurrency(couponDiscount)}</span>
                 </div>
               )}
-              <div className="mt-2 flex justify-between">
-                <span className="text-chocolate/60">Delivery</span>
-                <span>
-                  {appliedCoupon?.free_delivery
-                    ? "FREE"
-                    : formatCurrency(session.delivery?.delivery_fee_inr ?? 0)}
-                </span>
-              </div>
-              <div className="mt-3 flex justify-between border-t border-chocolate/10 pt-3 font-semibold">
-                <span>Estimated total</span>
-                <span>{formatCurrency(estimatedTotal)}</span>
-              </div>
+              {couponDiscount > 0 && (
+                <div className="mt-2 flex justify-between font-medium">
+                  <span>After coupon</span>
+                  <span>{formatCurrency(estimatedSubtotal)}</span>
+                </div>
+              )}
+              <p className="mt-3 border-t border-chocolate/10 pt-3 text-xs text-chocolate/50">
+                Delivery fee is calculated from your pinned location and added at checkout.
+              </p>
             </div>
 
             <button

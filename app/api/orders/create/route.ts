@@ -8,6 +8,8 @@ import {
   isFirstOrder,
   checkProductAvailability,
 } from "@/lib/data";
+import { isValidIndianPhone, isValidIndianPincode } from "@/lib/checkout-validation";
+import { isPhoneVerified } from "@/lib/otp-store";
 import { haversineDistanceKm } from "@/lib/delivery";
 import {
   applyCoupon,
@@ -47,6 +49,23 @@ export async function POST(request: Request) {
 
     if (!items?.length || !customer_name || !phone || !house || !street || !pincode) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const normalizedPhone = String(phone).replace(/\D/g, "").slice(-10);
+    if (!isValidIndianPhone(normalizedPhone)) {
+      return NextResponse.json(
+        { error: "Enter a valid 10-digit WhatsApp number" },
+        { status: 400 }
+      );
+    }
+    if (!isValidIndianPincode(String(pincode))) {
+      return NextResponse.json({ error: "Enter a valid 6-digit pincode" }, { status: 400 });
+    }
+    if (!(await isPhoneVerified(normalizedPhone))) {
+      return NextResponse.json(
+        { error: "Please verify your WhatsApp number with OTP before paying" },
+        { status: 400 }
+      );
     }
 
     const productIds = items.map((i: { productId: string }) => i.productId);
@@ -154,7 +173,6 @@ export async function POST(request: Request) {
 
     const pricing = calcOrderTotal(cartItems, distance, slabs, couponResult);
     const orderNumber = generateOrderNumber();
-    const normalizedPhone = String(phone).replace(/\D/g, "").slice(-10);
 
     const { data: customer } = await admin
       .from("customers")
@@ -206,14 +224,24 @@ export async function POST(request: Request) {
     await admin.from("order_items").insert(orderItems);
 
     let razorpayOrderId: string | null = null;
+    const razorpayKey =
+      process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? process.env.RAZORPAY_KEY_ID ?? null;
 
     if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-      const rzOrder = await createRazorpayOrder(pricing.total_inr, orderNumber);
-      razorpayOrderId = rzOrder.id;
-      await admin
-        .from("orders")
-        .update({ razorpay_order_id: rzOrder.id })
-        .eq("id", order.id);
+      try {
+        const rzOrder = await createRazorpayOrder(pricing.total_inr, orderNumber);
+        razorpayOrderId = rzOrder.id;
+        await admin
+          .from("orders")
+          .update({ razorpay_order_id: rzOrder.id })
+          .eq("id", order.id);
+      } catch (rzErr) {
+        console.error("Razorpay order creation error:", rzErr);
+        return NextResponse.json(
+          { error: "Could not initiate payment. Check Razorpay keys and try again." },
+          { status: 502 }
+        );
+      }
     }
 
     return NextResponse.json({
@@ -221,7 +249,7 @@ export async function POST(request: Request) {
       order_number: orderNumber,
       total_inr: pricing.total_inr,
       razorpay_order_id: razorpayOrderId,
-      razorpay_key: process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? null,
+      razorpay_key: razorpayKey,
     });
   } catch (err) {
     console.error("Order creation error:", err);

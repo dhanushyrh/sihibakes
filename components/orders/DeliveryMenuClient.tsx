@@ -8,13 +8,14 @@ import { ProductDetailModal } from "@/components/store/ProductDetailModal";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { useCart } from "@/components/store/CartProvider";
 import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
+import { isMenuProduct } from "@/lib/cart-products";
 import type { Product, ProductTag } from "@/lib/types";
 import { TAG_OPTIONS } from "@/lib/constants";
 
 export function DeliveryMenuClient({ products: initialProducts }: { products: Product[] }) {
   const router = useRouter();
   const { sessionReady, isLocationReady } = useDeliverySession();
-  const { addItem, itemCount } = useCart();
+  const { addItem, itemCount, pruneItems } = useCart();
   const [products, setProducts] = useState(initialProducts);
   const [selected, setSelected] = useState<Product | null>(null);
   const [tagFilter, setTagFilter] = useState<ProductTag | "all">("all");
@@ -30,8 +31,14 @@ export function DeliveryMenuClient({ products: initialProducts }: { products: Pr
     setProducts(initialProducts);
   }, [initialProducts]);
 
+  useEffect(() => {
+    if (products.length === 0) return;
+    pruneItems(products.filter(isMenuProduct).map((p) => p.id));
+  }, [products, pruneItems]);
+
   const filtered = useMemo(() => {
     return products.filter((p) => {
+      if (!isMenuProduct(p)) return false;
       if (tagFilter !== "all" && !p.tags.includes(tagFilter)) return false;
       return p.is_active;
     });

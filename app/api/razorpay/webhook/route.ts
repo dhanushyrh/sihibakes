@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { incrementProductCountsForOrder } from "@/lib/inventory-server";
+import { markOrderPaid } from "@/lib/order-payment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -44,16 +44,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true });
     }
 
-    await admin
-      .from("orders")
-      .update({
-        payment_status: "paid",
-        status: "confirmed",
-        razorpay_payment_id: paymentId,
-      })
-      .eq("id", order.id);
-
-    await incrementProductCountsForOrder(order.id);
+    await markOrderPaid(order.id, paymentId);
 
     return NextResponse.json({ received: true });
   } catch (err) {

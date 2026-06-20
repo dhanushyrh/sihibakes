@@ -1,33 +1,9 @@
 import { NextResponse } from "next/server";
 import crypto from "crypto";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { incrementProductCountsForOrder } from "@/lib/inventory-server";
+import { markOrderPaid } from "@/lib/order-payment";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
-
-async function markOrderPaid(orderId: string, paymentId: string) {
-  const admin = createAdminClient();
-
-  const { data: order } = await admin
-    .from("orders")
-    .select("payment_status")
-    .eq("id", orderId)
-    .single();
-
-  if (!order || order.payment_status === "paid") return;
-
-  await admin
-    .from("orders")
-    .update({
-      payment_status: "paid",
-      status: "confirmed",
-      razorpay_payment_id: paymentId,
-    })
-    .eq("id", orderId);
-
-  await incrementProductCountsForOrder(orderId);
-}
 
 export async function POST(request: Request) {
   try {

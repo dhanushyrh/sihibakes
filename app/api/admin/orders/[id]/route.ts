@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import type { OrderStatus } from "@/lib/types";
 import { ORDER_STATUS_OPTIONS } from "@/lib/constants";
 import { requiresDeliveryDispatch } from "@/lib/order-status-update";
+import { notifyOrderStatusChange } from "@/lib/whatsapp/notifications";
 
 const VALID_STATUSES = new Set(ORDER_STATUS_OPTIONS.map((s) => s.key));
 
@@ -113,6 +114,10 @@ export async function PATCH(
       return NextResponse.json({ error: error.message }, { status: 500 });
     }
 
+    if (order.status !== status) {
+      void notifyOrderStatusChange(id, status);
+    }
+
     return NextResponse.json(data);
   }
 
@@ -125,6 +130,10 @@ export async function PATCH(
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  if (order.status !== status) {
+    void notifyOrderStatusChange(id, status);
   }
 
   return NextResponse.json(data);
