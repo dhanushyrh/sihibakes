@@ -31,7 +31,7 @@ export function IndianPhoneInput({
         value={value}
         onChange={(e) => onChange(formatIndianPhoneInput(e.target.value))}
         placeholder={placeholder}
-        className="min-w-0 flex-1 px-3 py-3 text-sm outline-none"
+        className="min-w-0 flex-1 px-3 py-3 text-base outline-none"
       />
     </div>
   );

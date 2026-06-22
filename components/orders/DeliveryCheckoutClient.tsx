@@ -32,7 +32,8 @@ import { getUnitPrice } from "@/lib/pricing";
 import {
   resolveDeliverySelection,
 } from "@/lib/customer-delivery-slots";
-import type { CouponType, DeliveryFenceKm, DeliverySlot, Product } from "@/lib/types";
+import type { CouponType, DeliveryCalculation, DeliveryFenceKm, DeliverySlot, Product } from "@/lib/types";
+import type { CustomerCheckoutProfile } from "@/lib/customer-lookup";
 import {
   buildRazorpayCheckoutOptions,
   getRazorpayTestPaymentHelp,
@@ -114,7 +115,14 @@ export function DeliveryCheckoutClient({
   const [error, setError] = useState("");
   const completingOrderRef = useRef(false);
   const locationSectionRef = useRef<HTMLElement>(null);
+  const lastLookupPhoneRef = useRef("");
+  const sessionLatRef = useRef(session.lat);
+  const sessionLngRef = useRef(session.lng);
   const razorpayTestHelp = useMemo(() => getRazorpayTestPaymentHelp(), []);
+  const [isFirstOrder, setIsFirstOrder] = useState(true);
+  const [customerLookupReady, setCustomerLookupReady] = useState(false);
+  const [customerPrefillNote, setCustomerPrefillNote] = useState("");
+  const [locationPickerKey, setLocationPickerKey] = useState(0);
 
   useEffect(() => {
     if (!sessionReady || completingOrderRef.current || placingOrder) return;
@@ -167,6 +175,125 @@ export function DeliveryCheckoutClient({
     setOtpSent(false);
     setOtpHint("");
     setOtpVerified(false);
+    setCustomerLookupReady(false);
+    setCustomerPrefillNote("");
+    lastLookupPhoneRef.current = "";
+  }, [session.whatsappPhone]);
+
+  const eligibleCoupons = useMemo(
+    () =>
+      availableCoupons.filter(
+        (coupon) =>
+          !coupon.first_order_only ||
+          (customerLookupReady && isFirstOrder)
+      ),
+    [availableCoupons, isFirstOrder, customerLookupReady]
+  );
+
+  useEffect(() => {
+    sessionLatRef.current = session.lat;
+    sessionLngRef.current = session.lng;
+  }, [session.lat, session.lng]);
+
+  useEffect(() => {
+    if (!customerLookupReady || isFirstOrder || !appliedCoupon) return;
+    if (
+      availableCoupons.some(
+        (c) => c.code === appliedCoupon.code && c.first_order_only
+      )
+    ) {
+      setAppliedCoupon(null);
+      writeAppliedCoupon(null);
+      setCouponCode("");
+      setCouponMessage("That coupon is valid for first orders only");
+    }
+  }, [customerLookupReady, isFirstOrder, appliedCoupon, availableCoupons]);
+
+  useEffect(() => {
+    if (!isValidIndianPhone(session.whatsappPhone)) {
+      setIsFirstOrder(true);
+      setCustomerLookupReady(false);
+      return;
+    }
+
+    const phone = session.whatsappPhone;
+    const controller = new AbortController();
+
+    const timer = setTimeout(() => {
+      void (async () => {
+        try {
+          const res = await fetch("/api/customers/lookup", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ phone }),
+            signal: controller.signal,
+          });
+          const data = (await res.json()) as CustomerCheckoutProfile & {
+            error?: string;
+          };
+
+          if (controller.signal.aborted || phone !== session.whatsappPhone) return;
+          if (!res.ok) {
+            setCustomerLookupReady(true);
+            return;
+          }
+
+          setIsFirstOrder(data.is_first_order);
+          setCustomerLookupReady(true);
+
+          if (data.found && lastLookupPhoneRef.current !== phone) {
+            lastLookupPhoneRef.current = phone;
+
+            setCustomer({
+              customerName: data.customer_name,
+              altPhone: data.alt_phone,
+            });
+            setAddress({
+              house: data.house,
+              street: data.street,
+              landmark: data.landmark,
+              pincode: data.pincode,
+            });
+            setCustomerPrefillNote("Welcome back — we filled in your saved details.");
+
+            if (
+              sessionLatRef.current == null &&
+              sessionLngRef.current == null &&
+              data.delivery_lat != null &&
+              data.delivery_lng != null
+            ) {
+              const calcRes = await fetch("/api/delivery/calculate", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  lat: data.delivery_lat,
+                  lng: data.delivery_lng,
+                }),
+                signal: controller.signal,
+              });
+              if (controller.signal.aborted || phone !== session.whatsappPhone) {
+                return;
+              }
+              const delivery = (await calcRes.json()) as DeliveryCalculation;
+              setLocation(data.delivery_lat, data.delivery_lng, delivery);
+              setLocationPickerKey((key) => key + 1);
+            }
+          } else if (!data.found) {
+            lastLookupPhoneRef.current = phone;
+            setCustomerPrefillNote("");
+          }
+        } catch (err) {
+          if (err instanceof DOMException && err.name === "AbortError") return;
+          setCustomerLookupReady(true);
+        }
+      })();
+    }, 450);
+
+    return () => {
+      clearTimeout(timer);
+      controller.abort();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.whatsappPhone]);
 
   const cartLines = useMemo(() => {
@@ -230,6 +357,21 @@ export function DeliveryCheckoutClient({
   const applyCoupon = async (code?: string) => {
     const nextCode = (code ?? couponCode).toUpperCase().trim();
     if (!nextCode) return;
+
+    const couponMeta = availableCoupons.find((c) => c.code === nextCode);
+    if (
+      couponMeta?.first_order_only &&
+      customerLookupReady &&
+      !isFirstOrder
+    ) {
+      setCouponMessage("Valid for first order only");
+      return;
+    }
+    if (couponMeta?.first_order_only && !customerLookupReady) {
+      setCouponMessage("Enter your phone number to check coupon eligibility");
+      return;
+    }
+
     setApplyingCoupon(true);
     setCouponMessage("");
     try {
@@ -607,6 +749,7 @@ export function DeliveryCheckoutClient({
               className="overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-chocolate/10"
             >
               <DeliveryLocationPicker
+                key={locationPickerKey}
                 kitchenLat={kitchenLat}
                 kitchenLng={kitchenLng}
                 deliveryFence={deliveryFence}
@@ -667,7 +810,7 @@ export function DeliveryCheckoutClient({
               <input
                 value={session.customerName}
                 onChange={(e) => setCustomer({ customerName: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-sm outline-none focus:border-chocolate/30"
+                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
               />
               {fieldErrors.customerName && (
                 <p className="mt-1 text-xs text-red-600">{fieldErrors.customerName}</p>
@@ -685,6 +828,9 @@ export function DeliveryCheckoutClient({
                 Order updates and verification code
                 {otpDemoMode ? "" : " via WhatsApp"}
               </p>
+              {customerPrefillNote && (
+                <p className="mt-1 text-xs text-green-700">{customerPrefillNote}</p>
+              )}
               {fieldErrors.whatsappPhone && (
                 <p className="mt-1 text-xs text-red-600">{fieldErrors.whatsappPhone}</p>
               )}
@@ -717,7 +863,7 @@ export function DeliveryCheckoutClient({
               <input
                 value={session.house}
                 onChange={(e) => setAddress({ house: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-sm outline-none focus:border-chocolate/30"
+                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
               />
               {fieldErrors.house && (
                 <p className="mt-1 text-xs text-red-600">{fieldErrors.house}</p>
@@ -729,7 +875,7 @@ export function DeliveryCheckoutClient({
               <input
                 value={session.street}
                 onChange={(e) => setAddress({ street: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-sm outline-none focus:border-chocolate/30"
+                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
               />
               {fieldErrors.street && (
                 <p className="mt-1 text-xs text-red-600">{fieldErrors.street}</p>
@@ -741,7 +887,7 @@ export function DeliveryCheckoutClient({
               <input
                 value={session.landmark}
                 onChange={(e) => setAddress({ landmark: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-sm outline-none focus:border-chocolate/30"
+                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
               />
             </div>
 
@@ -754,7 +900,7 @@ export function DeliveryCheckoutClient({
                 value={session.pincode}
                 onChange={(e) => setAddress({ pincode: formatPincodeInput(e.target.value) })}
                 placeholder="560001"
-                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-sm outline-none focus:border-chocolate/30"
+                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
               />
               {fieldErrors.pincode && (
                 <p className="mt-1 text-xs text-red-600">{fieldErrors.pincode}</p>
@@ -775,9 +921,9 @@ export function DeliveryCheckoutClient({
                 <Tag size={16} className="text-gold" />
                 <h3 className="text-sm font-medium text-chocolate">Coupon codes</h3>
               </div>
-              {!appliedCoupon && availableCoupons.length > 0 && (
+              {!appliedCoupon && eligibleCoupons.length > 0 && (
                 <AvailableCouponsPicker
-                  coupons={availableCoupons}
+                  coupons={eligibleCoupons}
                   applyingCoupon={applyingCoupon}
                   onApply={applyCoupon}
                 />
@@ -801,7 +947,7 @@ export function DeliveryCheckoutClient({
                     value={couponCode}
                     onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
                     placeholder="Enter code"
-                    className="min-w-0 flex-1 rounded-xl border border-chocolate/10 bg-cream px-3 py-2.5 text-sm uppercase outline-none focus:border-chocolate/30"
+                    className="min-w-0 flex-1 rounded-xl border border-chocolate/10 bg-cream px-3 py-2.5 text-base uppercase outline-none focus:border-chocolate/30"
                   />
                   <button
                     type="button"
