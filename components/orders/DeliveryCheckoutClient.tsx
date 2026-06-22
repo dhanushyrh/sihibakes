@@ -9,7 +9,6 @@ import { Tag } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { useScrollToTopOnChange } from "@/components/store/ScrollToTop";
 import { DeliveryLocationPicker } from "@/components/store/DeliveryLocationPicker";
-import { LocationUnreachableBanner, deliveryUnreachableMessage } from "@/components/store/LocationUnreachableBanner";
 import { DeliverySlotSelects } from "@/components/store/DeliverySlotSelects";
 import { AvailableCouponsPicker } from "@/components/store/AvailableCouponsPicker";
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
@@ -114,6 +113,7 @@ export function DeliveryCheckoutClient({
   const [placingOrder, setPlacingOrder] = useState(false);
   const [error, setError] = useState("");
   const completingOrderRef = useRef(false);
+  const locationSectionRef = useRef<HTMLElement>(null);
   const razorpayTestHelp = useMemo(() => getRazorpayTestPaymentHelp(), []);
 
   useEffect(() => {
@@ -193,7 +193,7 @@ export function DeliveryCheckoutClient({
   const couponDiscount = appliedCoupon?.discount_inr ?? 0;
   const total = Math.max(0, subtotal - couponDiscount + deliveryFee);
 
-  const validateDetails = () => {
+  const validateDetails = (): Record<string, string> => {
     const errors: Record<string, string> = {};
     if (session.customerName.trim().length < 2) {
       errors.customerName = "Enter your full name";
@@ -224,7 +224,7 @@ export function DeliveryCheckoutClient({
       errors.location = "Confirm your delivery location on the map";
     }
     setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
+    return errors;
   };
 
   const applyCoupon = async (code?: string) => {
@@ -444,7 +444,32 @@ export function DeliveryCheckoutClient({
 
   const continueToVerification = async () => {
     setError("");
-    if (!validateDetails()) return;
+    if (!isLocationReady) {
+      const locationMessage =
+        session.lat != null &&
+        session.lng != null &&
+        session.delivery &&
+        !session.delivery.reachable
+          ? (session.delivery.message ??
+            "This location is outside our delivery zone — tap the map to choose another spot")
+          : "Set your delivery location on the map to continue";
+      setFieldErrors({ location: locationMessage });
+      locationSectionRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "center",
+      });
+      return;
+    }
+    const errors = validateDetails();
+    if (Object.keys(errors).length > 0) {
+      if (errors.location) {
+        locationSectionRef.current?.scrollIntoView({
+          behavior: "smooth",
+          block: "center",
+        });
+      }
+      return;
+    }
     setStep(1);
     if (!otpSent) await sendOtp();
   };
@@ -476,6 +501,11 @@ export function DeliveryCheckoutClient({
   };
 
   const payWithRazorpay = async () => {
+    if (!isLocationReady) {
+      setError("Set your delivery location before paying");
+      setStep(0);
+      return;
+    }
     if (!otpVerified) {
       setError("Verify your phone number first");
       return;
@@ -500,6 +530,11 @@ export function DeliveryCheckoutClient({
 
   const completeDemoOrder = async () => {
     if (!otpVerified || !razorpayTestMode) return;
+    if (!isLocationReady) {
+      setError("Set your delivery location before paying");
+      setStep(0);
+      return;
+    }
     setPlacingOrder(true);
     setError("");
     try {
@@ -558,11 +593,33 @@ export function DeliveryCheckoutClient({
 
         {step === 0 && (
           <div className="mt-6 space-y-4">
-            {session.delivery && !session.delivery.reachable && (
-              <LocationUnreachableBanner
-                message={deliveryUnreachableMessage(session.delivery)}
+            <div>
+              <h2 className="font-display text-lg font-semibold text-chocolate">
+                Delivery location
+              </h2>
+              <p className="mt-1 text-sm text-chocolate/60">
+                Allow location access or set your pin on the map to continue.
+              </p>
+            </div>
+
+            <section
+              ref={locationSectionRef}
+              className="overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-chocolate/10"
+            >
+              <DeliveryLocationPicker
+                kitchenLat={kitchenLat}
+                kitchenLng={kitchenLng}
+                deliveryFence={deliveryFence}
+                initialLat={session.lat ?? kitchenLat}
+                initialLng={session.lng ?? kitchenLng}
+                hasSavedLocation={session.lat != null && session.lng != null}
+                useGeolocationInitially={session.lat == null && session.lng == null}
+                onUpdate={(lat, lng, delivery) => setLocation(lat, lng, delivery)}
               />
-            )}
+              {fieldErrors.location && (
+                <p className="mt-3 text-xs text-red-600">{fieldErrors.location}</p>
+              )}
+            </section>
 
             <section className="rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
               <h2 className="text-sm font-medium text-chocolate">Your order</h2>
@@ -601,24 +658,9 @@ export function DeliveryCheckoutClient({
                 Delivery details
               </h2>
               <p className="mt-1 text-sm text-chocolate/60">
-                We use your current location first — tap the map to adjust if needed.
+                Add your address and choose a delivery slot.
               </p>
             </div>
-
-            <section className="overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
-              <DeliveryLocationPicker
-                kitchenLat={kitchenLat}
-                kitchenLng={kitchenLng}
-                deliveryFence={deliveryFence}
-                initialLat={session.lat ?? kitchenLat}
-                initialLng={session.lng ?? kitchenLng}
-                useGeolocationInitially={session.lat == null && session.lng == null}
-                onUpdate={(lat, lng, delivery) => setLocation(lat, lng, delivery)}
-              />
-              {fieldErrors.location && (
-                <p className="mt-3 text-xs text-red-600">{fieldErrors.location}</p>
-              )}
-            </section>
 
             <div>
               <label className="text-xs text-chocolate/55">Full name</label>
@@ -811,6 +853,16 @@ export function DeliveryCheckoutClient({
             >
               Continue to phone verification
             </button>
+            {!isLocationReady && (
+              <p className="text-center text-xs text-chocolate/55">
+                {session.lat != null &&
+                session.lng != null &&
+                session.delivery &&
+                !session.delivery.reachable
+                  ? "This location is outside our delivery zone"
+                  : "Set your delivery location to continue"}
+              </p>
+            )}
           </div>
         )}
 
@@ -943,7 +995,7 @@ export function DeliveryCheckoutClient({
               </button>
               <button
                 type="button"
-                disabled={placingOrder || !razorpayReady}
+                disabled={placingOrder || !razorpayReady || !isLocationReady}
                 onClick={payWithRazorpay}
                 className="flex-[2] rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-40"
               >
@@ -953,7 +1005,7 @@ export function DeliveryCheckoutClient({
             {razorpayTestMode && (
               <button
                 type="button"
-                disabled={placingOrder}
+                disabled={placingOrder || !isLocationReady}
                 onClick={completeDemoOrder}
                 className="w-full rounded-full border border-dashed border-chocolate/30 bg-white py-3.5 text-sm font-medium text-chocolate disabled:opacity-40"
               >

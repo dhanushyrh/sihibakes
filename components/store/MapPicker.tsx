@@ -10,6 +10,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { MapPin, Search } from "lucide-react";
 import { AdvancedMapMarker } from "@/components/store/AdvancedMapMarker";
 import { getFenceBounds } from "@/lib/delivery-fence";
+import {
+  geolocationErrorMessage,
+  requestCurrentPosition,
+} from "@/lib/geolocation";
 import { getGoogleMapsLoaderOptions, withGoogleMapId } from "@/lib/google-maps-config";
 import {
   formatCoordinates,
@@ -56,6 +60,8 @@ export function MapPicker({
     searchLabel ?? formatCoordinates(lat, lng)
   );
   const [editingSearch, setEditingSearch] = useState(false);
+  const [geoError, setGeoError] = useState<string | null>(null);
+  const [detectingLocation, setDetectingLocation] = useState(false);
 
   const fenceBounds = useMemo(() => {
     if (!deliveryFence) return null;
@@ -135,13 +141,25 @@ export function MapPicker({
     movePin(newLat, newLng, label);
   };
 
-  const useMyLocation = () => {
-    if (!navigator.geolocation) return;
-    navigator.geolocation.getCurrentPosition((pos) => {
+  const useMyLocation = async () => {
+    setGeoError(null);
+    setDetectingLocation(true);
+    try {
+      const pos = await requestCurrentPosition();
       const { latitude, longitude } = pos.coords;
       setEditingSearch(false);
       movePin(latitude, longitude, formatCoordinates(latitude, longitude));
-    });
+    } catch (err) {
+      const message =
+        err instanceof GeolocationPositionError
+          ? geolocationErrorMessage(err.code)
+          : err instanceof Error
+            ? err.message
+            : geolocationErrorMessage(0);
+      setGeoError(message);
+    } finally {
+      setDetectingLocation(false);
+    }
   };
 
   if (!apiKey) {
@@ -258,12 +276,19 @@ export function MapPicker({
 
       <button
         type="button"
-        onClick={useMyLocation}
-        className="flex w-full items-center justify-center gap-2 rounded-full border border-[#4B2C20]/20 py-2.5 text-sm text-[#4B2C20] transition hover:bg-white"
+        onClick={() => void useMyLocation()}
+        disabled={detectingLocation}
+        className="flex w-full items-center justify-center gap-2 rounded-full border border-[#4B2C20]/20 py-2.5 text-sm text-[#4B2C20] transition hover:bg-white disabled:opacity-50"
       >
         <MapPin size={16} />
-        Use my location
+        {detectingLocation ? "Finding your location..." : "Use my location"}
       </button>
+
+      {geoError && (
+        <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">
+          {geoError}
+        </p>
+      )}
 
       <p className="text-center text-xs text-chocolate/50">
         Search your area, drag the pin, or tap the map to fine-tune

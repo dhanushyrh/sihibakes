@@ -10,6 +10,7 @@ import { Crosshair, ExternalLink, MapPin } from "lucide-react";
 import { AdvancedMapMarker } from "@/components/store/AdvancedMapMarker";
 import { getFenceBounds } from "@/lib/delivery-fence";
 import { getGoogleMapsLoaderOptions, withGoogleMapId } from "@/lib/google-maps-config";
+import { geolocationErrorMessage } from "@/lib/geolocation";
 import { googleMapsUrl } from "@/lib/storefront";
 import type { DeliveryFenceKm } from "@/lib/types";
 
@@ -25,19 +26,6 @@ function hasValidKitchenCoords(kitchenLat: number, kitchenLng: number) {
     Number.isFinite(kitchenLng) &&
     !(kitchenLat === 0 && kitchenLng === 0)
   );
-}
-
-function geolocationErrorMessage(code: number): string {
-  switch (code) {
-    case 1:
-      return "Location permission denied. Allow location access in your browser, or enter coordinates manually.";
-    case 2:
-      return "Location unavailable. Check device location services, or enter coordinates manually.";
-    case 3:
-      return "Location request timed out. Try again or enter coordinates manually.";
-    default:
-      return "Could not detect location. Try again or enter coordinates manually.";
-  }
 }
 
 type KitchenLocationMapProps = {

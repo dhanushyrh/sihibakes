@@ -15,12 +15,15 @@ const mapContainerStyle = {
 
 const LOCKED_ZOOM = 16;
 
+export type SelectedLocationMapVariant = "preview" | "empty" | "loading";
+
 type SelectedLocationMapProps = {
   lat: number;
   lng: number;
   kitchenLat?: number;
   kitchenLng?: number;
   deliveryFence?: DeliveryFenceKm;
+  variant?: SelectedLocationMapVariant;
   onEdit?: () => void;
 };
 
@@ -30,6 +33,7 @@ export function SelectedLocationMap({
   kitchenLat,
   kitchenLng,
   deliveryFence,
+  variant = "preview",
   onEdit,
 }: SelectedLocationMapProps) {
   const apiKey = getGoogleMapsLoaderOptions().googleMapsApiKey;
@@ -42,8 +46,43 @@ export function SelectedLocationMap({
   }, [deliveryFence, kitchenLat, kitchenLng]);
 
   useEffect(() => {
+    if (variant !== "preview") return;
     map?.panTo({ lat, lng });
-  }, [lat, lng, map]);
+  }, [lat, lng, map, variant]);
+
+  if (variant === "loading") {
+    return (
+      <div className="flex h-[200px] flex-col items-center justify-center rounded-2xl bg-cream ring-1 ring-chocolate/10">
+        <div className="mb-3 h-10 w-10 animate-pulse rounded-full bg-chocolate/10" />
+        <p className="text-sm text-chocolate/50">Finding your location...</p>
+      </div>
+    );
+  }
+
+  if (variant === "empty") {
+    const emptyContent = (
+      <div className="flex h-[200px] flex-col items-center justify-center rounded-2xl bg-cream px-4 text-center ring-1 ring-chocolate/10">
+        <MapPin size={28} className="mb-2 text-chocolate/35" />
+        <p className="text-sm font-medium text-chocolate">Set your delivery pin</p>
+        <p className="mt-1 text-xs text-chocolate/50">
+          We need your location to calculate delivery fee
+        </p>
+      </div>
+    );
+
+    if (!onEdit) return emptyContent;
+
+    return (
+      <button
+        type="button"
+        onClick={onEdit}
+        className="group block w-full text-left transition hover:opacity-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-chocolate/40"
+        aria-label="Set delivery location"
+      >
+        {emptyContent}
+      </button>
+    );
+  }
 
   if (!apiKey) {
     return (
