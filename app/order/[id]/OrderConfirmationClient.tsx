@@ -48,7 +48,7 @@ export default function OrderConfirmationClient({
 
   return (
     <div className="flex min-h-screen flex-col bg-cream">
-      <OrderFlowHeader title="Order confirmed" />
+      <OrderFlowHeader title="Order received" />
 
       <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-8">
         <div className="text-center">
@@ -56,11 +56,11 @@ export default function OrderConfirmationClient({
             <CheckCircle className="text-chocolate" size={36} strokeWidth={1.5} />
           </div>
           <h1 className="mt-5 font-display text-2xl font-semibold text-chocolate">
-            Order placed!
+            Payment received!
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-chocolate/65">
-            Thank you for ordering from Sihi Bakes. We&apos;ll share delivery
-            updates with you soon.
+            Thank you for ordering from Sihi Bakes. Our kitchen will confirm your
+            order shortly and share delivery updates with you.
           </p>
           {orderNumber && (
             <p className="mt-4 inline-block rounded-full bg-white px-4 py-2 text-sm font-medium text-chocolate ring-1 ring-chocolate/10">

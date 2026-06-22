@@ -4,6 +4,10 @@ import { requireAdmin } from "@/lib/admin-auth";
 import type { OrderStatus } from "@/lib/types";
 import { ORDER_STATUS_OPTIONS } from "@/lib/constants";
 import { requiresDeliveryDispatch } from "@/lib/order-status-update";
+import {
+  fulfillPaidOrder,
+  shouldFulfillOnStatusChange,
+} from "@/lib/order-payment";
 import { notifyOrderStatusChange } from "@/lib/whatsapp/notifications";
 
 const VALID_STATUSES = new Set(ORDER_STATUS_OPTIONS.map((s) => s.key));
@@ -78,6 +82,16 @@ export async function PATCH(
       { error: "Cannot advance fulfillment until payment is received" },
       { status: 400 }
     );
+  }
+
+  const fulfilling = shouldFulfillOnStatusChange(
+    order.status as OrderStatus,
+    status,
+    order.payment_status
+  );
+
+  if (fulfilling) {
+    await fulfillPaidOrder(id);
   }
 
   if (requiresDeliveryDispatch(status)) {

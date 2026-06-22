@@ -191,6 +191,8 @@ export default function AdminOrderDetailPage() {
 
   const canCancel =
     order.status !== "cancelled" && order.status !== "delivered";
+  const canConfirm =
+    order.status === "pending" && order.payment_status === "paid";
   const canRefund =
     order.status === "cancelled" && order.payment_status === "paid";
 
@@ -234,6 +236,26 @@ export default function AdminOrderDetailPage() {
         <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
+      )}
+
+      {canConfirm && (
+        <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-4 ring-1 ring-amber-200">
+          <p className="text-sm font-medium text-amber-950">
+            Payment received — awaiting your confirmation
+          </p>
+          <p className="mt-1 text-sm text-amber-900/80">
+            Review the order details, then confirm to start preparation and notify
+            the customer.
+          </p>
+          <button
+            type="button"
+            disabled={saving}
+            onClick={() => requestStatusChange("confirmed")}
+            className="mt-3 rounded-full bg-[#4B2C20] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+          >
+            Confirm order
+          </button>
+        </div>
       )}
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
@@ -480,6 +502,16 @@ export default function AdminOrderDetailPage() {
         )}
 
         <div className="mt-4 flex flex-wrap gap-2">
+          {canConfirm && (
+            <button
+              type="button"
+              disabled={saving}
+              onClick={() => requestStatusChange("confirmed")}
+              className="rounded-full bg-[#4B2C20] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+            >
+              Confirm order
+            </button>
+          )}
           {canCancel && !showCancel && (
             <button
               type="button"

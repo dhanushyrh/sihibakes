@@ -61,7 +61,7 @@ export default async function AdminDashboard() {
     admin
       .from("orders")
       .select("*", { count: "exact", head: true })
-      .eq("status", "confirmed")
+      .eq("status", "pending")
       .eq("payment_status", "paid"),
     getProductOrderCounts(admin),
     admin
@@ -117,7 +117,7 @@ export default async function AdminDashboard() {
         {[
           { label: "Today's Orders", value: String(todayOrders?.length ?? 0) },
           { label: "Today's Revenue", value: formatCurrency(revenue) },
-          { label: "Pending Orders", value: String(pendingCount ?? 0) },
+          { label: "Awaiting confirmation", value: String(pendingCount ?? 0) },
         ].map((stat) => (
           <div
             key={stat.label}
