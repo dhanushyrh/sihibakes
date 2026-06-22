@@ -7,9 +7,14 @@ import { ORDERS_PAGE_SIZE } from "@/lib/constants";
 import type { Order, OrderStatus } from "@/lib/types";
 import { OrderStatusMultiSelect } from "@/components/admin/orders/OrderStatusMultiSelect";
 import { OrderStatusChangeModal } from "@/components/admin/orders/OrderStatusChangeModal";
+import { OrderCancelModal } from "@/components/admin/orders/OrderCancelModal";
 import { OrdersTable } from "@/components/admin/orders/OrdersTable";
 import { Pagination } from "@/components/admin/orders/Pagination";
 import type { OrderStatusUpdatePayload } from "@/lib/order-status-update";
+import {
+  submitOrderCancel,
+  type OrderCancelPayload,
+} from "@/lib/admin-order-cancel";
 import { ArrowLeft, Download, Search, ShoppingBag, X } from "lucide-react";
 
 type DateFilterType = "delivery" | "placed";
@@ -41,6 +46,7 @@ export default function AdminOrdersPage() {
   const [statusModalTarget, setStatusModalTarget] = useState<OrderStatus | null>(
     null
   );
+  const [cancelModalOrder, setCancelModalOrder] = useState<Order | null>(null);
 
   useEffect(() => {
     if (customerIdFromUrl) {
@@ -115,9 +121,18 @@ export default function AdminOrdersPage() {
     setStatusModalTarget(null);
   };
 
+  const closeCancelModal = () => {
+    if (updatingId) return;
+    setCancelModalOrder(null);
+  };
+
   const requestStatusChange = (orderId: string, status: OrderStatus) => {
     const order = orders.find((o) => o.id === orderId);
     if (!order || order.status === status) return;
+    if (status === "cancelled") {
+      setCancelModalOrder(order);
+      return;
+    }
     setStatusModalOrder(order);
     setStatusModalTarget(status);
   };
@@ -130,6 +145,9 @@ export default function AdminOrdersPage() {
     setStatusError(null);
 
     const body: Record<string, string> = { status: payload.status };
+    if (payload.dispatchMode) {
+      body.dispatch_mode = payload.dispatchMode;
+    }
     if (payload.delivery) {
       Object.assign(body, payload.delivery);
     }
@@ -156,6 +174,34 @@ export default function AdminOrdersPage() {
         setTotalCount((c) => Math.max(0, c - 1));
       }
       closeStatusModal();
+    }
+
+    setUpdatingId(null);
+  };
+
+  const confirmCancel = async (payload: OrderCancelPayload) => {
+    if (!cancelModalOrder) return;
+    const orderId = cancelModalOrder.id;
+
+    setUpdatingId(orderId);
+    setStatusError(null);
+
+    const result = await submitOrderCancel(
+      orderId,
+      payload,
+      cancelModalOrder.payment_status
+    );
+
+    if ("error" in result) {
+      setStatusError(result.error);
+    } else {
+      const updated = result.order as Order;
+      setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
+      if (statusFilters.length > 0 && !statusFilters.includes("cancelled")) {
+        setOrders((prev) => prev.filter((o) => o.id !== orderId));
+        setTotalCount((c) => Math.max(0, c - 1));
+      }
+      closeCancelModal();
     }
 
     setUpdatingId(null);
@@ -358,6 +404,13 @@ export default function AdminOrdersPage() {
             saving={updatingId === statusModalOrder?.id}
             onClose={closeStatusModal}
             onConfirm={confirmStatusChange}
+          />
+
+          <OrderCancelModal
+            order={cancelModalOrder}
+            saving={updatingId === cancelModalOrder?.id}
+            onClose={closeCancelModal}
+            onConfirm={confirmCancel}
           />
 
           <div className="mt-6">

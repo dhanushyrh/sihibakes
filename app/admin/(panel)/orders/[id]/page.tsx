@@ -13,8 +13,14 @@ import {
 import { OrderStatusSelect } from "@/components/admin/orders/OrderStatusSelect";
 import { OrderStatusPipeline } from "@/components/admin/orders/OrderStatusPipeline";
 import { OrderStatusChangeModal } from "@/components/admin/orders/OrderStatusChangeModal";
+import { OrderCancelModal } from "@/components/admin/orders/OrderCancelModal";
 import type { OrderStatusUpdatePayload } from "@/lib/order-status-update";
+import { SELF_DELIVERY_VENDOR } from "@/lib/order-status-update";
 import { canCancelOrderStatus } from "@/lib/order-status-transitions";
+import {
+  submitOrderCancel,
+  type OrderCancelPayload,
+} from "@/lib/admin-order-cancel";
 import { format, parseISO } from "date-fns";
 import {
   ArrowLeft,
@@ -33,11 +39,11 @@ export default function AdminOrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [showCancel, setShowCancel] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
   const [showRefund, setShowRefund] = useState(false);
-  const [notes, setNotes] = useState("");
   const [refundAmount, setRefundAmount] = useState("");
   const [refundTxnId, setRefundTxnId] = useState("");
+  const [refundNotes, setRefundNotes] = useState("");
   const [statusModalTarget, setStatusModalTarget] = useState<OrderStatus | null>(
     null
   );
@@ -68,7 +74,16 @@ export default function AdminOrderDetailPage() {
 
   const requestStatusChange = (status: OrderStatus) => {
     if (!order || order.status === status) return;
+    if (status === "cancelled") {
+      setShowCancelModal(true);
+      return;
+    }
     setStatusModalTarget(status);
+  };
+
+  const closeCancelModal = () => {
+    if (saving) return;
+    setShowCancelModal(false);
   };
 
   const closeStatusModal = () => {
@@ -82,6 +97,9 @@ export default function AdminOrderDetailPage() {
     setError(null);
 
     const body: Record<string, string> = { status: payload.status };
+    if (payload.dispatchMode) {
+      body.dispatch_mode = payload.dispatchMode;
+    }
     if (payload.delivery) {
       Object.assign(body, payload.delivery);
     }
@@ -102,24 +120,17 @@ export default function AdminOrderDetailPage() {
     setSaving(false);
   };
 
-  const cancelOrder = async () => {
-    if (!order || !notes.trim()) return;
+  const confirmCancel = async (payload: OrderCancelPayload) => {
+    if (!order) return;
     setSaving(true);
     setError(null);
 
-    const res = await fetch(`/api/admin/orders/${order.id}/cancel`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ notes: notes.trim() }),
-    });
-
-    const data = await res.json();
-    if (!res.ok) {
-      setError(data.error ?? "Failed to cancel order");
+    const result = await submitOrderCancel(order.id, payload, order.payment_status);
+    if ("error" in result) {
+      setError(result.error);
     } else {
-      setOrder(data as Order);
-      setShowCancel(false);
-      setNotes("");
+      setOrder(result.order as Order);
+      setShowCancelModal(false);
     }
     setSaving(false);
   };
@@ -135,7 +146,7 @@ export default function AdminOrderDetailPage() {
       body: JSON.stringify({
         refund_amount_inr: Number(refundAmount),
         refund_txn_id: refundTxnId.trim(),
-        notes: notes.trim(),
+        notes: refundNotes.trim(),
       }),
     });
 
@@ -145,28 +156,28 @@ export default function AdminOrderDetailPage() {
     } else {
       setOrder(data as Order);
       setShowRefund(false);
-      setNotes("");
       setRefundAmount("");
       setRefundTxnId("");
+      setRefundNotes("");
     }
     setSaving(false);
   };
 
   const openRefundForm = () => {
     if (!order) return;
-    setNotes("");
+    setRefundNotes("");
     setRefundAmount(String(order.total_inr));
     setRefundTxnId("");
     setShowRefund(true);
-    setShowCancel(false);
+    setShowCancelModal(false);
   };
 
   const resetActionForms = () => {
-    setShowCancel(false);
+    setShowCancelModal(false);
     setShowRefund(false);
-    setNotes("");
     setRefundAmount("");
     setRefundTxnId("");
+    setRefundNotes("");
   };
 
   if (loading) {
@@ -333,6 +344,11 @@ export default function AdminOrderDetailPage() {
         order.delivery_partner_name) && (
         <section className="mt-4 rounded-2xl bg-white p-5 ring-1 ring-[#4B2C20]/10">
           <h2 className="text-sm font-semibold text-[#4B2C20]">Delivery dispatch</h2>
+          {order.delivery_vendor === SELF_DELIVERY_VENDOR ? (
+            <p className="mt-3 text-sm text-teal-800">
+              Dispatched for self delivery by your team.
+            </p>
+          ) : (
           <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
             {order.delivery_partner_order_id && (
               <div>
@@ -365,6 +381,7 @@ export default function AdminOrderDetailPage() {
               </div>
             )}
           </dl>
+          )}
         </section>
       )}
 
@@ -518,13 +535,12 @@ export default function AdminOrderDetailPage() {
               Confirm order
             </button>
           )}
-          {canCancel && !showCancel && (
+          {canCancel && !showCancelModal && (
             <button
               type="button"
               disabled={saving}
               onClick={() => {
-                setNotes("");
-                setShowCancel(true);
+                setShowCancelModal(true);
                 setShowRefund(false);
               }}
               className="rounded-full border border-red-200 px-4 py-2 text-sm font-medium text-red-700 hover:bg-red-50 disabled:opacity-50"
@@ -543,39 +559,6 @@ export default function AdminOrderDetailPage() {
             </button>
           )}
         </div>
-
-        {showCancel && (
-          <div className="mt-4 rounded-xl bg-[#F5E6D3]/30 p-4">
-            <label className="text-xs font-medium text-[#4B2C20]">
-              Cancellation notes
-            </label>
-            <textarea
-              value={notes}
-              onChange={(e) => setNotes(e.target.value)}
-              rows={3}
-              placeholder="Reason for cancellation…"
-              className="mt-2 w-full rounded-xl border border-[#4B2C20]/10 bg-white px-3 py-2 text-sm"
-            />
-            <div className="mt-3 flex gap-2">
-              <button
-                type="button"
-                disabled={saving || !notes.trim()}
-                onClick={cancelOrder}
-                className="rounded-full bg-[#4B2C20] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-              >
-                {saving ? "Saving…" : "Confirm cancel"}
-              </button>
-              <button
-                type="button"
-                disabled={saving}
-                onClick={resetActionForms}
-                className="rounded-full px-4 py-2 text-sm text-[#4B2C20]/60 hover:text-[#4B2C20]"
-              >
-                Back
-              </button>
-            </div>
-          </div>
-        )}
 
         {showRefund && (
           <div className="mt-4 rounded-xl bg-violet-50/80 p-4 ring-1 ring-violet-100">
@@ -611,8 +594,8 @@ export default function AdminOrderDetailPage() {
             <label className="mt-3 block">
               <span className="text-xs text-[#4B2C20]/60">Notes (optional)</span>
               <textarea
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
+                value={refundNotes}
+                onChange={(e) => setRefundNotes(e.target.value)}
                 rows={2}
                 placeholder="Additional refund notes…"
                 className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 bg-white px-3 py-2 text-sm"
@@ -651,6 +634,13 @@ export default function AdminOrderDetailPage() {
         saving={saving}
         onClose={closeStatusModal}
         onConfirm={confirmStatusChange}
+      />
+
+      <OrderCancelModal
+        order={showCancelModal ? order : null}
+        saving={saving}
+        onClose={closeCancelModal}
+        onConfirm={confirmCancel}
       />
 
       <button

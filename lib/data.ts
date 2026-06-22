@@ -18,6 +18,7 @@ import {
   MOCK_SLABS,
 } from "@/lib/mock-data";
 import { normalizeClosedDates, normalizeDateKey } from "@/lib/shop-closed-days";
+import { ORDER_BOOKING_WINDOW_DAYS } from "@/lib/constants";
 import { filterCustomerDeliverySlots } from "@/lib/customer-delivery-slots";
 import { shopDateKey, shopDatePlusDays } from "@/lib/shop-timezone";
 
@@ -29,13 +30,13 @@ async function getEffectiveClosedDates(): Promise<string[]> {
 
   const admin = createAdminClient();
   const today = shopDateKey();
-  const twoWeeks = shopDatePlusDays(14);
+  const maxBookableDate = shopDatePlusDays(ORDER_BOOKING_WINDOW_DAYS - 1);
 
   const { data } = await admin
     .from("delivery_slots")
     .select("slot_date, is_active")
     .gte("slot_date", today)
-    .lte("slot_date", twoWeeks);
+    .lte("slot_date", maxBookableDate);
 
   const byDate = new Map<string, boolean[]>();
   for (const row of data ?? []) {
@@ -237,14 +238,14 @@ export async function getAvailableDeliverySlots(): Promise<DeliverySlot[]> {
 
   const supabase = await createClient();
   const today = shopDateKey();
-  const twoWeeks = shopDatePlusDays(14);
+  const maxBookableDate = shopDatePlusDays(ORDER_BOOKING_WINDOW_DAYS - 1);
 
   const { data } = await supabase
     .from("delivery_slots")
     .select("*")
     .eq("is_active", true)
     .gte("slot_date", today)
-    .lte("slot_date", twoWeeks)
+    .lte("slot_date", maxBookableDate)
     .order("slot_date")
     .order("window_start");
 

@@ -5,6 +5,7 @@ import type {
   ShopSettings,
   CustomerReview,
 } from "./types";
+import { ORDER_BOOKING_WINDOW_DAYS } from "./constants";
 import { shopDatePlusDays } from "./shop-timezone";
 
 export const MOCK_SETTINGS: ShopSettings = {
@@ -99,7 +100,7 @@ export function isSupabaseConfigured() {
 
 export function getMockSlots(): DeliverySlot[] {
   const slots: DeliverySlot[] = [];
-  for (let d = 0; d < 14; d++) {
+  for (let d = 0; d < ORDER_BOOKING_WINDOW_DAYS; d++) {
     const slotDate = shopDatePlusDays(d);
     for (const [start, end] of [
       ["10:00:00", "12:00:00"],

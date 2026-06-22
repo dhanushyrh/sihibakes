@@ -1,9 +1,11 @@
 import { addDays, format, parseISO } from "date-fns";
+import { ORDER_BOOKING_WINDOW_DAYS } from "./constants";
 import type { DeliverySlot } from "./types";
 import { normalizeClosedDates, normalizeDateKey } from "./shop-closed-days";
 import {
   shopDateKey,
   shopWallClockToDate,
+  shopDatePlusDays,
 } from "./shop-timezone";
 
 /** Minimum notice before a same-day slot start time. */
@@ -46,6 +48,21 @@ export function isSlotBookableWithLeadTime(
   return earliestBookable <= windowStart;
 }
 
+/** Last bookable calendar date (inclusive) in the shop timezone. */
+export function getMaxBookableDateKey(now = new Date()): string {
+  return shopDatePlusDays(ORDER_BOOKING_WINDOW_DAYS - 1, now);
+}
+
+export function isWithinOrderBookingWindow(
+  dateKey: string,
+  now = new Date()
+): boolean {
+  const key = normalizeDateKey(dateKey);
+  const today = shopDateKey(now);
+  const max = getMaxBookableDateKey(now);
+  return key >= today && key <= max;
+}
+
 export function filterCustomerDeliverySlots(
   slots: DeliverySlot[],
   closedDates: string[],
@@ -55,6 +72,7 @@ export function filterCustomerDeliverySlots(
 
   return slots.filter((slot) => {
     if (!slot.is_active) return false;
+    if (!isWithinOrderBookingWindow(slot.slot_date, now)) return false;
     if (closed.has(normalizeDateKey(slot.slot_date))) return false;
     if (!isSlotBookableWithLeadTime(slot, now)) return false;
     return true;
@@ -70,14 +88,14 @@ export type DateStripEntry = {
   bookable: boolean;
 };
 
-/** Continuous calendar days from first to last bookable date (fills closed gaps). */
-export function getDateStripEntries(slots: DeliverySlot[]): DateStripEntry[] {
-  const bookableDates = getBookableDates(slots);
-  if (!bookableDates.length) return [];
-
-  const bookableSet = new Set(bookableDates);
-  const first = parseISO(bookableDates[0]);
-  const last = parseISO(bookableDates[bookableDates.length - 1]);
+/** Calendar days in the booking window (today through max), marking which have slots. */
+export function getDateStripEntries(
+  slots: DeliverySlot[],
+  now = new Date()
+): DateStripEntry[] {
+  const bookableSet = new Set(getBookableDates(slots));
+  const first = parseISO(shopDateKey(now));
+  const last = parseISO(getMaxBookableDateKey(now));
   const entries: DateStripEntry[] = [];
 
   for (let current = first; current <= last; current = addDays(current, 1)) {

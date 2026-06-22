@@ -81,13 +81,3 @@ export function buildRazorpayCheckoutOptions(params: RazorpayCheckoutBuildParams
     ...(testMode ? { method: "upi" as const } : {}),
   };
 }
-
-export function getRazorpayTestPaymentHelp(): string[] {
-  return [
-    "Fastest: tap Skip card payment (demo only) in the bar at the bottom — skips Razorpay entirely.",
-    "In Razorpay: UPI opens first — enter success@razorpay and confirm (no card OTP).",
-    "Card test: 5267 3181 8797 5449 or 4111 1111 1111 1111 · any future expiry · any CVV.",
-    "On Razorpay's mock bank page tap Success, or enter any 4–10 digit OTP and tap Submit.",
-    "The 6-digit code on our checkout is only for phone verification — not Razorpay's card OTP.",
-  ];
-}

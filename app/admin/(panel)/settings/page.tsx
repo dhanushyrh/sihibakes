@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
-import type { ShopSettings, DeliveryFeeSlab } from "@/lib/types";
+import type { ShopSettings, DeliveryFeeSlab, DeliveryVendor } from "@/lib/types";
 import { normalizeClosedDates } from "@/lib/shop-closed-days";
 import { format } from "date-fns";
 import { Eye, Pencil, Save } from "lucide-react";
@@ -113,6 +113,7 @@ function SectionActions({
 export default function AdminSettingsPage() {
   const [settings, setSettings] = useState<ShopSettings | null>(null);
   const [slabs, setSlabs] = useState<DeliveryFeeSlab[]>([]);
+  const [deliveryVendors, setDeliveryVendors] = useState<DeliveryVendor[]>([]);
   const [editingSection, setEditingSection] =
     useState<SettingsSectionId | null>(null);
   const [storeDraft, setStoreDraft] = useState({
@@ -137,9 +138,15 @@ export default function AdminSettingsPage() {
   const supabase = createClient();
 
   const load = useCallback(async () => {
-    const [{ data: s }, { data: sl }] = await Promise.all([
+    const [{ data: s }, { data: sl }, { data: vendors }] = await Promise.all([
       supabase.from("shop_settings").select("*").limit(1).single(),
       supabase.from("delivery_fee_slabs").select("*").order("min_km"),
+      supabase
+        .from("delivery_vendors")
+        .select("id, name, is_active, sort_order")
+        .eq("is_active", true)
+        .order("sort_order")
+        .order("name"),
     ]);
     if (s) {
       const row = s as ShopSettings;
@@ -161,6 +168,7 @@ export default function AdminSettingsPage() {
       });
     }
     setSlabs((sl ?? []) as DeliveryFeeSlab[]);
+    setDeliveryVendors((vendors ?? []) as DeliveryVendor[]);
   }, [supabase]);
 
   useEffect(() => {
@@ -772,6 +780,27 @@ export default function AdminSettingsPage() {
             </ul>
           </div>
         )}
+      </section>
+
+      <section className="mt-6 rounded-2xl bg-white p-5 ring-1 ring-[#4B2C20]/10">
+        <h2 className="text-sm font-medium text-[#4B2C20]">Delivery vendors</h2>
+        <p className="mt-1 text-xs text-[#4B2C20]/50">
+          Used when marking orders out for delivery.
+        </p>
+        <ul className="mt-4 divide-y divide-[#4B2C20]/5 overflow-hidden rounded-xl ring-1 ring-[#4B2C20]/10">
+          {deliveryVendors.length === 0 ? (
+            <li className="px-3 py-3 text-xs text-[#4B2C20]/40">No vendors configured.</li>
+          ) : (
+            deliveryVendors.map((vendor) => (
+              <li
+                key={vendor.id}
+                className="px-3 py-2.5 text-sm text-[#4B2C20]"
+              >
+                {vendor.name}
+              </li>
+            ))
+          )}
+        </ul>
       </section>
     </div>
   );

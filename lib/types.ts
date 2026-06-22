@@ -80,6 +80,13 @@ export interface DeliveryFeeSlab {
   fee_inr: number;
 }
 
+export interface DeliveryVendor {
+  id: string;
+  name: string;
+  is_active: boolean;
+  sort_order: number;
+}
+
 export interface Coupon {
   id: string;
   code: string;

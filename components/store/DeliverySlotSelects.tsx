@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef } from "react";
 import { format, parseISO } from "date-fns";
 import { CalendarClock, Check, Clock3 } from "lucide-react";
+import { ORDER_BOOKING_WINDOW_DAYS } from "@/lib/constants";
 import {
   getBookableDates,
   getDateStripEntries,
@@ -136,7 +137,7 @@ export function DeliverySlotSelects({
               {selectionSummary(selectedDate, selectedSlot)}
             </p>
             <p className="mt-1 text-xs text-chocolate/50">
-              Fresh from our kitchen, right to your door
+              Choose a slot in the next {ORDER_BOOKING_WINDOW_DAYS} days
             </p>
           </div>
         </div>

@@ -19,7 +19,7 @@ import {
   getUnitPrice,
 } from "@/lib/pricing";
 import { createRazorpayOrder, getRazorpayPublicKey } from "@/lib/razorpay";
-import { isSlotBookableWithLeadTime } from "@/lib/customer-delivery-slots";
+import { isSlotBookableWithLeadTime, isWithinOrderBookingWindow } from "@/lib/customer-delivery-slots";
 import { getDeliveryFence, isWithinDeliveryFence } from "@/lib/delivery-fence";
 import type { Coupon, DeliverySlot } from "@/lib/types";
 
@@ -153,6 +153,13 @@ export async function POST(request: Request) {
           error:
             "This delivery slot is no longer available — please choose a later time",
         },
+        { status: 400 }
+      );
+    }
+
+    if (!isWithinOrderBookingWindow(slot.slot_date)) {
+      return NextResponse.json(
+        { error: "Delivery is only available for the next 3 days" },
         { status: 400 }
       );
     }

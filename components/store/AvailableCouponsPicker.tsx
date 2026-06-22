@@ -3,17 +3,9 @@
 import { useState } from "react";
 import { X } from "lucide-react";
 import { describeCoupon } from "@/lib/coupon-display";
-import type { CouponType } from "@/lib/types";
+import type { PublicCoupon } from "@/lib/public-coupons";
 
 const PREVIEW_COUNT = 2;
-
-export type PublicCoupon = {
-  code: string;
-  type: CouponType;
-  value_inr: number;
-  min_subtotal_inr: number;
-  first_order_only: boolean;
-};
 
 type AvailableCouponsPickerProps = {
   coupons: PublicCoupon[];

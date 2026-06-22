@@ -8,9 +8,17 @@ import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { useCart } from "@/components/store/CartProvider";
 import { isMenuProduct } from "@/lib/cart-products";
 import type { Product, ProductTag } from "@/lib/types";
-import { TAG_OPTIONS } from "@/lib/constants";
+import { TAG_OPTIONS, ORDER_BOOKING_WINDOW_DAYS } from "@/lib/constants";
+import type { PublicCoupon } from "@/lib/public-coupons";
+import { MenuCouponsShowcase } from "@/components/orders/MenuCouponsShowcase";
 
-export function DeliveryMenuClient({ products: initialProducts }: { products: Product[] }) {
+export function DeliveryMenuClient({
+  products: initialProducts,
+  coupons,
+}: {
+  products: Product[];
+  coupons: PublicCoupon[];
+}) {
   const { addItem, itemCount, pruneItems } = useCart();
   const [products, setProducts] = useState(initialProducts);
   const [selected, setSelected] = useState<Product | null>(null);
@@ -43,8 +51,11 @@ export function DeliveryMenuClient({ products: initialProducts }: { products: Pr
 
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-5">
         <p className="text-sm text-chocolate/60">
-          Add items to your cart, then review and place your order.
+          Add items to your cart, then review and place your order. Delivery
+          available for the next {ORDER_BOOKING_WINDOW_DAYS} days.
         </p>
+
+        <MenuCouponsShowcase coupons={coupons} />
 
         <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
           <button

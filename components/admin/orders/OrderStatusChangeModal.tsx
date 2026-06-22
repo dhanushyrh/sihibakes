@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Order, OrderStatus } from "@/lib/types";
+import type { DeliveryVendor, Order, OrderStatus } from "@/lib/types";
 import {
   requiresDeliveryDispatch,
+  requiresPartnerDispatchDetails,
   statusChangeLabel,
   type DeliveryDispatchDetails,
+  type DeliveryDispatchMode,
   type OrderStatusUpdatePayload,
 } from "@/lib/order-status-update";
 import { ORDER_STATUS_COLORS } from "@/lib/order-badges";
@@ -34,14 +36,21 @@ export function OrderStatusChangeModal({
   onConfirm,
 }: OrderStatusChangeModalProps) {
   const [delivery, setDelivery] = useState<DeliveryDispatchDetails>(emptyDelivery);
+  const [dispatchMode, setDispatchMode] = useState<DeliveryDispatchMode>("partner");
+  const [vendors, setVendors] = useState<DeliveryVendor[]>([]);
+  const [vendorsLoading, setVendorsLoading] = useState(false);
 
   const open = Boolean(order && targetStatus);
   const needsDispatch = targetStatus
     ? requiresDeliveryDispatch(targetStatus)
     : false;
+  const needsPartnerDetails = targetStatus
+    ? requiresPartnerDispatchDetails(targetStatus, dispatchMode)
+    : false;
 
   useEffect(() => {
     if (!open || !order) return;
+    setDispatchMode("partner");
     setDelivery({
       delivery_partner_order_id: order.delivery_partner_order_id ?? order.order_number,
       delivery_vendor: order.delivery_vendor ?? "",
@@ -50,20 +59,58 @@ export function OrderStatusChangeModal({
     });
   }, [open, order]);
 
+  useEffect(() => {
+    if (!open || !needsPartnerDetails) return;
+
+    let cancelled = false;
+    setVendorsLoading(true);
+
+    fetch("/api/admin/delivery-vendors")
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error ?? "Failed to load vendors");
+        return data.vendors as DeliveryVendor[];
+      })
+      .then((loaded) => {
+        if (cancelled) return;
+        setVendors(loaded);
+        setDelivery((current) => {
+          if (current.delivery_vendor) return current;
+          return { ...current, delivery_vendor: loaded[0]?.name ?? "" };
+        });
+      })
+      .catch(() => {
+        if (!cancelled) setVendors([]);
+      })
+      .finally(() => {
+        if (!cancelled) setVendorsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, needsPartnerDetails]);
+
   if (!open || !order || !targetStatus) return null;
 
-  const dispatchValid =
+  const partnerDispatchValid =
     delivery.delivery_partner_order_id.trim() &&
     delivery.delivery_vendor.trim() &&
     delivery.delivery_otp.trim() &&
     delivery.delivery_partner_name.trim();
 
+  const dispatchReady = needsDispatch
+    ? dispatchMode === "self" ||
+      (partnerDispatchValid && vendors.length > 0 && !vendorsLoading)
+    : true;
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (needsDispatch && !dispatchValid) return;
+    if (!dispatchReady) return;
     onConfirm({
       status: targetStatus,
-      delivery: needsDispatch
+      dispatchMode: needsDispatch ? dispatchMode : undefined,
+      delivery: needsPartnerDetails
         ? {
             delivery_partner_order_id: delivery.delivery_partner_order_id.trim(),
             delivery_vendor: delivery.delivery_vendor.trim(),
@@ -137,72 +184,132 @@ export function OrderStatusChangeModal({
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
           {needsDispatch && (
             <>
-              <p className="text-xs text-[#4B2C20]/50">
-                Enter delivery partner details before dispatching.
-              </p>
-              <label className="block">
-                <span className="text-xs font-medium text-[#4B2C20]">Order ID</span>
-                <input
-                  required
-                  value={delivery.delivery_partner_order_id}
-                  onChange={(e) =>
-                    setDelivery((d) => ({
-                      ...d,
-                      delivery_partner_order_id: e.target.value,
-                    }))
-                  }
-                  placeholder="Partner / vendor order ID"
-                  className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-medium text-[#4B2C20]">Vendor</span>
-                <input
-                  required
-                  value={delivery.delivery_vendor}
-                  onChange={(e) =>
-                    setDelivery((d) => ({ ...d, delivery_vendor: e.target.value }))
-                  }
-                  placeholder="e.g. Dunzo, Porter"
-                  className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-medium text-[#4B2C20]">OTP</span>
-                <input
-                  required
-                  value={delivery.delivery_otp}
-                  onChange={(e) =>
-                    setDelivery((d) => ({ ...d, delivery_otp: e.target.value }))
-                  }
-                  placeholder="Delivery OTP"
-                  className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
-                />
-              </label>
-              <label className="block">
-                <span className="text-xs font-medium text-[#4B2C20]">
-                  Delivery partner name
-                </span>
-                <input
-                  required
-                  value={delivery.delivery_partner_name}
-                  onChange={(e) =>
-                    setDelivery((d) => ({
-                      ...d,
-                      delivery_partner_name: e.target.value,
-                    }))
-                  }
-                  placeholder="Rider / partner name"
-                  className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
-                />
-              </label>
+              <fieldset>
+                <legend className="text-xs font-medium text-[#4B2C20]">
+                  Dispatch type
+                </legend>
+                <div className="mt-2 grid grid-cols-2 gap-2">
+                  <label
+                    className={`cursor-pointer rounded-xl border px-3 py-2.5 text-sm ${
+                      dispatchMode === "partner"
+                        ? "border-[#4B2C20] bg-[#F5E6D3]/60 font-medium text-[#4B2C20]"
+                        : "border-[#4B2C20]/10 text-[#4B2C20]/70"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="dispatchMode"
+                      value="partner"
+                      checked={dispatchMode === "partner"}
+                      onChange={() => setDispatchMode("partner")}
+                      className="sr-only"
+                    />
+                    Delivery partner
+                  </label>
+                  <label
+                    className={`cursor-pointer rounded-xl border px-3 py-2.5 text-sm ${
+                      dispatchMode === "self"
+                        ? "border-teal-700 bg-teal-50 font-medium text-teal-900"
+                        : "border-[#4B2C20]/10 text-[#4B2C20]/70"
+                    }`}
+                  >
+                    <input
+                      type="radio"
+                      name="dispatchMode"
+                      value="self"
+                      checked={dispatchMode === "self"}
+                      onChange={() => setDispatchMode("self")}
+                      className="sr-only"
+                    />
+                    Self delivery
+                  </label>
+                </div>
+              </fieldset>
+
+              {dispatchMode === "self" ? (
+                <p className="text-xs text-teal-800">
+                  Your team will deliver this order — no vendor, OTP, or partner
+                  name needed.
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-[#4B2C20]/50">
+                    Enter delivery partner details before dispatching.
+                  </p>
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#4B2C20]">Order ID</span>
+                    <input
+                      required
+                      value={delivery.delivery_partner_order_id}
+                      onChange={(e) =>
+                        setDelivery((d) => ({
+                          ...d,
+                          delivery_partner_order_id: e.target.value,
+                        }))
+                      }
+                      placeholder="Partner / vendor order ID"
+                      className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#4B2C20]">Vendor</span>
+                    <select
+                      required
+                      value={delivery.delivery_vendor}
+                      disabled={vendorsLoading || vendors.length === 0}
+                      onChange={(e) =>
+                        setDelivery((d) => ({ ...d, delivery_vendor: e.target.value }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 bg-white px-3 py-2 text-sm disabled:opacity-60"
+                    >
+                      <option value="" disabled>
+                        {vendorsLoading ? "Loading vendors…" : "Select vendor"}
+                      </option>
+                      {vendors.map((vendor) => (
+                        <option key={vendor.id} value={vendor.name}>
+                          {vendor.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#4B2C20]">OTP</span>
+                    <input
+                      required
+                      value={delivery.delivery_otp}
+                      onChange={(e) =>
+                        setDelivery((d) => ({ ...d, delivery_otp: e.target.value }))
+                      }
+                      placeholder="Delivery OTP"
+                      className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#4B2C20]">
+                      Delivery partner name
+                    </span>
+                    <input
+                      required
+                      value={delivery.delivery_partner_name}
+                      onChange={(e) =>
+                        setDelivery((d) => ({
+                          ...d,
+                          delivery_partner_name: e.target.value,
+                        }))
+                      }
+                      placeholder="Rider / partner name"
+                      className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
+                    />
+                  </label>
+                </>
+              )}
             </>
           )}
 
           <div className="flex gap-2 pt-2">
             <button
               type="submit"
-              disabled={saving || (needsDispatch && !dispatchValid)}
+              disabled={saving || !dispatchReady}
               className="flex-1 rounded-full bg-[#4B2C20] py-2.5 text-sm font-medium text-white disabled:opacity-50"
             >
               {saving ? "Saving…" : "Confirm"}

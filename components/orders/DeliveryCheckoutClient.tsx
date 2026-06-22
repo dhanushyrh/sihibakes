@@ -32,11 +32,11 @@ import { getUnitPrice } from "@/lib/pricing";
 import {
   resolveDeliverySelection,
 } from "@/lib/customer-delivery-slots";
-import type { CouponType, DeliveryCalculation, DeliveryFenceKm, DeliverySlot, Product } from "@/lib/types";
+import type { DeliveryCalculation, DeliveryFenceKm, DeliverySlot, Product } from "@/lib/types";
+import type { PublicCoupon } from "@/lib/public-coupons";
 import type { CustomerCheckoutProfile } from "@/lib/customer-lookup";
 import {
   buildRazorpayCheckoutOptions,
-  getRazorpayTestPaymentHelp,
 } from "@/lib/razorpay";
 import {
   formatRazorpayPaymentError,
@@ -45,14 +45,6 @@ import {
 import "@/lib/razorpay-checkout";
 
 const STEPS = ["Details", "Verify & pay"];
-
-type PublicCoupon = {
-  code: string;
-  type: CouponType;
-  value_inr: number;
-  min_subtotal_inr: number;
-  first_order_only: boolean;
-};
 
 type PlacedOrder = {
   order_id: string;
@@ -118,7 +110,6 @@ export function DeliveryCheckoutClient({
   const lastLookupPhoneRef = useRef("");
   const sessionLatRef = useRef(session.lat);
   const sessionLngRef = useRef(session.lng);
-  const razorpayTestHelp = useMemo(() => getRazorpayTestPaymentHelp(), []);
   const [isFirstOrder, setIsFirstOrder] = useState(true);
   const [customerLookupReady, setCustomerLookupReady] = useState(false);
   const [customerPrefillNote, setCustomerPrefillNote] = useState("");
@@ -657,6 +648,12 @@ export function DeliveryCheckoutClient({
     try {
       const placed = await createOrder();
 
+      if (razorpayTestMode) {
+        await completeMockPayment(placed);
+        finishOrder(placed.order_number, placed.phone);
+        return;
+      }
+
       if (placed.razorpay_order_id && placed.razorpay_key) {
         await openRazorpayCheckout(placed);
         return;
@@ -666,25 +663,6 @@ export function DeliveryCheckoutClient({
       finishOrder(placed.order_number, placed.phone);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not complete payment");
-      setPlacingOrder(false);
-    }
-  };
-
-  const completeDemoOrder = async () => {
-    if (!otpVerified || !razorpayTestMode) return;
-    if (!isLocationReady) {
-      setError("Set your delivery location before paying");
-      setStep(0);
-      return;
-    }
-    setPlacingOrder(true);
-    setError("");
-    try {
-      const placed = await createOrder();
-      await completeMockPayment(placed);
-      finishOrder(placed.order_number, placed.phone);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not complete demo order");
       setPlacingOrder(false);
     }
   };
@@ -710,7 +688,7 @@ export function DeliveryCheckoutClient({
     <div
       className={`flex min-h-screen flex-col ${
         showPaymentBar
-          ? "pb-[calc(10.5rem+env(safe-area-inset-bottom))]"
+          ? "pb-[calc(6.5rem+env(safe-area-inset-bottom))]"
           : "pb-[calc(2rem+env(safe-area-inset-bottom))]"
       }`}
     >
@@ -1089,25 +1067,7 @@ export function DeliveryCheckoutClient({
                   Step 2 — Pay securely with Razorpay
                 </p>
 
-                {razorpayTestMode && (
-                  <p className="rounded-xl bg-gold/20 px-3 py-3 text-sm text-chocolate ring-1 ring-gold/40">
-                    Testing? Use <strong>Skip card payment</strong> in the bar at the
-                    bottom — no Razorpay or card OTP needed.
-                  </p>
-                )}
-
-                <details className="rounded-xl bg-cream px-3 py-3 text-xs leading-relaxed text-chocolate/70 ring-1 ring-chocolate/10">
-                  <summary className="cursor-pointer font-medium text-chocolate">
-                    Test payment tips
-                  </summary>
-                  <ul className="mt-2 list-disc space-y-1 pl-4">
-                    {razorpayTestHelp.map((tip) => (
-                      <li key={tip}>{tip}</li>
-                    ))}
-                  </ul>
-                </details>
-
-                {!razorpayReady && (
+                {!razorpayTestMode && !razorpayReady && (
                   <p className="text-xs text-chocolate/50">Loading secure payment...</p>
                 )}
 
@@ -1141,23 +1101,17 @@ export function DeliveryCheckoutClient({
               </button>
               <button
                 type="button"
-                disabled={placingOrder || !razorpayReady || !isLocationReady}
+                disabled={
+                  placingOrder ||
+                  !isLocationReady ||
+                  (!razorpayTestMode && !razorpayReady)
+                }
                 onClick={payWithRazorpay}
                 className="flex-[2] rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-40"
               >
                 {placingOrder ? "Processing..." : `Pay ${formatCurrency(total)}`}
               </button>
             </div>
-            {razorpayTestMode && (
-              <button
-                type="button"
-                disabled={placingOrder || !isLocationReady}
-                onClick={completeDemoOrder}
-                className="w-full rounded-full border border-dashed border-chocolate/30 bg-white py-3.5 text-sm font-medium text-chocolate disabled:opacity-40"
-              >
-                Skip card payment (demo only)
-              </button>
-            )}
           </div>
         </div>
       )}

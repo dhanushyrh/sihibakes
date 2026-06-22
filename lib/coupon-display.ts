@@ -1,12 +1,4 @@
-import type { CouponType } from "@/lib/types";
-
-type PublicCoupon = {
-  code: string;
-  type: CouponType;
-  value_inr: number;
-  min_subtotal_inr: number;
-  first_order_only: boolean;
-};
+import type { PublicCoupon } from "@/lib/public-coupons";
 
 export function describeCoupon(coupon: PublicCoupon): string {
   const min =

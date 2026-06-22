@@ -15,7 +15,7 @@ import { formatDisplayPhone, instagramHref, telHref, whatsappHref } from "@/lib/
 import { formatCurrency } from "@/lib/delivery";
 import { formatReviewDate } from "@/lib/reviews";
 import { getUnitPrice } from "@/lib/pricing";
-import { BRAND } from "@/lib/constants";
+import { BRAND, STORE_CONTACT } from "@/lib/constants";
 import type { CustomerReview, Product } from "@/lib/types";
 import type { StorefrontDetails } from "@/lib/storefront";
 
@@ -200,7 +200,10 @@ export function OrdersHub({
         </p>
         <div className="flex items-center justify-center gap-4">
           <a
-            href={whatsappHref(store.phone, "Hi Sihi Bakes! I'd like to place an order.")}
+            href={whatsappHref(
+              STORE_CONTACT.phone,
+              "Hi Sihi Bakes! I'd like to place an order."
+            )}
             target="_blank"
             rel="noopener noreferrer"
             className="flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366]/10 text-[#25D366] transition hover:bg-[#25D366]/20 active:scale-95"

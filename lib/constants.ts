@@ -50,6 +50,9 @@ export const ORDERS_PAGE_SIZE = 15;
 export const CUSTOMERS_PAGE_SIZE = 15;
 export const ENQUIRIES_PAGE_SIZE = 15;
 
+/** Inclusive calendar days customers can book delivery (today + next days). */
+export const ORDER_BOOKING_WINDOW_DAYS = 3;
+
 export const ENQUIRY_TYPE_OPTIONS = [
   { key: "kitty_party" as const, label: "Kitty Party" },
   { key: "general" as const, label: "General" },
