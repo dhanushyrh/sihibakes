@@ -80,12 +80,13 @@ export function DeliveryMenuClient({ products: initialProducts }: { products: Pr
           </p>
         ) : (
           <div className="mt-5 grid grid-cols-2 gap-4">
-            {filtered.map((product) => (
+            {filtered.map((product, index) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 onSelect={setSelected}
                 onAdd={(p) => addItem(p.id)}
+                priority={index < 2}
               />
             ))}
           </div>

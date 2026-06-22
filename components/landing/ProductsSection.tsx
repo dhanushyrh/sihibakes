@@ -102,7 +102,7 @@ export function ProductsSection({ products }: { products: Product[] }) {
                   </div>
                 </article>
               ))
-            : products.map((product) => {
+            : products.map((product, index) => {
                 const badge = primaryTagLabel(product.tags);
                 const soldOut = product.sold_out_today || !product.is_active;
                 const price = getUnitPrice(product);
@@ -130,6 +130,7 @@ export function ProductsSection({ products }: { products: Product[] }) {
                         src={product.image_path || "/hero-tiramisu.png"}
                         alt={product.title}
                         fill
+                        priority={index < 2}
                         className="object-cover transition duration-500 group-hover:scale-105"
                         sizes="(max-width: 768px) 50vw, 33vw"
                       />

@@ -1,10 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MapPin, Navigation } from "lucide-react";
-import { MapPicker } from "@/components/store/MapPicker";
+import { DeliveryLocationModal } from "@/components/store/DeliveryLocationModal";
+import {
+  deliveryUnreachableMessage,
+  LocationUnreachableBanner,
+} from "@/components/store/LocationUnreachableBanner";
+import { SelectedLocationMap } from "@/components/store/SelectedLocationMap";
 import { formatCurrency, formatDistance } from "@/lib/delivery";
-import type { ParsedMapAddress } from "@/lib/map-address";
 import type { DeliveryCalculation, DeliveryFenceKm } from "@/lib/types";
 
 type DeliveryLocationPickerProps = {
@@ -13,8 +17,8 @@ type DeliveryLocationPickerProps = {
   deliveryFence: DeliveryFenceKm;
   initialLat: number;
   initialLng: number;
+  useGeolocationInitially?: boolean;
   onUpdate: (lat: number, lng: number, delivery: DeliveryCalculation) => void;
-  onAddressPrefill?: (address: ParsedMapAddress) => void;
 };
 
 export function DeliveryLocationPicker({
@@ -23,13 +27,17 @@ export function DeliveryLocationPicker({
   deliveryFence,
   initialLat,
   initialLng,
+  useGeolocationInitially = false,
   onUpdate,
-  onAddressPrefill,
 }: DeliveryLocationPickerProps) {
   const [lat, setLat] = useState(initialLat);
   const [lng, setLng] = useState(initialLng);
   const [delivery, setDelivery] = useState<DeliveryCalculation | null>(null);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [modalOpen, setModalOpen] = useState(false);
+  const [draftLat, setDraftLat] = useState(initialLat);
+  const [draftLng, setDraftLng] = useState(initialLng);
+  const geolocationAttempted = useRef(false);
 
   const calcDelivery = async (newLat: number, newLng: number) => {
     setLoading(true);
@@ -48,71 +56,114 @@ export function DeliveryLocationPicker({
   };
 
   useEffect(() => {
+    setLat(initialLat);
+    setLng(initialLng);
+  }, [initialLat, initialLng]);
+
+  useEffect(() => {
+    if (geolocationAttempted.current) return;
+    geolocationAttempted.current = true;
+
+    if (useGeolocationInitially && navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          setLat(latitude);
+          setLng(longitude);
+          void calcDelivery(latitude, longitude);
+        },
+        () => void calcDelivery(initialLat, initialLng),
+        { enableHighAccuracy: true, timeout: 12000, maximumAge: 60_000 }
+      );
+      return;
+    }
+
     void calcDelivery(initialLat, initialLng);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleLocationChange = (newLat: number, newLng: number) => {
-    setLat(newLat);
-    setLng(newLng);
-    void calcDelivery(newLat, newLng);
+  const openModal = () => {
+    setDraftLat(lat);
+    setDraftLng(lng);
+    setModalOpen(true);
   };
+
+  const confirmModal = () => {
+    setLat(draftLat);
+    setLng(draftLng);
+    void calcDelivery(draftLat, draftLng);
+    setModalOpen(false);
+  };
+
+  const isUnreachable = Boolean(delivery && !delivery.reachable);
+  const errorMessage = isUnreachable ? deliveryUnreachableMessage(delivery) : null;
 
   return (
     <div>
       <div className="mb-4 flex items-center gap-2 text-chocolate">
         <MapPin size={18} className="text-gold" />
-        <h3 className="font-medium">Pin your delivery location</h3>
+        <h3 className="font-medium">Your delivery location</h3>
       </div>
-      <p className="mb-4 text-sm text-chocolate/60">
-        Search for your area, drag the pin, or tap the map to set your spot.
-      </p>
 
-      <MapPicker
-        kitchenLat={kitchenLat}
-        kitchenLng={kitchenLng}
+      {errorMessage && (
+        <div className="mb-4">
+          <LocationUnreachableBanner message={errorMessage} />
+        </div>
+      )}
+
+      <SelectedLocationMap
         lat={lat}
         lng={lng}
+        kitchenLat={kitchenLat}
+        kitchenLng={kitchenLng}
         deliveryFence={deliveryFence}
-        onChange={handleLocationChange}
-        onAddressResolved={onAddressPrefill}
+        onEdit={openModal}
       />
+
+      {errorMessage && (
+        <div className="mt-3">
+          <LocationUnreachableBanner message={errorMessage} />
+        </div>
+      )}
 
       <div className="mt-4">
         {loading ? (
           <p className="rounded-2xl bg-white/60 px-4 py-4 text-center text-sm text-chocolate/50 ring-1 ring-chocolate/10">
             Checking delivery distance...
           </p>
-        ) : delivery ? (
-          <div
-            className={`rounded-2xl px-4 py-4 text-sm ring-1 ${
-              delivery.reachable
-                ? "bg-white ring-chocolate/10"
-                : "bg-red-50 text-red-800 ring-red-200"
-            }`}
-          >
-            {delivery.reachable ? (
-              <div className="flex items-start gap-3">
-                <Navigation size={18} className="mt-0.5 shrink-0 text-gold" />
-                <div>
-                  <p className="font-medium text-chocolate">
-                    You&apos;re in our delivery zone
-                  </p>
-                  <p className="mt-1 text-chocolate/65">
-                    {formatDistance(delivery.distance_km)} away · Delivery fee{" "}
-                    {formatCurrency(delivery.delivery_fee_inr)}
-                  </p>
-                </div>
+        ) : delivery?.reachable ? (
+          <div className="rounded-2xl bg-white px-4 py-4 text-sm ring-1 ring-chocolate/10">
+            <div className="flex items-start gap-3">
+              <Navigation size={18} className="mt-0.5 shrink-0 text-gold" />
+              <div>
+                <p className="font-medium text-chocolate">
+                  You&apos;re in our delivery zone
+                </p>
+                <p className="mt-1 text-chocolate/65">
+                  {formatDistance(delivery.distance_km)} away · Delivery fee{" "}
+                  {formatCurrency(delivery.delivery_fee_inr)}
+                </p>
               </div>
-            ) : (
-              <p>
-                {delivery.message ??
-                  "Sorry, we can't deliver to this location. Please pick a spot inside the delivery zone."}
-              </p>
-            )}
+            </div>
           </div>
         ) : null}
       </div>
+
+      {modalOpen && (
+        <DeliveryLocationModal
+          kitchenLat={kitchenLat}
+          kitchenLng={kitchenLng}
+          deliveryFence={deliveryFence}
+          lat={draftLat}
+          lng={draftLng}
+          onChange={(newLat, newLng) => {
+            setDraftLat(newLat);
+            setDraftLng(newLng);
+          }}
+          onConfirm={confirmModal}
+          onClose={() => setModalOpen(false)}
+        />
+      )}
     </div>
   );
 }

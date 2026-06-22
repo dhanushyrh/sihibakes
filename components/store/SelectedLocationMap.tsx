@@ -21,6 +21,7 @@ type SelectedLocationMapProps = {
   kitchenLat?: number;
   kitchenLng?: number;
   deliveryFence?: DeliveryFenceKm;
+  onEdit?: () => void;
 };
 
 export function SelectedLocationMap({
@@ -29,6 +30,7 @@ export function SelectedLocationMap({
   kitchenLat,
   kitchenLng,
   deliveryFence,
+  onEdit,
 }: SelectedLocationMapProps) {
   const apiKey = getGoogleMapsLoaderOptions().googleMapsApiKey;
   const { isLoaded } = useJsApiLoader(getGoogleMapsLoaderOptions());
@@ -63,7 +65,7 @@ export function SelectedLocationMap({
     );
   }
 
-  return (
+  const mapView = (
     <GoogleMap
       mapContainerStyle={mapContainerStyle}
       onLoad={(m) => {
@@ -112,5 +114,25 @@ export function SelectedLocationMap({
         zIndex={2}
       />
     </GoogleMap>
+  );
+
+  if (!onEdit) {
+    return mapView;
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onEdit}
+      className="group relative block w-full overflow-hidden rounded-2xl text-left ring-1 ring-chocolate/10 transition hover:ring-chocolate/25 focus:outline-none focus-visible:ring-2 focus-visible:ring-chocolate/40"
+      aria-label="Change delivery location"
+    >
+      {mapView}
+      <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-chocolate/50 to-transparent px-3 pb-3 pt-10">
+        <span className="inline-flex rounded-full bg-white/95 px-3 py-1.5 text-xs font-medium text-chocolate shadow-sm">
+          Tap to change location
+        </span>
+      </div>
+    </button>
   );
 }

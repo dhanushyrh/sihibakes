@@ -60,7 +60,13 @@ function WhatsAppIcon({ size = 22 }: { size?: number }) {
   );
 }
 
-function ProductMarqueeCard({ product }: { product: Product }) {
+function ProductMarqueeCard({
+  product,
+  priority = false,
+}: {
+  product: Product;
+  priority?: boolean;
+}) {
   const unitPrice = getUnitPrice(product);
   const hasDiscount = (product.discount_percent ?? 0) > 0;
 
@@ -74,6 +80,7 @@ function ProductMarqueeCard({ product }: { product: Product }) {
           src={product.image_path || "/hero-tiramisu.png"}
           alt={product.title}
           fill
+          priority={priority}
           className="object-cover"
           sizes="132px"
         />
@@ -136,8 +143,12 @@ export function OrdersHub({
         {products.length > 0 && (
           <div className="-mx-4 mt-4">
             <HorizontalMarquee direction="left" durationSeconds={32}>
-              {products.map((product) => (
-                <ProductMarqueeCard key={product.id} product={product} />
+              {products.map((product, index) => (
+                <ProductMarqueeCard
+                  key={product.id}
+                  product={product}
+                  priority={index === 0}
+                />
               ))}
             </HorizontalMarquee>
           </div>

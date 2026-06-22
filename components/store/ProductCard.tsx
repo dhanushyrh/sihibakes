@@ -26,6 +26,8 @@ interface ProductCardProps {
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelect?: (product: Product) => void;
+  /** Eager-load when this card is above the fold (improves LCP). */
+  priority?: boolean;
 }
 
 export function ProductCard({
@@ -37,6 +39,7 @@ export function ProductCard({
   selectionMode = false,
   selected = false,
   onToggleSelect,
+  priority = false,
 }: ProductCardProps) {
   const cart = useCart();
   const unitPrice = getUnitPrice(product);
@@ -77,6 +80,7 @@ export function ProductCard({
             src={product.image_path || "/hero-tiramisu.png"}
             alt={product.title}
             fill
+            priority={priority}
             className="object-cover transition group-hover:scale-105"
             sizes="(max-width: 768px) 50vw, 25vw"
           />

@@ -104,12 +104,13 @@ export default function MenuPage({ products: initialProducts, contact }: MenuPag
           </p>
         ) : (
           <div className="mt-6 grid grid-cols-2 gap-3 md:grid-cols-3 md:gap-4">
-            {filtered.map((product) => (
+            {filtered.map((product, index) => (
               <ProductCard
                 key={product.id}
                 product={product}
                 onSelect={setSelected}
                 onAdd={(p) => addItem(p.id)}
+                priority={index < 2}
               />
             ))}
           </div>

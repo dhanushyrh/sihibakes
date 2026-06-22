@@ -9,6 +9,7 @@ import { Tag } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { useScrollToTopOnChange } from "@/components/store/ScrollToTop";
 import { DeliveryLocationPicker } from "@/components/store/DeliveryLocationPicker";
+import { LocationUnreachableBanner, deliveryUnreachableMessage } from "@/components/store/LocationUnreachableBanner";
 import { DeliverySlotSelects } from "@/components/store/DeliverySlotSelects";
 import { AvailableCouponsPicker } from "@/components/store/AvailableCouponsPicker";
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
@@ -25,7 +26,6 @@ import {
   isValidIndianPincode,
 } from "@/lib/checkout-validation";
 import { isMenuProduct } from "@/lib/cart-products";
-import type { ParsedMapAddress } from "@/lib/map-address";
 import { BRAND } from "@/lib/constants";
 import { formatCurrency } from "@/lib/delivery";
 import { normalizePhone } from "@/lib/storefront";
@@ -115,15 +115,6 @@ export function DeliveryCheckoutClient({
   const [error, setError] = useState("");
   const completingOrderRef = useRef(false);
   const razorpayTestHelp = useMemo(() => getRazorpayTestPaymentHelp(), []);
-
-  const prefillAddressFromMap = (address: ParsedMapAddress) => {
-    setAddress({
-      street: address.street,
-      landmark: address.landmark,
-      pincode: address.pincode ? formatPincodeInput(address.pincode) : "",
-      ...(address.house ? { house: address.house } : {}),
-    });
-  };
 
   useEffect(() => {
     if (!sessionReady || completingOrderRef.current || placingOrder) return;
@@ -223,8 +214,14 @@ export function DeliveryCheckoutClient({
       errors.pincode = "Enter a valid 6-digit pincode";
     }
     if (!selectedSlotId) errors.slot = "Choose a delivery date and time slot";
-    if (!isLocationReady) {
-      errors.location = "Search your area and pin your location on the map";
+    if (session.lat == null || session.lng == null) {
+      errors.location = "Pin your delivery location on the map";
+    } else if (session.delivery && !session.delivery.reachable) {
+      errors.location =
+        session.delivery.message ??
+        "This location is outside our delivery zone — tap the map to choose another spot";
+    } else if (!isLocationReady) {
+      errors.location = "Confirm your delivery location on the map";
     }
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -561,6 +558,12 @@ export function DeliveryCheckoutClient({
 
         {step === 0 && (
           <div className="mt-6 space-y-4">
+            {session.delivery && !session.delivery.reachable && (
+              <LocationUnreachableBanner
+                message={deliveryUnreachableMessage(session.delivery)}
+              />
+            )}
+
             <section className="rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
               <h2 className="text-sm font-medium text-chocolate">Your order</h2>
               <ul className="mt-3 space-y-3">
@@ -598,7 +601,7 @@ export function DeliveryCheckoutClient({
                 Delivery details
               </h2>
               <p className="mt-1 text-sm text-chocolate/60">
-                Pin your location, then confirm your address.
+                We use your current location first — tap the map to adjust if needed.
               </p>
             </div>
 
@@ -607,10 +610,10 @@ export function DeliveryCheckoutClient({
                 kitchenLat={kitchenLat}
                 kitchenLng={kitchenLng}
                 deliveryFence={deliveryFence}
-                initialLat={session.lat ?? kitchenLat + 0.01}
-                initialLng={session.lng ?? kitchenLng + 0.01}
+                initialLat={session.lat ?? kitchenLat}
+                initialLng={session.lng ?? kitchenLng}
+                useGeolocationInitially={session.lat == null && session.lng == null}
                 onUpdate={(lat, lng, delivery) => setLocation(lat, lng, delivery)}
-                onAddressPrefill={prefillAddressFromMap}
               />
               {fieldErrors.location && (
                 <p className="mt-3 text-xs text-red-600">{fieldErrors.location}</p>
@@ -664,8 +667,7 @@ export function DeliveryCheckoutClient({
             </div>
 
             <p className="text-xs text-chocolate/45">
-              Street, landmark, and pincode are filled from your pinned location. Add
-              your flat or house number if needed.
+              Enter your full delivery address below.
             </p>
 
             <div>
@@ -804,7 +806,8 @@ export function DeliveryCheckoutClient({
             <button
               type="button"
               onClick={continueToVerification}
-              className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream"
+              disabled={!isLocationReady}
+              className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
             >
               Continue to phone verification
             </button>
