@@ -13,6 +13,7 @@ import { DatePicker } from "@/components/store/DatePicker";
 import { TimePicker } from "@/components/store/TimePicker";
 import { HeartDivider } from "@/components/landing/HeartDivider";
 import { isMenuProduct } from "@/lib/cart-products";
+import { isValidIndianPhone } from "@/lib/checkout-validation";
 import { formatTimeDisplay } from "@/lib/datetime-picker";
 import { TAG_OPTIONS } from "@/lib/constants";
 import type { Product, ProductTag } from "@/lib/types";
