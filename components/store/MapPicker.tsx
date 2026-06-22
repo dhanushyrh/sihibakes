@@ -99,10 +99,18 @@ export function MapPicker({
           ),
           40
         );
+      } else {
+        m.setCenter({ lat, lng });
+        m.setZoom(14);
       }
     },
-    [fenceBounds]
+    [fenceBounds, lat, lng]
   );
+
+  useEffect(() => {
+    if (!map || fenceBounds) return;
+    map.panTo({ lat, lng });
+  }, [lat, lng, map, fenceBounds]);
 
   const onPlaceChanged = () => {
     const place = autocomplete?.getPlace();
@@ -190,8 +198,6 @@ export function MapPicker({
       <div className="overflow-hidden rounded-2xl ring-1 ring-[#4B2C20]/10">
         <GoogleMap
           mapContainerStyle={mapContainerStyle}
-          defaultCenter={{ lat, lng }}
-          defaultZoom={14}
           onLoad={onLoad}
           onClick={(e) => {
             if (e.latLng) movePin(e.latLng.lat(), e.latLng.lng(), 0);
