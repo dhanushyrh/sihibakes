@@ -10,7 +10,9 @@ type DeliveryLocationModalProps = {
   deliveryFence: DeliveryFenceKm;
   lat: number;
   lng: number;
+  searchLabel?: string;
   onChange: (lat: number, lng: number) => void;
+  onSearchLabelChange?: (label: string) => void;
   onConfirm: () => void;
   onClose: () => void;
 };
@@ -21,7 +23,9 @@ export function DeliveryLocationModal({
   deliveryFence,
   lat,
   lng,
+  searchLabel,
   onChange,
+  onSearchLabelChange,
   onConfirm,
   onClose,
 }: DeliveryLocationModalProps) {
@@ -67,7 +71,9 @@ export function DeliveryLocationModal({
             lat={lat}
             lng={lng}
             deliveryFence={deliveryFence}
+            searchLabel={searchLabel}
             onChange={onChange}
+            onSearchLabelChange={onSearchLabelChange}
           />
 
           <div className="mt-4 flex gap-2">

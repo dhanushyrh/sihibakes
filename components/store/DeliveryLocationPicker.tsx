@@ -9,6 +9,7 @@ import {
 } from "@/components/store/LocationUnreachableBanner";
 import { SelectedLocationMap } from "@/components/store/SelectedLocationMap";
 import { formatCurrency, formatDistance } from "@/lib/delivery";
+import { formatCoordinates } from "@/lib/map-location-label";
 import type { DeliveryCalculation, DeliveryFenceKm } from "@/lib/types";
 
 type DeliveryLocationPickerProps = {
@@ -37,6 +38,10 @@ export function DeliveryLocationPicker({
   const [modalOpen, setModalOpen] = useState(false);
   const [draftLat, setDraftLat] = useState(initialLat);
   const [draftLng, setDraftLng] = useState(initialLng);
+  const [locationLabel, setLocationLabel] = useState(() =>
+    formatCoordinates(initialLat, initialLng)
+  );
+  const [draftLocationLabel, setDraftLocationLabel] = useState(locationLabel);
   const geolocationAttempted = useRef(false);
 
   const calcDelivery = async (newLat: number, newLng: number) => {
@@ -68,8 +73,10 @@ export function DeliveryLocationPicker({
       navigator.geolocation.getCurrentPosition(
         (pos) => {
           const { latitude, longitude } = pos.coords;
+          const label = formatCoordinates(latitude, longitude);
           setLat(latitude);
           setLng(longitude);
+          setLocationLabel(label);
           void calcDelivery(latitude, longitude);
         },
         () => void calcDelivery(initialLat, initialLng),
@@ -85,12 +92,14 @@ export function DeliveryLocationPicker({
   const openModal = () => {
     setDraftLat(lat);
     setDraftLng(lng);
+    setDraftLocationLabel(locationLabel);
     setModalOpen(true);
   };
 
   const confirmModal = () => {
     setLat(draftLat);
     setLng(draftLng);
+    setLocationLabel(draftLocationLabel);
     void calcDelivery(draftLat, draftLng);
     setModalOpen(false);
   };
@@ -119,6 +128,8 @@ export function DeliveryLocationPicker({
         deliveryFence={deliveryFence}
         onEdit={openModal}
       />
+
+      <p className="mt-2 text-center text-xs text-chocolate/55">{locationLabel}</p>
 
       {errorMessage && (
         <div className="mt-3">
@@ -156,10 +167,12 @@ export function DeliveryLocationPicker({
           deliveryFence={deliveryFence}
           lat={draftLat}
           lng={draftLng}
+          searchLabel={draftLocationLabel}
           onChange={(newLat, newLng) => {
             setDraftLat(newLat);
             setDraftLng(newLng);
           }}
+          onSearchLabelChange={setDraftLocationLabel}
           onConfirm={confirmModal}
           onClose={() => setModalOpen(false)}
         />
