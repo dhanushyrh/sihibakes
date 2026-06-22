@@ -118,6 +118,22 @@ export function OrderStatusChangeModal({
           ?
         </p>
 
+        {targetStatus === "confirmed" && (
+          <p className="mt-2 text-xs text-[#4B2C20]/55">
+            Inventory will be reserved and the customer will be notified.
+          </p>
+        )}
+        {targetStatus === "self_delivered" && (
+          <p className="mt-2 text-xs text-teal-800">
+            Mark when your team delivered the order directly — no delivery partner.
+          </p>
+        )}
+        {targetStatus === "delivered" && order.status === "out_for_delivery" && (
+          <p className="mt-2 text-xs text-[#4B2C20]/55">
+            Mark when the delivery partner has completed the handoff.
+          </p>
+        )}
+
         <form onSubmit={handleSubmit} className="mt-4 space-y-3">
           {needsDispatch && (
             <>

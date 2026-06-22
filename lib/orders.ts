@@ -1,7 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const BLOCKING_ORDERS_FILTER =
-  "payment_status.eq.pending,and(payment_status.eq.paid,status.in.(confirmed,preparing,out_for_delivery))";
+  "payment_status.eq.pending,and(payment_status.eq.paid,status.in.(pending,confirmed,preparing,out_for_delivery))";
 
 export async function countBlockingOrdersForDeliveryDate(
   deliveryDate: string

@@ -41,8 +41,7 @@ export function shouldFulfillOnStatusChange(
 ): boolean {
   return (
     previousStatus === "pending" &&
-    nextStatus !== "pending" &&
-    nextStatus !== "cancelled" &&
+    nextStatus === "confirmed" &&
     paymentStatus === "paid"
   );
 }

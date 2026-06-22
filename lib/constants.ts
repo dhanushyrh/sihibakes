@@ -35,6 +35,7 @@ export const ORDER_STATUS_OPTIONS = [
   { key: "preparing" as const, label: "Preparing" },
   { key: "out_for_delivery" as const, label: "Out for Delivery" },
   { key: "delivered" as const, label: "Delivered" },
+  { key: "self_delivered" as const, label: "Self Delivered" },
   { key: "cancelled" as const, label: "Cancelled" },
 ];
 

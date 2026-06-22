@@ -19,6 +19,7 @@ export function statusChangeLabel(status: OrderStatus): string {
     preparing: "Preparing",
     out_for_delivery: "Out for Delivery",
     delivered: "Delivered",
+    self_delivered: "Self Delivered",
     cancelled: "Cancelled",
   };
   return labels[status];

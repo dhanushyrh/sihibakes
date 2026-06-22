@@ -11,8 +11,10 @@ import {
   PaymentStatusBadge,
 } from "@/components/admin/orders/OrderBadges";
 import { OrderStatusSelect } from "@/components/admin/orders/OrderStatusSelect";
+import { OrderStatusPipeline } from "@/components/admin/orders/OrderStatusPipeline";
 import { OrderStatusChangeModal } from "@/components/admin/orders/OrderStatusChangeModal";
 import type { OrderStatusUpdatePayload } from "@/lib/order-status-update";
+import { canCancelOrderStatus } from "@/lib/order-status-transitions";
 import { format, parseISO } from "date-fns";
 import {
   ArrowLeft,
@@ -189,8 +191,7 @@ export default function AdminOrderDetailPage() {
     );
   }
 
-  const canCancel =
-    order.status !== "cancelled" && order.status !== "delivered";
+  const canCancel = canCancelOrderStatus(order.status);
   const canConfirm =
     order.status === "pending" && order.payment_status === "paid";
   const canRefund =
@@ -257,6 +258,10 @@ export default function AdminOrderDetailPage() {
           </button>
         </div>
       )}
+
+      <div className="mt-4">
+        <OrderStatusPipeline status={order.status} />
+      </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <section className="rounded-2xl bg-white p-5 ring-1 ring-[#4B2C20]/10">
@@ -485,6 +490,7 @@ export default function AdminOrderDetailPage() {
               <OrderStatusSelect
                 fullWidth
                 value={order.status}
+                paymentStatus={order.payment_status}
                 disabled={saving}
                 onRequestChange={requestStatusChange}
               />

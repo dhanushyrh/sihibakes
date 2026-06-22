@@ -5,6 +5,9 @@ import type { OrderStatus } from "@/lib/types";
 import { ORDER_STATUS_OPTIONS } from "@/lib/constants";
 import { requiresDeliveryDispatch } from "@/lib/order-status-update";
 import {
+  canTransitionOrderStatus,
+} from "@/lib/order-status-transitions";
+import {
   fulfillPaidOrder,
   shouldFulfillOnStatusChange,
 } from "@/lib/order-payment";
@@ -75,6 +78,15 @@ export async function PATCH(
 
   if (order.status === "cancelled") {
     return NextResponse.json({ error: "Cannot update a cancelled order" }, { status: 400 });
+  }
+
+  const transition = canTransitionOrderStatus(
+    order.status as OrderStatus,
+    status,
+    order.payment_status
+  );
+  if (!transition.ok) {
+    return NextResponse.json({ error: transition.error }, { status: 400 });
   }
 
   if (status !== "cancelled" && order.payment_status === "pending" && status !== "pending") {

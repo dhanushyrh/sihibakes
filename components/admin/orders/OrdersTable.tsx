@@ -102,6 +102,7 @@ export function OrdersTable({
                     <div className="relative inline-flex items-center">
                       <OrderStatusSelect
                         value={order.status}
+                        paymentStatus={order.payment_status}
                         disabled={isUpdating}
                         onRequestChange={(status) =>
                           onStatusRequest(order.id, status)

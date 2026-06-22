@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { notifyOrderStatusChange } from "@/lib/whatsapp/notifications";
+import { canCancelOrderStatus } from "@/lib/order-status-transitions";
+import type { OrderStatus } from "@/lib/types";
 
 export async function POST(
   request: Request,
@@ -36,9 +38,9 @@ export async function POST(
     return NextResponse.json({ error: "Order is already cancelled" }, { status: 400 });
   }
 
-  if (order.status === "delivered") {
+  if (!canCancelOrderStatus(order.status as OrderStatus)) {
     return NextResponse.json(
-      { error: "Cannot cancel a delivered order" },
+      { error: "Only pending orders can be cancelled from here" },
       { status: 400 }
     );
   }

@@ -17,6 +17,7 @@ export type OrderStatus =
   | "preparing"
   | "out_for_delivery"
   | "delivered"
+  | "self_delivered"
   | "cancelled";
 
 export interface Allergens {

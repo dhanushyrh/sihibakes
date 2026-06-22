@@ -26,6 +26,8 @@ function statusDetailMessage(status: OrderStatus): string {
       return "Your order is being prepared in our kitchen.";
     case "delivered":
       return "Your order has been delivered. Enjoy!";
+    case "self_delivered":
+      return "Your order has been delivered by our team. Enjoy!";
     case "confirmed":
       return "Your order is confirmed and will be prepared soon.";
     default:
@@ -141,7 +143,7 @@ export async function sendOrderStatusNotification(
     });
   }
 
-  if (newStatus === "preparing" || newStatus === "delivered") {
+  if (newStatus === "preparing" || newStatus === "delivered" || newStatus === "self_delivered") {
     const config = getWhatsAppConfig();
     const templateName = config?.templates.orderStatus ?? "order_status_update";
 
