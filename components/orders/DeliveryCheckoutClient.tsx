@@ -37,7 +37,6 @@ import type { CouponType, DeliveryFenceKm, DeliverySlot, Product } from "@/lib/t
 import {
   buildRazorpayCheckoutOptions,
   getRazorpayTestPaymentHelp,
-  isRazorpayTestMode,
 } from "@/lib/razorpay";
 import {
   formatRazorpayPaymentError,
@@ -70,12 +69,14 @@ export function DeliveryCheckoutClient({
   kitchenLat,
   kitchenLng,
   deliveryFence,
+  razorpayTestMode,
 }: {
   initialSlots: DeliverySlot[];
   storeOpen: boolean;
   kitchenLat: number;
   kitchenLng: number;
   deliveryFence: DeliveryFenceKm;
+  razorpayTestMode: boolean;
 }) {
   const router = useRouter();
   const { items, clearCart, itemCount, pruneItems } = useCart();
@@ -113,7 +114,6 @@ export function DeliveryCheckoutClient({
   const [placingOrder, setPlacingOrder] = useState(false);
   const [error, setError] = useState("");
   const completingOrderRef = useRef(false);
-  const razorpayTestMode = isRazorpayTestMode();
   const razorpayTestHelp = useMemo(() => getRazorpayTestPaymentHelp(), []);
 
   const prefillAddressFromMap = (address: ParsedMapAddress) => {

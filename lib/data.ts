@@ -19,6 +19,7 @@ import {
 } from "@/lib/mock-data";
 import { normalizeClosedDates, normalizeDateKey } from "@/lib/shop-closed-days";
 import { filterCustomerDeliverySlots } from "@/lib/customer-delivery-slots";
+import { shopDateKey, shopDatePlusDays } from "@/lib/shop-timezone";
 
 async function getEffectiveClosedDates(): Promise<string[]> {
   const settings = await getShopSettings();
@@ -27,11 +28,8 @@ async function getEffectiveClosedDates(): Promise<string[]> {
   if (!isSupabaseConfigured()) return [...closed];
 
   const admin = createAdminClient();
-  const today = format(new Date(), "yyyy-MM-dd");
-  const twoWeeks = format(
-    new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-    "yyyy-MM-dd"
-  );
+  const today = shopDateKey();
+  const twoWeeks = shopDatePlusDays(14);
 
   const { data } = await admin
     .from("delivery_slots")
@@ -65,7 +63,7 @@ export interface StorefrontStatus {
 
 export async function getStorefrontStatus(): Promise<StorefrontStatus> {
   const settings = await getShopSettings();
-  const today = format(new Date(), "yyyy-MM-dd");
+  const today = shopDateKey();
 
   if (!settings?.orders_accepting) {
     return {
@@ -238,11 +236,8 @@ export async function getAvailableDeliverySlots(): Promise<DeliverySlot[]> {
   }
 
   const supabase = await createClient();
-  const today = format(new Date(), "yyyy-MM-dd");
-  const twoWeeks = format(
-    new Date(Date.now() + 14 * 24 * 60 * 60 * 1000),
-    "yyyy-MM-dd"
-  );
+  const today = shopDateKey();
+  const twoWeeks = shopDatePlusDays(14);
 
   const { data } = await supabase
     .from("delivery_slots")

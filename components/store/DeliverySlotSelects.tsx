@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useMemo, useRef } from "react";
-import { format, isToday, isTomorrow, parseISO } from "date-fns";
+import { format, parseISO } from "date-fns";
 import { CalendarClock, Check, Clock3 } from "lucide-react";
 import {
   getBookableDates,
   getDateStripEntries,
   getSlotsForBookableDate,
 } from "@/lib/customer-delivery-slots";
+import { isShopToday, isShopTomorrow } from "@/lib/shop-timezone";
 import type { DeliverySlot } from "@/lib/types";
 
 type DeliverySlotSelectsProps = {
@@ -38,10 +39,10 @@ function formatSlotRange(slot: DeliverySlot): string {
 
 function dateChipMeta(dateKey: string) {
   const date = parseISO(dateKey);
-  if (isToday(date)) {
+  if (isShopToday(dateKey)) {
     return { headline: "Today", weekday: format(date, "EEE"), day: format(date, "d"), month: format(date, "MMM") };
   }
-  if (isTomorrow(date)) {
+  if (isShopTomorrow(dateKey)) {
     return { headline: "Tomorrow", weekday: format(date, "EEE"), day: format(date, "d"), month: format(date, "MMM") };
   }
   return {
@@ -58,9 +59,9 @@ function selectionSummary(
 ): string {
   if (!selectedDate) return "Choose a day and time";
   const date = parseISO(selectedDate);
-  const dateLabel = isToday(date)
+  const dateLabel = isShopToday(selectedDate)
     ? "Today"
-    : isTomorrow(date)
+    : isShopTomorrow(selectedDate)
       ? "Tomorrow"
       : format(date, "EEE, d MMM");
   if (!selectedSlot) return dateLabel;

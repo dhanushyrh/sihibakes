@@ -1,6 +1,10 @@
 import { addDays, format, parseISO } from "date-fns";
 import type { DeliverySlot } from "./types";
 import { normalizeClosedDates, normalizeDateKey } from "./shop-closed-days";
+import {
+  shopDateKey,
+  shopWallClockToDate,
+} from "./shop-timezone";
 
 /** Minimum notice before a same-day slot start time. */
 export const SLOT_BOOKING_LEAD_MINUTES = 60;
@@ -13,20 +17,16 @@ export function isSlotStillBookable(
   if (!slot.is_active) return false;
 
   const dateKey = normalizeDateKey(slot.slot_date);
-  const todayKey = format(now, "yyyy-MM-dd");
+  const todayKey = shopDateKey(now);
   if (dateKey !== todayKey) return true;
 
-  const [endH, endM] = slot.window_end.slice(0, 5).split(":").map(Number);
-  const windowEnd = new Date(now);
-  windowEnd.setHours(endH ?? 0, endM ?? 0, 0, 0);
+  const windowEnd = shopWallClockToDate(dateKey, slot.window_end);
   return now < windowEnd;
 }
 
-function slotWindowStart(slot: DeliverySlot, now: Date): Date {
-  const [startH, startM] = slot.window_start.slice(0, 5).split(":").map(Number);
-  const windowStart = new Date(now);
-  windowStart.setHours(startH ?? 0, startM ?? 0, 0, 0);
-  return windowStart;
+function slotWindowStart(slot: DeliverySlot): Date {
+  const dateKey = normalizeDateKey(slot.slot_date);
+  return shopWallClockToDate(dateKey, slot.window_start);
 }
 
 /** Same-day slots need at least {@link SLOT_BOOKING_LEAD_MINUTES} before the window opens. */
@@ -38,10 +38,10 @@ export function isSlotBookableWithLeadTime(
   if (!isSlotStillBookable(slot, now)) return false;
 
   const dateKey = normalizeDateKey(slot.slot_date);
-  const todayKey = format(now, "yyyy-MM-dd");
+  const todayKey = shopDateKey(now);
   if (dateKey !== todayKey) return true;
 
-  const windowStart = slotWindowStart(slot, now);
+  const windowStart = slotWindowStart(slot);
   const earliestBookable = new Date(now.getTime() + leadMinutes * 60 * 1000);
   return earliestBookable <= windowStart;
 }

@@ -8,8 +8,13 @@ export function getRazorpayPublicKey(): string | null {
   );
 }
 
+/** Resolves the Razorpay key on server or client (server can read RAZORPAY_KEY_ID). */
+export function getRazorpayKeyForModeCheck(): string | null {
+  return getRazorpayPublicKey();
+}
+
 export function isRazorpayTestMode(key?: string | null): boolean {
-  const resolved = key ?? getRazorpayPublicKey();
+  const resolved = key ?? getRazorpayKeyForModeCheck();
   return Boolean(resolved?.startsWith("rzp_test_"));
 }
 
