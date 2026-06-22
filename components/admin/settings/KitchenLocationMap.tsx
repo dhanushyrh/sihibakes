@@ -9,7 +9,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Crosshair, ExternalLink, MapPin } from "lucide-react";
 import { AdvancedMapMarker } from "@/components/store/AdvancedMapMarker";
 import { getFenceBounds } from "@/lib/delivery-fence";
-import { getGoogleMapsLoaderOptions, withGoogleMapId } from "@/lib/google-maps-config";
+import { getGoogleMapsApiKey, GOOGLE_MAPS_LOADER_OPTIONS, withGoogleMapId } from "@/lib/google-maps-config";
 import { geolocationErrorMessage } from "@/lib/geolocation";
 import { googleMapsUrl } from "@/lib/storefront";
 import type { DeliveryFenceKm } from "@/lib/types";
@@ -43,8 +43,8 @@ export function KitchenLocationMap({
   readOnly = false,
   onChange,
 }: KitchenLocationMapProps) {
-  const apiKey = getGoogleMapsLoaderOptions().googleMapsApiKey;
-  const { isLoaded, loadError } = useJsApiLoader(getGoogleMapsLoaderOptions());
+  const apiKey = getGoogleMapsApiKey();
+  const { isLoaded, loadError } = useJsApiLoader(GOOGLE_MAPS_LOADER_OPTIONS);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [detectError, setDetectError] = useState<string | null>(null);
   const [detecting, setDetecting] = useState(false);

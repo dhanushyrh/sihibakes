@@ -6,7 +6,7 @@ import { MapPin } from "lucide-react";
 import { AdvancedMapMarker } from "@/components/store/AdvancedMapMarker";
 import { getFenceBounds } from "@/lib/delivery-fence";
 import type { DeliveryFenceKm } from "@/lib/types";
-import { getGoogleMapsLoaderOptions, withGoogleMapId } from "@/lib/google-maps-config";
+import { getGoogleMapsApiKey, GOOGLE_MAPS_LOADER_OPTIONS, withGoogleMapId } from "@/lib/google-maps-config";
 
 const mapContainerStyle = {
   width: "100%",
@@ -36,8 +36,8 @@ export function SelectedLocationMap({
   variant = "preview",
   onEdit,
 }: SelectedLocationMapProps) {
-  const apiKey = getGoogleMapsLoaderOptions().googleMapsApiKey;
-  const { isLoaded } = useJsApiLoader(getGoogleMapsLoaderOptions());
+  const apiKey = getGoogleMapsApiKey();
+  const { isLoaded } = useJsApiLoader(GOOGLE_MAPS_LOADER_OPTIONS);
   const [map, setMap] = useState<google.maps.Map | null>(null);
 
   const fenceBounds = useMemo(() => {

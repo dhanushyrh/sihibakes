@@ -14,7 +14,7 @@ import {
   geolocationErrorMessage,
   requestCurrentPosition,
 } from "@/lib/geolocation";
-import { getGoogleMapsLoaderOptions, withGoogleMapId } from "@/lib/google-maps-config";
+import { getGoogleMapsApiKey, GOOGLE_MAPS_LOADER_OPTIONS, withGoogleMapId } from "@/lib/google-maps-config";
 import {
   formatCoordinates,
   labelFromPlace,
@@ -51,8 +51,8 @@ export function MapPicker({
   onChange,
   onSearchLabelChange,
 }: MapPickerProps) {
-  const apiKey = getGoogleMapsLoaderOptions().googleMapsApiKey;
-  const { isLoaded } = useJsApiLoader(getGoogleMapsLoaderOptions());
+  const apiKey = getGoogleMapsApiKey();
+  const { isLoaded } = useJsApiLoader(GOOGLE_MAPS_LOADER_OPTIONS);
   const [map, setMap] = useState<google.maps.Map | null>(null);
   const [autocomplete, setAutocomplete] =
     useState<google.maps.places.Autocomplete | null>(null);
