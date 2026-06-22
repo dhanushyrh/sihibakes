@@ -9,6 +9,7 @@ import { KittyPartyEnquiryClient } from "@/components/orders/KittyPartyEnquiryCl
 import { HeartDivider } from "@/components/landing/HeartDivider";
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
 import { PhoneOtpVerification } from "@/components/store/PhoneOtpVerification";
+import { useScrollToTopOnChange } from "@/components/store/ScrollToTop";
 import { isValidIndianPhone } from "@/lib/checkout-validation";
 import type { Product } from "@/lib/types";
 import type { StorefrontDetails } from "@/lib/storefront";
@@ -26,6 +27,7 @@ const TYPE_LABELS: Record<string, { title: string; description: string }> = {
 
 function GeneralEnquiryForm({ store }: { store: StorefrontDetails }) {
   const [step, setStep] = useState(0);
+  useScrollToTopOnChange(step);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");

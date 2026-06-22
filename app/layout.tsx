@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
+import { Suspense } from "react";
 import { Cormorant_Garamond, Sora, Great_Vibes } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/components/store/CartProvider";
 import { DeliverySessionProvider } from "@/components/store/DeliverySessionProvider";
+import { ScrollToTop } from "@/components/store/ScrollToTop";
 import { BRAND } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -48,6 +50,9 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col antialiased">
         <CartProvider>
           <DeliverySessionProvider>
+            <Suspense fallback={null}>
+              <ScrollToTop />
+            </Suspense>
             {children}
           </DeliverySessionProvider>
         </CartProvider>

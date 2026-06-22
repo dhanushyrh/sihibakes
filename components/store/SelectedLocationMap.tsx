@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { GoogleMap, useJsApiLoader } from "@react-google-maps/api";
+import { useEffect, useMemo, useState } from "react";
+import { GoogleMap, Rectangle, useJsApiLoader } from "@react-google-maps/api";
 import { MapPin } from "lucide-react";
 import { AdvancedMapMarker } from "@/components/store/AdvancedMapMarker";
+import { getFenceBounds } from "@/lib/delivery-fence";
+import type { DeliveryFenceKm } from "@/lib/types";
 import { getGoogleMapsLoaderOptions, withGoogleMapId } from "@/lib/google-maps-config";
 
 const mapContainerStyle = {
@@ -11,11 +13,14 @@ const mapContainerStyle = {
   height: "200px",
 };
 
+const LOCKED_ZOOM = 16;
+
 type SelectedLocationMapProps = {
   lat: number;
   lng: number;
   kitchenLat?: number;
   kitchenLng?: number;
+  deliveryFence?: DeliveryFenceKm;
 };
 
 export function SelectedLocationMap({
@@ -23,10 +28,16 @@ export function SelectedLocationMap({
   lng,
   kitchenLat,
   kitchenLng,
+  deliveryFence,
 }: SelectedLocationMapProps) {
   const apiKey = getGoogleMapsLoaderOptions().googleMapsApiKey;
   const { isLoaded } = useJsApiLoader(getGoogleMapsLoaderOptions());
   const [map, setMap] = useState<google.maps.Map | null>(null);
+
+  const fenceBounds = useMemo(() => {
+    if (!deliveryFence || kitchenLat == null || kitchenLng == null) return null;
+    return getFenceBounds(kitchenLat, kitchenLng, deliveryFence);
+  }, [deliveryFence, kitchenLat, kitchenLng]);
 
   useEffect(() => {
     map?.panTo({ lat, lng });
@@ -58,18 +69,33 @@ export function SelectedLocationMap({
       onLoad={(m) => {
         setMap(m);
         m.setCenter({ lat, lng });
-        m.setZoom(16);
+        m.setZoom(LOCKED_ZOOM);
       }}
       options={withGoogleMapId({
         disableDefaultUI: true,
-        zoomControl: true,
-        draggable: true,
-        scrollwheel: true,
-        disableDoubleClickZoom: false,
-        gestureHandling: "greedy",
+        zoomControl: false,
+        draggable: false,
+        scrollwheel: false,
+        disableDoubleClickZoom: true,
+        gestureHandling: "none",
         clickableIcons: false,
+        minZoom: LOCKED_ZOOM,
+        maxZoom: LOCKED_ZOOM,
       })}
     >
+      {fenceBounds && (
+        <Rectangle
+          bounds={fenceBounds}
+          options={{
+            fillColor: "#4B2C20",
+            fillOpacity: 0.07,
+            strokeColor: "#4B2C20",
+            strokeOpacity: 0.35,
+            strokeWeight: 2,
+            clickable: false,
+          }}
+        />
+      )}
       {kitchenLat != null && kitchenLng != null && (
         <AdvancedMapMarker
           lat={kitchenLat}

@@ -2,13 +2,14 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import Link from "next/link";
 import Script from "next/script";
 import Image from "next/image";
 import { format, parseISO } from "date-fns";
 import { Tag } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
+import { useScrollToTopOnChange } from "@/components/store/ScrollToTop";
 import { SelectedLocationMap } from "@/components/store/SelectedLocationMap";
+import { DeliveryLocationModal } from "@/components/store/DeliveryLocationModal";
 import { DeliverySlotSelects } from "@/components/store/DeliverySlotSelects";
 import { AvailableCouponsPicker } from "@/components/store/AvailableCouponsPicker";
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
@@ -32,7 +33,7 @@ import { getUnitPrice } from "@/lib/pricing";
 import {
   resolveDeliverySelection,
 } from "@/lib/customer-delivery-slots";
-import type { CouponType, DeliverySlot, Product } from "@/lib/types";
+import type { CouponType, DeliveryFenceKm, DeliverySlot, Product } from "@/lib/types";
 import {
   buildRazorpayCheckoutOptions,
   getRazorpayTestPaymentHelp,
@@ -68,11 +69,13 @@ export function DeliveryCheckoutClient({
   storeOpen,
   kitchenLat,
   kitchenLng,
+  deliveryFence,
 }: {
   initialSlots: DeliverySlot[];
   storeOpen: boolean;
   kitchenLat: number;
   kitchenLng: number;
+  deliveryFence: DeliveryFenceKm;
 }) {
   const router = useRouter();
   const { items, clearCart, itemCount, pruneItems } = useCart();
@@ -83,10 +86,14 @@ export function DeliveryCheckoutClient({
     setAddress,
     setCustomer,
     setPhoneVerified,
+    setLocation,
     clearSession,
   } = useDeliverySession();
 
+  const [locationModalOpen, setLocationModalOpen] = useState(false);
+
   const [step, setStep] = useState(0);
+  useScrollToTopOnChange(step);
   const [products, setProducts] = useState<Product[]>([]);
   const [bookableSlots, setBookableSlots] = useState(initialSlots);
   const [selectedDate, setSelectedDate] = useState("");
@@ -588,26 +595,41 @@ export function DeliveryCheckoutClient({
                   lng={session.lng}
                   kitchenLat={kitchenLat}
                   kitchenLng={kitchenLng}
+                  deliveryFence={deliveryFence}
                 />
                 <div className="border-t border-chocolate/10 px-4 py-3">
-                  <p className="text-[11px] text-chocolate/45">
-                    Pinch or use +/- to zoom the map
-                  </p>
-                  {session.delivery?.reachable && (
+                  {session.delivery?.reachable ? (
                     <p className="text-xs text-chocolate/60">
                       {formatDistance(session.delivery.distance_km)} from kitchen ·
                       Delivery {formatCurrency(session.delivery.delivery_fee_inr)}
                     </p>
-                  )}
-                  <Link
-                    href="/orders/delivery"
-                    className="mt-1 inline-block text-xs font-medium text-chocolate underline"
+                  ) : session.delivery ? (
+                    <p className="text-xs text-red-700">
+                      {session.delivery.message ??
+                        "This location is outside our delivery zone."}
+                    </p>
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => setLocationModalOpen(true)}
+                    className="mt-1 text-xs font-medium text-chocolate underline"
                   >
                     Change pinned location
-                  </Link>
+                  </button>
                 </div>
               </section>
             )}
+
+            <DeliveryLocationModal
+              open={locationModalOpen}
+              kitchenLat={kitchenLat}
+              kitchenLng={kitchenLng}
+              deliveryFence={deliveryFence}
+              initialLat={session.lat ?? kitchenLat}
+              initialLng={session.lng ?? kitchenLng}
+              onClose={() => setLocationModalOpen(false)}
+              onConfirm={(lat, lng, delivery) => setLocation(lat, lng, delivery)}
+            />
 
             <div>
               <label className="text-xs text-chocolate/55">Full name</label>

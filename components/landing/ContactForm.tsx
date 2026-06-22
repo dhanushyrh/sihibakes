@@ -5,12 +5,14 @@ import { CheckCircle } from "lucide-react";
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
 import { PhoneOtpVerification } from "@/components/store/PhoneOtpVerification";
 import { isValidIndianPhone } from "@/lib/checkout-validation";
+import { useScrollToTopOnChange } from "@/components/store/ScrollToTop";
 
 export function ContactForm() {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
   const [step, setStep] = useState<"form" | "verify" | "done">("form");
+  useScrollToTopOnChange(step);
   const [otpVerified, setOtpVerified] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");

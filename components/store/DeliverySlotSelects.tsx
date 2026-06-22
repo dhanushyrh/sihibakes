@@ -5,6 +5,7 @@ import { format, isToday, isTomorrow, parseISO } from "date-fns";
 import { CalendarClock, Check, Clock3 } from "lucide-react";
 import {
   getBookableDates,
+  getDateStripEntries,
   getSlotsForBookableDate,
 } from "@/lib/customer-delivery-slots";
 import type { DeliverySlot } from "@/lib/types";
@@ -80,6 +81,7 @@ export function DeliverySlotSelects({
   const selectedDateRef = useRef<HTMLButtonElement>(null);
 
   const availableDates = useMemo(() => getBookableDates(slots), [slots]);
+  const dateStripEntries = useMemo(() => getDateStripEntries(slots), [slots]);
   const slotsForDate = useMemo(
     () => getSlotsForBookableDate(slots, selectedDate),
     [slots, selectedDate]
@@ -93,12 +95,17 @@ export function DeliverySlotSelects({
   };
 
   useEffect(() => {
-    selectedDateRef.current?.scrollIntoView({
-      behavior: "smooth",
-      block: "nearest",
-      inline: "center",
-    });
-  }, [selectedDate, availableDates.length]);
+    const strip = dateStripRef.current;
+    const chip = selectedDateRef.current;
+    if (!strip || !chip) return;
+
+    const wrapper = chip.parentElement;
+    if (!wrapper) return;
+
+    const left =
+      wrapper.offsetLeft - (strip.clientWidth - wrapper.offsetWidth) / 2;
+    strip.scrollTo({ left: Math.max(0, left), behavior: "smooth" });
+  }, [selectedDate, dateStripEntries.length]);
 
   if (!availableDates.length) {
     return (
@@ -112,7 +119,7 @@ export function DeliverySlotSelects({
 
   return (
     <section
-      className="overflow-hidden rounded-2xl bg-white ring-1 ring-chocolate/10"
+      className="rounded-2xl bg-white ring-1 ring-chocolate/10"
       aria-label="Delivery schedule"
     >
       <div className="border-b border-chocolate/8 bg-gradient-to-br from-parchment/90 via-cream to-white px-4 py-4">
@@ -139,30 +146,52 @@ export function DeliverySlotSelects({
           <p className="mb-2.5 text-xs font-medium text-chocolate/55">Pick a day</p>
           <div
             ref={dateStripRef}
-            className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            className="-mx-1 flex gap-1 overflow-x-auto px-1 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
             role="tablist"
             aria-label="Delivery dates"
           >
-            {availableDates.map((date) => {
+            {dateStripEntries.map(({ date, bookable }) => {
               const meta = dateChipMeta(date);
               const selected = selectedDate === date;
+
+              if (!bookable) {
+                return (
+                  <div key={date} className="shrink-0 snap-center py-1.5">
+                    <div
+                      aria-disabled
+                      className="flex min-w-[4.75rem] flex-col items-center rounded-2xl bg-chocolate/5 px-3.5 py-3 ring-1 ring-chocolate/8"
+                    >
+                      <span className="text-[10px] font-semibold uppercase tracking-wide text-chocolate/35">
+                        Closed
+                      </span>
+                      <span className="font-display text-[1.65rem] font-semibold leading-none text-chocolate/30">
+                        {meta.day}
+                      </span>
+                      <span className="mt-0.5 text-[11px] text-chocolate/30">
+                        {meta.month}
+                      </span>
+                    </div>
+                  </div>
+                );
+              }
+
               return (
-                <button
-                  key={date}
-                  ref={selected ? selectedDateRef : undefined}
-                  type="button"
-                  role="tab"
-                  aria-selected={selected}
-                  onClick={() => handleDateChange(date)}
-                  className={`relative flex min-w-[4.75rem] shrink-0 snap-center flex-col items-center rounded-2xl px-3.5 py-3 transition-all duration-200 active:scale-[0.97] ${
-                    selected
-                      ? "bg-chocolate text-cream shadow-[0_8px_24px_-8px_rgba(60,42,33,0.45)]"
-                      : "bg-parchment/70 text-chocolate ring-1 ring-chocolate/10 hover:bg-parchment"
-                  }`}
-                >
-                  {selected && (
-                    <span className="absolute -top-0.5 right-2 h-1.5 w-1.5 rounded-full bg-gold" />
-                  )}
+                <div key={date} className="shrink-0 snap-center py-1.5">
+                  <button
+                    ref={selected ? selectedDateRef : undefined}
+                    type="button"
+                    role="tab"
+                    aria-selected={selected}
+                    onClick={() => handleDateChange(date)}
+                    className={`relative flex min-w-[4.75rem] flex-col items-center rounded-2xl px-3.5 py-3 transition-all duration-200 active:scale-[0.97] ${
+                      selected
+                        ? "bg-chocolate text-cream ring-2 ring-gold/50"
+                        : "bg-parchment/70 text-chocolate ring-1 ring-chocolate/10 hover:bg-parchment"
+                    }`}
+                  >
+                    {selected && (
+                      <span className="absolute right-2 top-1.5 h-1.5 w-1.5 rounded-full bg-gold ring-2 ring-chocolate" />
+                    )}
                   <span
                     className={`text-[10px] font-semibold uppercase tracking-wide ${
                       selected ? "text-cream/75" : "text-chocolate/50"
@@ -180,7 +209,8 @@ export function DeliverySlotSelects({
                   >
                     {meta.month}
                   </span>
-                </button>
+                  </button>
+                </div>
               );
             })}
           </div>

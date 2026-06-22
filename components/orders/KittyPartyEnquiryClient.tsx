@@ -9,6 +9,7 @@ import { ProductCard } from "@/components/store/ProductCard";
 import { ProductDetailModal } from "@/components/store/ProductDetailModal";
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
 import { PhoneOtpVerification } from "@/components/store/PhoneOtpVerification";
+import { useScrollToTopOnChange } from "@/components/store/ScrollToTop";
 import { DatePicker } from "@/components/store/DatePicker";
 import { TimePicker } from "@/components/store/TimePicker";
 import { HeartDivider } from "@/components/landing/HeartDivider";
@@ -30,6 +31,7 @@ export function KittyPartyEnquiryClient({
   products: Product[];
 }) {
   const [step, setStep] = useState(0);
+  useScrollToTopOnChange(step);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);

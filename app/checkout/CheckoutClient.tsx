@@ -8,6 +8,7 @@ import { OrdersPausedBanner } from "@/components/store/StoreFooter";
 import { MapPicker } from "@/components/store/MapPicker";
 import { DeliverySlotSelects } from "@/components/store/DeliverySlotSelects";
 import { useCart } from "@/components/store/CartProvider";
+import { useScrollToTopOnChange } from "@/components/store/ScrollToTop";
 import { formatCurrency, formatDistance } from "@/lib/delivery";
 import { getUnitPrice } from "@/lib/pricing";
 import { buildRazorpayCheckoutOptions } from "@/lib/razorpay";
@@ -44,6 +45,7 @@ export default function CheckoutPage({
   const router = useRouter();
   const { items, clearCart, itemCount } = useCart();
   const [step, setStep] = useState(0);
+  useScrollToTopOnChange(step);
   const [bookableSlots, setBookableSlots] = useState<DeliverySlot[]>(initialSlots);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [products, setProducts] = useState<Product[]>([]);

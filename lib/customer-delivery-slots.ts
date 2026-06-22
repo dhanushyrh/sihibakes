@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { addDays, format, parseISO } from "date-fns";
 import type { DeliverySlot } from "./types";
 import { normalizeClosedDates, normalizeDateKey } from "./shop-closed-days";
 
@@ -63,6 +63,29 @@ export function filterCustomerDeliverySlots(
 
 export function getBookableDates(slots: DeliverySlot[]): string[] {
   return [...new Set(slots.map((s) => normalizeDateKey(s.slot_date)))].sort();
+}
+
+export type DateStripEntry = {
+  date: string;
+  bookable: boolean;
+};
+
+/** Continuous calendar days from first to last bookable date (fills closed gaps). */
+export function getDateStripEntries(slots: DeliverySlot[]): DateStripEntry[] {
+  const bookableDates = getBookableDates(slots);
+  if (!bookableDates.length) return [];
+
+  const bookableSet = new Set(bookableDates);
+  const first = parseISO(bookableDates[0]);
+  const last = parseISO(bookableDates[bookableDates.length - 1]);
+  const entries: DateStripEntry[] = [];
+
+  for (let current = first; current <= last; current = addDays(current, 1)) {
+    const key = format(current, "yyyy-MM-dd");
+    entries.push({ date: key, bookable: bookableSet.has(key) });
+  }
+
+  return entries;
 }
 
 export function getSlotsForBookableDate(

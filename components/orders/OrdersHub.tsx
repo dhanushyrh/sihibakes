@@ -11,7 +11,6 @@ import {
 import { HeartDivider } from "@/components/landing/HeartDivider";
 import { InstagramIcon } from "@/components/landing/InstagramIcon";
 import { instagramHref, telHref, whatsappHref } from "@/lib/storefront";
-import { formatDeliveryFenceShort } from "@/lib/delivery-fence";
 import { BRAND } from "@/lib/constants";
 import type { StorefrontDetails } from "@/lib/storefront";
 
@@ -72,10 +71,6 @@ export function OrdersHub({ store }: { store: StorefrontDetails }) {
         <h1 className="font-display text-[clamp(1.5rem,5vw,2rem)] font-semibold text-chocolate">
           How can we help?
         </h1>
-        <p className="mt-2 text-xs leading-relaxed text-chocolate/60">
-          Delivery: {formatDeliveryFenceShort(store.delivery_fence)}
-          {store.store_address ? ` · ${store.store_address}` : ""}
-        </p>
       </div>
 
       <div className="mt-8 flex flex-1 flex-col gap-2.5">
