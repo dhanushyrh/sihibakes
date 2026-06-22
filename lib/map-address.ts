@@ -58,21 +58,17 @@ export async function reverseGeocodeAddress(
   lat: number,
   lng: number
 ): Promise<ParsedMapAddress | null> {
-  if (typeof google === "undefined" || !google.maps?.Geocoder) {
-    return null;
-  }
-
-  const geocoder = new google.maps.Geocoder();
-
   try {
-    const { results } = await geocoder.geocode({
-      location: { lat, lng },
+    const res = await fetch("/api/geocode/reverse", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lat, lng }),
     });
 
-    const best = results?.[0];
-    if (!best?.address_components?.length) return null;
+    if (!res.ok) return null;
 
-    return parseAddressComponents(best.address_components);
+    const data = (await res.json()) as { address?: ParsedMapAddress | null };
+    return data.address ?? null;
   } catch {
     return null;
   }
