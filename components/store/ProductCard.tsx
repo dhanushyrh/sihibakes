@@ -19,28 +19,52 @@ interface ProductCardProps {
   product: Product;
   onSelect?: (product: Product) => void;
   onAdd?: (product: Product) => void;
+  /** When set, uses local cart state instead of CartProvider */
+  cartQuantity?: number;
+  onQuantityChange?: (productId: string, quantity: number) => void;
+  /** Simple multi-select for enquiries — no quantity controls */
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (product: Product) => void;
 }
 
-export function ProductCard({ product, onSelect, onAdd }: ProductCardProps) {
-  const { items, addItem, updateQuantity } = useCart();
+export function ProductCard({
+  product,
+  onSelect,
+  onAdd,
+  cartQuantity,
+  onQuantityChange,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
+}: ProductCardProps) {
+  const cart = useCart();
   const unitPrice = getUnitPrice(product);
   const hasDiscount = (product.discount_percent ?? 0) > 0;
   const soldOut = product.sold_out_today || !product.is_active;
-  const compact = Boolean(onAdd);
+  const compact = Boolean(onAdd || onQuantityChange || selectionMode);
   const quantity =
-    items.find((item) => item.productId === product.id)?.quantity ?? 0;
+    onQuantityChange !== undefined
+      ? (cartQuantity ?? 0)
+      : (cart.items.find((item) => item.productId === product.id)?.quantity ?? 0);
   const inCart = quantity > 0;
 
   const handleAdd = () => {
-    if (onAdd) onAdd(product);
-    else addItem(product.id);
+    if (onQuantityChange) onQuantityChange(product.id, 1);
+    else if (onAdd) onAdd(product);
+    else cart.addItem(product.id);
+  };
+
+  const changeQuantity = (next: number) => {
+    if (onQuantityChange) onQuantityChange(product.id, next);
+    else cart.updateQuantity(product.id, next);
   };
 
   return (
     <article
-      className={`flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chocolate/10 transition hover:shadow-md ${
-        soldOut ? "opacity-60" : ""
-      }`}
+      className={`flex h-full flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 transition hover:shadow-md ${
+        selected ? "ring-2 ring-chocolate" : "ring-chocolate/10"
+      } ${soldOut ? "opacity-60" : ""}`}
     >
       <button
         type="button"
@@ -116,14 +140,31 @@ export function ProductCard({ product, onSelect, onAdd }: ProductCardProps) {
         </div>
       </button>
 
-      {!soldOut && compact && (
+      {!soldOut && selectionMode && (
+        <div className="border-t border-chocolate/5 px-3 py-2.5">
+          <button
+            type="button"
+            onClick={() => onToggleSelect?.(product)}
+            className={`flex w-full items-center justify-center rounded-full py-2 text-xs font-medium transition active:scale-[0.98] ${
+              selected
+                ? "bg-cream text-chocolate ring-1 ring-chocolate/20"
+                : "bg-chocolate text-cream hover:bg-chocolate-dark"
+            }`}
+            aria-label={selected ? `Deselect ${product.title}` : `Select ${product.title}`}
+          >
+            {selected ? "Selected" : "Select"}
+          </button>
+        </div>
+      )}
+
+      {!soldOut && !selectionMode && compact && (
         <div className="border-t border-chocolate/5 px-3 py-2.5">
           {inCart ? (
             <div className="flex items-center justify-between gap-2">
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => updateQuantity(product.id, quantity - 1)}
+                  onClick={() => changeQuantity(quantity - 1)}
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-cream text-chocolate transition active:scale-95"
                   aria-label={`Decrease ${product.title} quantity`}
                 >
@@ -134,7 +175,7 @@ export function ProductCard({ product, onSelect, onAdd }: ProductCardProps) {
                 </span>
                 <button
                   type="button"
-                  onClick={() => updateQuantity(product.id, quantity + 1)}
+                  onClick={() => changeQuantity(quantity + 1)}
                   className="flex h-8 w-8 items-center justify-center rounded-full bg-chocolate text-cream transition active:scale-95"
                   aria-label={`Increase ${product.title} quantity`}
                 >

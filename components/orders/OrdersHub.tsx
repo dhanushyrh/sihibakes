@@ -1,10 +1,10 @@
 "use client";
 
+import Image from "next/image";
 import Link from "next/link";
 import {
   Truck,
   PartyPopper,
-  CalendarClock,
   MessageCircle,
   ChevronRight,
 } from "lucide-react";
@@ -12,6 +12,7 @@ import { HeartDivider } from "@/components/landing/HeartDivider";
 import { InstagramIcon } from "@/components/landing/InstagramIcon";
 import { instagramHref, telHref, whatsappHref } from "@/lib/storefront";
 import { formatDeliveryFenceShort } from "@/lib/delivery-fence";
+import { BRAND } from "@/lib/constants";
 import type { StorefrontDetails } from "@/lib/storefront";
 
 const OPTIONS = [
@@ -30,14 +31,6 @@ const OPTIONS = [
     icon: PartyPopper,
     href: "/orders/enquiry?type=kitty-party",
     style: "bg-gold text-chocolate",
-  },
-  {
-    id: "pre-order",
-    title: "Pre-Order",
-    subtitle: "Plan ahead for occasions",
-    icon: CalendarClock,
-    href: "/orders/enquiry?type=pre-order",
-    style: "bg-kraft text-chocolate",
   },
   {
     id: "enquiry",
@@ -67,7 +60,14 @@ export function OrdersHub({ store }: { store: StorefrontDetails }) {
   return (
     <main className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-lg flex-col px-4 py-6 pb-[calc(5rem+env(safe-area-inset-bottom))]">
       <div className="text-center">
-        <p className="font-script text-2xl text-gold">Sihi Bakes</p>
+        <Image
+          src="/orders-logo.png"
+          alt={`${BRAND.name} — ${BRAND.tagline}`}
+          width={603}
+          height={406}
+          className="mx-auto h-auto w-36"
+          priority
+        />
         <HeartDivider className="my-3" />
         <h1 className="font-display text-[clamp(1.5rem,5vw,2rem)] font-semibold text-chocolate">
           How can we help?

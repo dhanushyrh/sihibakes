@@ -246,10 +246,20 @@ export default function AdminOrderDetailPage() {
             </li>
             <li className="flex items-center gap-2">
               <Phone size={14} className="shrink-0 text-[#4B2C20]/40" />
+              <span className="text-[#4B2C20]/50">WhatsApp</span>
               <a href={`tel:${order.phone}`} className="hover:underline">
                 {order.phone}
               </a>
             </li>
+            {order.alt_phone ? (
+              <li className="flex items-center gap-2">
+                <Phone size={14} className="shrink-0 text-[#4B2C20]/40" />
+                <span className="text-[#4B2C20]/50">Alt.</span>
+                <a href={`tel:${order.alt_phone}`} className="hover:underline">
+                  {order.alt_phone}
+                </a>
+              </li>
+            ) : null}
             <li className="flex items-start gap-2">
               <MapPin size={14} className="mt-0.5 shrink-0 text-[#4B2C20]/40" />
               <span>{address}</span>

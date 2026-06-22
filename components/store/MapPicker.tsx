@@ -3,18 +3,15 @@
 import {
   Autocomplete,
   GoogleMap,
-  Marker,
   Rectangle,
   useJsApiLoader,
 } from "@react-google-maps/api";
 import { useCallback, useMemo, useState } from "react";
 import { MapPin, Search } from "lucide-react";
-import {
-  formatDeliveryFenceShort,
-  getFenceBounds,
-} from "@/lib/delivery-fence";
+import { AdvancedMapMarker } from "@/components/store/AdvancedMapMarker";
+import { getFenceBounds } from "@/lib/delivery-fence";
 import type { DeliveryFenceKm } from "@/lib/types";
-import { getGoogleMapsLoaderOptions } from "@/lib/google-maps-config";
+import { getGoogleMapsLoaderOptions, withGoogleMapId } from "@/lib/google-maps-config";
 
 const mapContainerStyle = {
   width: "100%",
@@ -171,11 +168,11 @@ export function MapPicker({
           onClick={(e) => {
             if (e.latLng) movePin(e.latLng.lat(), e.latLng.lng(), 0);
           }}
-          options={{
+          options={withGoogleMapId({
             disableDefaultUI: true,
             zoomControl: true,
             gestureHandling: "greedy",
-          }}
+          })}
         >
           {fenceBounds && (
             <Rectangle
@@ -191,40 +188,27 @@ export function MapPicker({
             />
           )}
 
-          <Marker
-            position={{ lat: kitchenLat, lng: kitchenLng }}
-            icon={{
-              path: google.maps.SymbolPath.CIRCLE,
-              scale: 8,
-              fillColor: "#4B2C20",
-              fillOpacity: 0.55,
-              strokeColor: "#FFFFFF",
-              strokeWeight: 2,
-            }}
+          <AdvancedMapMarker
+            lat={kitchenLat}
+            lng={kitchenLng}
+            variant="kitchen"
             title="Kitchen"
             zIndex={1}
           />
 
-          <Marker
-            position={{ lat, lng }}
+          <AdvancedMapMarker
+            lat={lat}
+            lng={lng}
             draggable
-            onDragEnd={(e) => {
-              if (e.latLng) {
-                setSearchValue("");
-                onChange(e.latLng.lat(), e.latLng.lng());
-              }
-            }}
+            title="Delivery location"
             zIndex={2}
+            onDragEnd={(newLat, newLng) => {
+              setSearchValue("");
+              onChange(newLat, newLng);
+            }}
           />
         </GoogleMap>
       </div>
-
-      {deliveryFence && (
-        <p className="text-center text-xs text-[#4B2C20]/50">
-          Shaded area is our delivery zone —{" "}
-          {formatDeliveryFenceShort(deliveryFence)} from the kitchen
-        </p>
-      )}
 
       <button
         type="button"

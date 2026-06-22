@@ -12,9 +12,14 @@ export function formatRazorpayPaymentError(error?: {
     lower.includes("authentication failed")
   ) {
     return (
-      "Payment OTP was incorrect. This is the bank OTP on Razorpay's screen — not your WhatsApp code. " +
-      "For test payments use card 4111 1111 1111 1111 and enter any 6-digit OTP (e.g. 123456)."
+      "Card OTP was rejected on Razorpay's test page. Enter any 4–10 digit code and tap Submit, " +
+      "or tap Success if that button appears. Try UPI with success@razorpay instead. " +
+      "This is not the phone verification code from our checkout."
     );
+  }
+
+  if (reason === "otp_attempts_exceeded" || lower.includes("otp attempts")) {
+    return "Too many wrong card OTP attempts. Close Razorpay, wait a minute, and try UPI (success@razorpay) or a fresh card payment.";
   }
 
   if (lower.includes("cancelled") || reason === "payment_cancelled") {
@@ -22,4 +27,14 @@ export function formatRazorpayPaymentError(error?: {
   }
 
   return description || "Payment failed. Please try again.";
+}
+
+export function formatRazorpayVerifyError(error?: string, code?: string): string {
+  if (code === "INVALID_SIGNATURE") {
+    return (
+      "Payment went through on Razorpay but verification failed. " +
+      "Check that RAZORPAY_KEY_SECRET matches the same test key pair as NEXT_PUBLIC_RAZORPAY_KEY_ID."
+    );
+  }
+  return error || "Payment verification failed. Please contact support with your order number.";
 }

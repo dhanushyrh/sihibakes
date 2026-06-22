@@ -41,6 +41,20 @@ export const PAYMENT_STATUS_OPTIONS = [
 
 export const ORDERS_PAGE_SIZE = 15;
 export const CUSTOMERS_PAGE_SIZE = 15;
+export const ENQUIRIES_PAGE_SIZE = 15;
+
+export const ENQUIRY_TYPE_OPTIONS = [
+  { key: "kitty_party" as const, label: "Kitty Party" },
+  { key: "general" as const, label: "General" },
+  { key: "landing" as const, label: "Landing" },
+] as const;
+
+export const ENQUIRY_STATUS_OPTIONS = [
+  { key: "new" as const, label: "New" },
+  { key: "in_progress" as const, label: "In progress" },
+  { key: "replied" as const, label: "Replied" },
+  { key: "closed" as const, label: "Closed" },
+] as const;
 
 export const COUPON_TYPE_OPTIONS = [
   { key: "fixed_subtotal" as const, label: "Fixed off subtotal" },

@@ -18,9 +18,10 @@ import {
   generateOrderNumber,
   getUnitPrice,
 } from "@/lib/pricing";
-import { createRazorpayOrder } from "@/lib/razorpay";
+import { createRazorpayOrder, getRazorpayPublicKey } from "@/lib/razorpay";
+import { isSlotBookableWithLeadTime } from "@/lib/customer-delivery-slots";
 import { getDeliveryFence, isWithinDeliveryFence } from "@/lib/delivery-fence";
-import type { Coupon } from "@/lib/types";
+import type { Coupon, DeliverySlot } from "@/lib/types";
 
 export async function POST(request: Request) {
   try {
@@ -29,6 +30,7 @@ export async function POST(request: Request) {
       items,
       customer_name,
       phone,
+      alt_phone,
       house,
       street,
       landmark,
@@ -54,7 +56,23 @@ export async function POST(request: Request) {
     const normalizedPhone = String(phone).replace(/\D/g, "").slice(-10);
     if (!isValidIndianPhone(normalizedPhone)) {
       return NextResponse.json(
-        { error: "Enter a valid 10-digit mobile number" },
+        { error: "Enter a valid 10-digit WhatsApp number" },
+        { status: 400 }
+      );
+    }
+
+    const normalizedAltPhone = alt_phone
+      ? String(alt_phone).replace(/\D/g, "").slice(-10)
+      : "";
+    if (normalizedAltPhone && !isValidIndianPhone(normalizedAltPhone)) {
+      return NextResponse.json(
+        { error: "Enter a valid 10-digit alternate contact number" },
+        { status: 400 }
+      );
+    }
+    if (normalizedAltPhone && normalizedAltPhone === normalizedPhone) {
+      return NextResponse.json(
+        { error: "Alternate contact must be different from your WhatsApp number" },
         { status: 400 }
       );
     }
@@ -129,6 +147,16 @@ export async function POST(request: Request) {
       );
     }
 
+    if (!isSlotBookableWithLeadTime(slot as DeliverySlot)) {
+      return NextResponse.json(
+        {
+          error:
+            "This delivery slot is no longer available — please choose a later time",
+        },
+        { status: 400 }
+      );
+    }
+
     for (const { product, quantity } of cartItems) {
       const avail = await checkProductAvailability(
         product.id,
@@ -187,6 +215,7 @@ export async function POST(request: Request) {
         customer_id: customer?.id ?? null,
         customer_name,
         phone: normalizedPhone,
+        alt_phone: normalizedAltPhone,
         house,
         street,
         landmark: landmark || null,
@@ -224,10 +253,14 @@ export async function POST(request: Request) {
     await admin.from("order_items").insert(orderItems);
 
     let razorpayOrderId: string | null = null;
-    const razorpayKey =
-      process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID ?? process.env.RAZORPAY_KEY_ID ?? null;
+    const razorpayKey = getRazorpayPublicKey();
 
     if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
+      if (razorpayKey && razorpayKey !== process.env.RAZORPAY_KEY_ID.trim()) {
+        console.warn(
+          "Razorpay key mismatch: NEXT_PUBLIC_RAZORPAY_KEY_ID should equal RAZORPAY_KEY_ID"
+        );
+      }
       try {
         const rzOrder = await createRazorpayOrder(pricing.total_inr, orderNumber);
         razorpayOrderId = rzOrder.id;

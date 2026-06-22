@@ -11,7 +11,10 @@ export type DeliverySession = {
   landmark: string;
   pincode: string;
   customerName: string;
-  phone: string;
+  /** @deprecated Use whatsappPhone — kept for older saved sessions */
+  phone?: string;
+  whatsappPhone: string;
+  altPhone: string;
   phoneVerified: boolean;
 };
 
@@ -24,9 +27,22 @@ export const EMPTY_DELIVERY_SESSION: DeliverySession = {
   landmark: "",
   pincode: "",
   customerName: "",
-  phone: "",
+  whatsappPhone: "",
+  altPhone: "",
   phoneVerified: false,
 };
+
+function hydrateDeliverySession(
+  parsed: Partial<DeliverySession>
+): DeliverySession {
+  const whatsappPhone = parsed.whatsappPhone ?? parsed.phone ?? "";
+  return {
+    ...EMPTY_DELIVERY_SESSION,
+    ...parsed,
+    whatsappPhone,
+    altPhone: parsed.altPhone ?? "",
+  };
+}
 
 export function isDeliveryLocationReady(session: DeliverySession): boolean {
   return (
@@ -51,7 +67,7 @@ export function readDeliverySession(): DeliverySession {
   try {
     const raw = localStorage.getItem(DELIVERY_SESSION_KEY);
     if (!raw) return EMPTY_DELIVERY_SESSION;
-    return { ...EMPTY_DELIVERY_SESSION, ...JSON.parse(raw) };
+    return hydrateDeliverySession(JSON.parse(raw));
   } catch {
     return EMPTY_DELIVERY_SESSION;
   }

@@ -2,14 +2,14 @@
 
 import {
   GoogleMap,
-  Marker,
   Rectangle,
   useJsApiLoader,
 } from "@react-google-maps/api";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Crosshair, ExternalLink, MapPin } from "lucide-react";
+import { AdvancedMapMarker } from "@/components/store/AdvancedMapMarker";
 import { getFenceBounds } from "@/lib/delivery-fence";
-import { getGoogleMapsLoaderOptions } from "@/lib/google-maps-config";
+import { getGoogleMapsLoaderOptions, withGoogleMapId } from "@/lib/google-maps-config";
 import { googleMapsUrl } from "@/lib/storefront";
 import type { DeliveryFenceKm } from "@/lib/types";
 
@@ -233,13 +233,13 @@ export function KitchenLocationMap({
                     }
                   }
             }
-            options={{
+            options={withGoogleMapId({
               disableDefaultUI: true,
               zoomControl: true,
               gestureHandling: readOnly ? "none" : "greedy",
               draggable: !readOnly,
               scrollwheel: !readOnly,
-            }}
+            })}
           >
             {fenceBounds && (
               <Rectangle
@@ -255,23 +255,19 @@ export function KitchenLocationMap({
               />
             )}
             {hasValidCoords && (
-              <Marker
-                key={`${lat.toFixed(6)}-${lng.toFixed(6)}`}
-                position={{ lat, lng }}
+              <AdvancedMapMarker
+                lat={lat}
+                lng={lng}
+                title="Kitchen / store"
                 draggable={!readOnly && !!onChange}
                 onDragEnd={
                   readOnly || !onChange
                     ? undefined
-                    : (e) => {
-                        if (e.latLng) {
-                          const newLat = e.latLng.lat();
-                          const newLng = e.latLng.lng();
-                          onChange(newLat, newLng);
-                          panMapTo(newLat, newLng, 0);
-                        }
+                    : (newLat, newLng) => {
+                        onChange(newLat, newLng);
+                        panMapTo(newLat, newLng, 0);
                       }
                 }
-                title="Kitchen / store"
               />
             )}
           </GoogleMap>

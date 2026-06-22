@@ -24,7 +24,11 @@ type DeliverySessionContextValue = {
   isLocationReady: boolean;
   setLocation: (lat: number, lng: number, delivery: DeliveryCalculation | null) => void;
   setAddress: (fields: Partial<Pick<DeliverySession, "house" | "street" | "landmark" | "pincode">>) => void;
-  setCustomer: (fields: Partial<Pick<DeliverySession, "customerName" | "phone">>) => void;
+  setCustomer: (
+    fields: Partial<
+      Pick<DeliverySession, "customerName" | "whatsappPhone" | "altPhone">
+    >
+  ) => void;
   setPhoneVerified: (verified: boolean) => void;
   clearSession: () => void;
 };
@@ -89,10 +93,17 @@ export function DeliverySessionProvider({
   );
 
   const setCustomer = useCallback(
-    (fields: Partial<Pick<DeliverySession, "customerName" | "phone">>) => {
+    (
+      fields: Partial<
+        Pick<DeliverySession, "customerName" | "whatsappPhone" | "altPhone">
+      >
+    ) => {
       setSession((prev) => {
         const next = { ...prev, ...fields };
-        if (fields.phone && fields.phone !== prev.phone) {
+        if (
+          fields.whatsappPhone != null &&
+          fields.whatsappPhone !== prev.whatsappPhone
+        ) {
           next.phoneVerified = false;
         }
         return next;

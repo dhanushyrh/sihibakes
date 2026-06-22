@@ -6,18 +6,20 @@ import Script from "next/script";
 import { StoreHeader } from "@/components/store/StoreHeader";
 import { OrdersPausedBanner } from "@/components/store/StoreFooter";
 import { MapPicker } from "@/components/store/MapPicker";
+import { DeliverySlotSelects } from "@/components/store/DeliverySlotSelects";
 import { useCart } from "@/components/store/CartProvider";
 import { formatCurrency, formatDistance } from "@/lib/delivery";
 import { getUnitPrice } from "@/lib/pricing";
+import { buildRazorpayCheckoutOptions } from "@/lib/razorpay";
+import { formatRazorpayVerifyError } from "@/lib/razorpay-errors";
 import { formatDeliveryFenceShort } from "@/lib/delivery-fence";
 import type { DeliveryCalculation, DeliveryFenceKm, DeliverySlot, Product } from "@/lib/types";
 import {
-  getBookableDates,
   getSlotsForBookableDate,
+  resolveDeliverySelection,
 } from "@/lib/customer-delivery-slots";
 import { DEFAULT_KITCHEN } from "@/lib/constants";
 import { format, parseISO } from "date-fns";
-import { Check } from "lucide-react";
 import "@/lib/razorpay-checkout";
 
 interface CheckoutPageProps {
@@ -93,11 +95,6 @@ export default function CheckoutPage({
   const deliveryFee = freeDelivery ? 0 : (delivery?.delivery_fee_inr ?? 0);
   const total = Math.max(0, subtotal - couponDiscount + deliveryFee);
 
-  const availableDates = useMemo(
-    () => getBookableDates(bookableSlots),
-    [bookableSlots]
-  );
-
   const slotsForDate = useMemo(
     () => getSlotsForBookableDate(bookableSlots, selectedDate),
     [bookableSlots, selectedDate]
@@ -128,19 +125,14 @@ export default function CheckoutPage({
   }, [step, initialSlots]);
 
   useEffect(() => {
-    if (!selectedDate) return;
-    if (!availableDates.includes(selectedDate)) {
-      setSelectedDate("");
-      setSelectedSlotId("");
-    }
-  }, [availableDates, selectedDate]);
-
-  useEffect(() => {
-    if (!selectedSlotId) return;
-    if (!slotsForDate.some((s) => s.id === selectedSlotId)) {
-      setSelectedSlotId("");
-    }
-  }, [slotsForDate, selectedSlotId]);
+    if (!bookableSlots.length) return;
+    const next = resolveDeliverySelection(bookableSlots, {
+      date: selectedDate,
+      slotId: selectedSlotId,
+    });
+    if (next.date !== selectedDate) setSelectedDate(next.date);
+    if (next.slotId !== selectedSlotId) setSelectedSlotId(next.slotId);
+  }, [bookableSlots, selectedDate, selectedSlotId]);
 
   const calcDelivery = async (newLat: number, newLng: number) => {
     setLoadingDelivery(true);
@@ -213,18 +205,19 @@ export default function CheckoutPage({
 
       if (data.razorpay_order_id && data.razorpay_key && window.Razorpay) {
         const rzp = new window.Razorpay({
-          key: data.razorpay_key,
-          amount: data.total_inr * 100,
-          currency: "INR",
-          name: "Sihi Bakes",
-          description: `Order ${data.order_number}`,
-          order_id: data.razorpay_order_id,
+          ...buildRazorpayCheckoutOptions({
+            key: data.razorpay_key,
+            orderId: data.razorpay_order_id,
+            name: "Sihi Bakes",
+            description: `Order ${data.order_number}`,
+            prefill: { name, contact: phone },
+          }),
           handler: async (response: {
             razorpay_order_id: string;
             razorpay_payment_id: string;
             razorpay_signature: string;
           }) => {
-            await fetch("/api/razorpay/verify", {
+            const verifyRes = await fetch("/api/razorpay/verify", {
               method: "POST",
               headers: { "Content-Type": "application/json" },
               body: JSON.stringify({
@@ -234,11 +227,14 @@ export default function CheckoutPage({
                 razorpay_signature: response.razorpay_signature,
               }),
             });
+            const verifyData = await verifyRes.json();
+            if (!verifyRes.ok) {
+              setError(formatRazorpayVerifyError(verifyData.error, verifyData.code));
+              return;
+            }
             clearCart();
             router.push(`/order/${data.order_number}?phone=${phone}`);
           },
-          prefill: { name, contact: phone },
-          theme: { color: "#4B2C20" },
         });
         rzp.open();
       } else {
@@ -404,60 +400,17 @@ export default function CheckoutPage({
               <p className="text-center text-xs text-[#4B2C20]/50">
                 Loading available slots...
               </p>
-            ) : availableDates.length === 0 ? (
-              <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200">
-                No delivery dates available right now. Closed days and unavailable
-                time slots are hidden.
-              </p>
             ) : (
-              <>
-            <div className="flex gap-2 overflow-x-auto pb-2">
-              {availableDates.map((date) => (
-                <button
-                  key={date}
-                  type="button"
-                  onClick={() => {
-                    setSelectedDate(date);
-                    setSelectedSlotId("");
-                  }}
-                  className={`shrink-0 rounded-xl px-3 py-2 text-xs font-medium ${
-                    selectedDate === date
-                      ? "bg-[#4B2C20] text-white"
-                      : "bg-white ring-1 ring-[#4B2C20]/10"
-                  }`}
-                >
-                  {format(parseISO(date), "EEE, d MMM")}
-                </button>
-              ))}
-            </div>
-            {selectedDate && (
-              <div className="space-y-2">
-                {slotsForDate.length === 0 ? (
-                  <p className="text-xs text-[#4B2C20]/50">
-                    No time slots available for this date.
-                  </p>
-                ) : (
-                  slotsForDate.map((slot) => (
-                  <button
-                    key={slot.id}
-                    type="button"
-                    onClick={() => setSelectedSlotId(slot.id)}
-                    className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-sm ${
-                      selectedSlotId === slot.id
-                        ? "bg-[#4B2C20] text-white"
-                        : "bg-white ring-1 ring-[#4B2C20]/10"
-                    }`}
-                  >
-                    <span>
-                      {slot.window_start.slice(0, 5)} – {slot.window_end.slice(0, 5)}
-                    </span>
-                    {selectedSlotId === slot.id && <Check size={16} />}
-                  </button>
-                ))
-                )}
-              </div>
-            )}
-              </>
+              <DeliverySlotSelects
+                slots={bookableSlots}
+                selectedDate={selectedDate}
+                selectedSlotId={selectedSlotId}
+                onDateChange={setSelectedDate}
+                onSlotChange={setSelectedSlotId}
+                emptyDatesMessage="No delivery dates available right now. Closed days and unavailable time slots are hidden."
+                selectClassName="mt-1 w-full rounded-xl border border-[#4B2C20]/10 bg-white px-3 py-2.5 text-sm outline-none focus:border-[#4B2C20]/30"
+                labelClassName="text-xs text-[#4B2C20]/55"
+              />
             )}
             <div className="flex gap-2 pt-2">
               <button type="button" onClick={() => setStep(1)} className="flex-1 rounded-full border py-3 text-sm">

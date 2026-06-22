@@ -31,6 +31,8 @@ export async function POST(request: Request) {
         email,
         message,
         source: "landing",
+        type: "landing",
+        status: "new",
       });
       if (error) {
         console.error("Contact enquiry insert failed:", error);

@@ -125,14 +125,30 @@ export default function OrderConfirmationClient({
                 </ul>
               </div>
             )}
-            <div className="mt-3 flex justify-between">
-              <span className="text-chocolate/60">Total</span>
-              <span className="font-semibold">
-                {formatCurrency(order.total_inr)}
-              </span>
+            <div className="mt-3 space-y-1.5 border-t border-chocolate/10 pt-3">
+              <div className="flex justify-between">
+                <span className="text-chocolate/60">Subtotal</span>
+                <span>{formatCurrency(order.subtotal_inr)}</span>
+              </div>
+              {order.discount_inr > 0 && (
+                <div className="flex justify-between text-green-700">
+                  <span>Discount</span>
+                  <span>−{formatCurrency(order.discount_inr)}</span>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <span className="text-chocolate/60">Delivery</span>
+                <span>
+                  {order.delivery_fee_inr === 0 ? "FREE" : formatCurrency(order.delivery_fee_inr)}
+                </span>
+              </div>
+              <div className="flex justify-between border-t border-chocolate/10 pt-2 font-semibold">
+                <span>Total</span>
+                <span>{formatCurrency(order.total_inr)}</span>
+              </div>
             </div>
-            <div className="mt-2 flex justify-between gap-4">
-              <span className="shrink-0 text-chocolate/60">Delivery</span>
+            <div className="mt-3 flex justify-between gap-4 border-t border-chocolate/10 pt-3">
+              <span className="shrink-0 text-chocolate/60">Delivery slot</span>
               <span className="text-right">
                 {format(parseISO(order.delivery_date), "EEE, d MMM")} ·{" "}
                 {order.delivery_window_start?.slice(0, 5)} –{" "}

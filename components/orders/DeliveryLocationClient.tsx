@@ -6,7 +6,6 @@ import { MapPicker } from "@/components/store/MapPicker";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
 import { formatCurrency, formatDistance } from "@/lib/delivery";
-import { formatDeliveryFenceShort } from "@/lib/delivery-fence";
 import type { DeliveryCalculation, DeliveryFenceKm } from "@/lib/types";
 import { MapPin, Navigation } from "lucide-react";
 
@@ -73,8 +72,7 @@ export function DeliveryLocationClient({
             <h2 className="font-medium">Pin your delivery location</h2>
           </div>
           <p className="mt-1 text-sm text-chocolate/60">
-            Search for your area or use the map. We deliver within{" "}
-            {formatDeliveryFenceShort(deliveryFence)} of our kitchen.
+            Search for your area or use the map.
           </p>
         </div>
 

@@ -2,11 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import Script from "next/script";
 import Image from "next/image";
 import { format, parseISO } from "date-fns";
-import { Check, Tag } from "lucide-react";
+import { Tag } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
+import { SelectedLocationMap } from "@/components/store/SelectedLocationMap";
+import { DeliverySlotSelects } from "@/components/store/DeliverySlotSelects";
+import { AvailableCouponsPicker } from "@/components/store/AvailableCouponsPicker";
+import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
 import { useCart } from "@/components/store/CartProvider";
 import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
 import {
@@ -15,23 +20,28 @@ import {
   type AppliedCoupon,
 } from "@/lib/applied-coupon";
 import {
-  formatIndianPhoneInput,
   formatPincodeInput,
   isValidIndianPhone,
   isValidIndianPincode,
 } from "@/lib/checkout-validation";
-import { describeCoupon } from "@/lib/coupon-display";
 import { isMenuProduct } from "@/lib/cart-products";
 import { BRAND } from "@/lib/constants";
-import { formatCurrency } from "@/lib/delivery";
+import { formatCurrency, formatDistance } from "@/lib/delivery";
 import { normalizePhone } from "@/lib/storefront";
 import { getUnitPrice } from "@/lib/pricing";
 import {
-  getBookableDates,
-  getSlotsForBookableDate,
+  resolveDeliverySelection,
 } from "@/lib/customer-delivery-slots";
 import type { CouponType, DeliverySlot, Product } from "@/lib/types";
-import { formatRazorpayPaymentError } from "@/lib/razorpay-errors";
+import {
+  buildRazorpayCheckoutOptions,
+  getRazorpayTestPaymentHelp,
+  isRazorpayTestMode,
+} from "@/lib/razorpay";
+import {
+  formatRazorpayPaymentError,
+  formatRazorpayVerifyError,
+} from "@/lib/razorpay-errors";
 import "@/lib/razorpay-checkout";
 
 const STEPS = ["Details", "Verify & pay"];
@@ -56,9 +66,13 @@ type PlacedOrder = {
 export function DeliveryCheckoutClient({
   initialSlots,
   storeOpen,
+  kitchenLat,
+  kitchenLng,
 }: {
   initialSlots: DeliverySlot[];
   storeOpen: boolean;
+  kitchenLat: number;
+  kitchenLng: number;
 }) {
   const router = useRouter();
   const { items, clearCart, itemCount, pruneItems } = useCart();
@@ -94,6 +108,8 @@ export function DeliveryCheckoutClient({
   const [placingOrder, setPlacingOrder] = useState(false);
   const [error, setError] = useState("");
   const completingOrderRef = useRef(false);
+  const razorpayTestMode = isRazorpayTestMode();
+  const razorpayTestHelp = useMemo(() => getRazorpayTestPaymentHelp(), []);
 
   useEffect(() => {
     if (!sessionReady || completingOrderRef.current || placingOrder) return;
@@ -133,11 +149,21 @@ export function DeliveryCheckoutClient({
   }, [initialSlots]);
 
   useEffect(() => {
+    if (!bookableSlots.length) return;
+    const next = resolveDeliverySelection(bookableSlots, {
+      date: selectedDate,
+      slotId: selectedSlotId,
+    });
+    if (next.date !== selectedDate) setSelectedDate(next.date);
+    if (next.slotId !== selectedSlotId) setSelectedSlotId(next.slotId);
+  }, [bookableSlots, selectedDate, selectedSlotId]);
+
+  useEffect(() => {
     setOtp("");
     setOtpSent(false);
     setOtpHint("");
     setOtpVerified(false);
-  }, [session.phone]);
+  }, [session.whatsappPhone]);
 
   const cartLines = useMemo(() => {
     return items
@@ -163,22 +189,20 @@ export function DeliveryCheckoutClient({
   const couponDiscount = appliedCoupon?.discount_inr ?? 0;
   const total = Math.max(0, subtotal - couponDiscount + deliveryFee);
 
-  const availableDates = useMemo(
-    () => getBookableDates(bookableSlots),
-    [bookableSlots]
-  );
-  const slotsForDate = useMemo(
-    () => getSlotsForBookableDate(bookableSlots, selectedDate),
-    [bookableSlots, selectedDate]
-  );
-
   const validateDetails = () => {
     const errors: Record<string, string> = {};
     if (session.customerName.trim().length < 2) {
       errors.customerName = "Enter your full name";
     }
-    if (!isValidIndianPhone(session.phone)) {
-      errors.phone = "Enter a valid 10-digit mobile number";
+    if (!isValidIndianPhone(session.whatsappPhone)) {
+      errors.whatsappPhone = "Enter a valid 10-digit WhatsApp number";
+    }
+    if (session.altPhone.trim()) {
+      if (!isValidIndianPhone(session.altPhone)) {
+        errors.altPhone = "Enter a valid 10-digit alternate number";
+      } else if (session.altPhone === session.whatsappPhone) {
+        errors.altPhone = "Must be different from your WhatsApp number";
+      }
     }
     if (!session.house.trim()) errors.house = "House / flat number is required";
     if (!session.street.trim()) errors.street = "Street / area is required";
@@ -201,7 +225,7 @@ export function DeliveryCheckoutClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           code: nextCode,
-          phone: session.phone,
+          phone: session.whatsappPhone,
           subtotal,
           delivery_fee_inr: session.delivery?.delivery_fee_inr ?? 0,
         }),
@@ -237,8 +261,8 @@ export function DeliveryCheckoutClient({
   };
 
   const sendOtp = async () => {
-    if (!isValidIndianPhone(session.phone)) {
-      setError("Enter a valid mobile number before requesting a code");
+    if (!isValidIndianPhone(session.whatsappPhone)) {
+      setError("Enter a valid WhatsApp number before requesting a code");
       return false;
     }
     setSendingOtp(true);
@@ -247,7 +271,7 @@ export function DeliveryCheckoutClient({
       const res = await fetch("/api/otp/send", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: session.phone }),
+        body: JSON.stringify({ phone: session.whatsappPhone }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -279,7 +303,10 @@ export function DeliveryCheckoutClient({
   };
 
   const createOrder = async () => {
-    const phone = normalizePhone(session.phone.trim());
+    const phone = normalizePhone(session.whatsappPhone.trim());
+    const altPhone = session.altPhone.trim()
+      ? normalizePhone(session.altPhone.trim())
+      : "";
     const res = await fetch("/api/orders/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -287,6 +314,7 @@ export function DeliveryCheckoutClient({
         items,
         customer_name: session.customerName.trim(),
         phone,
+        alt_phone: altPhone || undefined,
         house: session.house.trim(),
         street: session.street.trim(),
         landmark: session.landmark.trim() || undefined,
@@ -311,6 +339,26 @@ export function DeliveryCheckoutClient({
     } satisfies PlacedOrder;
   };
 
+  const completeMockPayment = async (order: {
+    order_id: string;
+    order_number: string;
+    phone: string;
+  }) => {
+    const res = await fetch("/api/orders/mock-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        order_id: order.order_id,
+        order_number: order.order_number,
+        phone: order.phone,
+      }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      throw new Error(data.error || "Could not confirm order");
+    }
+  };
+
   const finishOrder = (orderNumber: string, phone: string) => {
     completingOrderRef.current = true;
     router.push(`/order/${orderNumber}?phone=${encodeURIComponent(phone)}`);
@@ -331,13 +379,17 @@ export function DeliveryCheckoutClient({
       }
 
       const rzp = new window.Razorpay({
-        key: placed.razorpay_key,
-        amount: placed.total_inr * 100,
-        currency: "INR",
-        name: BRAND.name,
-        description: `Order ${placed.order_number}`,
-        image: "/logo.png",
-        order_id: placed.razorpay_order_id,
+        ...buildRazorpayCheckoutOptions({
+          key: placed.razorpay_key,
+          orderId: placed.razorpay_order_id,
+          name: BRAND.name,
+          description: `Order ${placed.order_number}`,
+          themeColor: BRAND.colors.chocolate,
+          prefill: {
+            name: session.customerName.trim(),
+            contact: `+91${placed.phone}`,
+          },
+        }),
         handler: async (response: {
           razorpay_order_id: string;
           razorpay_payment_id: string;
@@ -356,7 +408,9 @@ export function DeliveryCheckoutClient({
             });
             const verifyData = await verifyRes.json();
             if (!verifyRes.ok) {
-              throw new Error(verifyData.error || "Payment verification failed");
+              throw new Error(
+                formatRazorpayVerifyError(verifyData.error, verifyData.code)
+              );
             }
             finishOrder(placed.order_number, placed.phone);
             resolve();
@@ -364,11 +418,6 @@ export function DeliveryCheckoutClient({
             reject(err);
           }
         },
-        prefill: {
-          name: session.customerName.trim(),
-          contact: `+91${placed.phone}`,
-        },
-        theme: { color: BRAND.colors.chocolate },
         modal: {
           ondismiss: () => reject(new Error("Payment cancelled")),
         },
@@ -398,7 +447,7 @@ export function DeliveryCheckoutClient({
       const verifyRes = await fetch("/api/otp/verify", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: session.phone, code: otp }),
+        body: JSON.stringify({ phone: session.whatsappPhone, code: otp }),
       });
       const verifyData = await verifyRes.json();
       if (!verifyRes.ok) {
@@ -428,9 +477,24 @@ export function DeliveryCheckoutClient({
         return;
       }
 
+      await completeMockPayment(placed);
       finishOrder(placed.order_number, placed.phone);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not complete payment");
+      setPlacingOrder(false);
+    }
+  };
+
+  const completeDemoOrder = async () => {
+    if (!otpVerified || !razorpayTestMode) return;
+    setPlacingOrder(true);
+    setError("");
+    try {
+      const placed = await createOrder();
+      await completeMockPayment(placed);
+      finishOrder(placed.order_number, placed.phone);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Could not complete demo order");
       setPlacingOrder(false);
     }
   };
@@ -517,6 +581,34 @@ export function DeliveryCheckoutClient({
               </p>
             </div>
 
+            {session.lat != null && session.lng != null && (
+              <section className="overflow-hidden rounded-2xl bg-white ring-1 ring-chocolate/10">
+                <SelectedLocationMap
+                  lat={session.lat}
+                  lng={session.lng}
+                  kitchenLat={kitchenLat}
+                  kitchenLng={kitchenLng}
+                />
+                <div className="border-t border-chocolate/10 px-4 py-3">
+                  <p className="text-[11px] text-chocolate/45">
+                    Pinch or use +/- to zoom the map
+                  </p>
+                  {session.delivery?.reachable && (
+                    <p className="text-xs text-chocolate/60">
+                      {formatDistance(session.delivery.distance_km)} from kitchen ·
+                      Delivery {formatCurrency(session.delivery.delivery_fee_inr)}
+                    </p>
+                  )}
+                  <Link
+                    href="/orders/delivery"
+                    className="mt-1 inline-block text-xs font-medium text-chocolate underline"
+                  >
+                    Change pinned location
+                  </Link>
+                </div>
+              </section>
+            )}
+
             <div>
               <label className="text-xs text-chocolate/55">Full name</label>
               <input
@@ -530,29 +622,36 @@ export function DeliveryCheckoutClient({
             </div>
 
             <div>
-              <label className="text-xs text-chocolate/55">Mobile number</label>
-              <div className="mt-1 flex overflow-hidden rounded-xl border border-chocolate/10 bg-white focus-within:border-chocolate/30">
-                <span className="flex items-center bg-cream px-3 text-sm font-medium text-chocolate/70">
-                  +91
-                </span>
-                <input
-                  type="tel"
-                  inputMode="numeric"
-                  autoComplete="tel-national"
-                  maxLength={10}
-                  value={session.phone}
-                  onChange={(e) =>
-                    setCustomer({ phone: formatIndianPhoneInput(e.target.value) })
-                  }
-                  placeholder="9876543210"
-                  className="min-w-0 flex-1 px-3 py-3 text-sm outline-none"
-                />
-              </div>
+              <label className="text-xs text-chocolate/55">WhatsApp number</label>
+              <IndianPhoneInput
+                value={session.whatsappPhone}
+                onChange={(value) => setCustomer({ whatsappPhone: value })}
+                autoComplete="tel-national"
+              />
               <p className="mt-1 text-xs text-chocolate/50">
-                Used for order updates{otpDemoMode ? "" : " via WhatsApp"}
+                Order updates and verification code
+                {otpDemoMode ? "" : " via WhatsApp"}
               </p>
-              {fieldErrors.phone && (
-                <p className="mt-1 text-xs text-red-600">{fieldErrors.phone}</p>
+              {fieldErrors.whatsappPhone && (
+                <p className="mt-1 text-xs text-red-600">{fieldErrors.whatsappPhone}</p>
+              )}
+            </div>
+
+            <div>
+              <label className="text-xs text-chocolate/55">
+                Alternate contact number
+              </label>
+              <IndianPhoneInput
+                value={session.altPhone}
+                onChange={(value) => setCustomer({ altPhone: value })}
+                autoComplete="tel"
+                placeholder="Optional backup number"
+              />
+              <p className="mt-1 text-xs text-chocolate/50">
+                Optional — someone else we can call if needed
+              </p>
+              {fieldErrors.altPhone && (
+                <p className="mt-1 text-xs text-red-600">{fieldErrors.altPhone}</p>
               )}
             </div>
 
@@ -605,81 +704,26 @@ export function DeliveryCheckoutClient({
               )}
             </div>
 
-            <div>
-              <label className="text-xs text-chocolate/55">Delivery date</label>
-              <div className="mt-2 flex gap-2 overflow-x-auto pb-1">
-                {availableDates.map((date) => (
-                  <button
-                    key={date}
-                    type="button"
-                    onClick={() => {
-                      setSelectedDate(date);
-                      setSelectedSlotId("");
-                    }}
-                    className={`shrink-0 rounded-xl px-3 py-2 text-xs font-medium ${
-                      selectedDate === date
-                        ? "bg-chocolate text-cream"
-                        : "bg-white ring-1 ring-chocolate/10"
-                    }`}
-                  >
-                    {format(parseISO(date), "EEE, d MMM")}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {selectedDate && (
-              <div className="space-y-2">
-                <label className="text-xs text-chocolate/55">Time slot</label>
-                {slotsForDate.map((slot) => (
-                  <button
-                    key={slot.id}
-                    type="button"
-                    onClick={() => setSelectedSlotId(slot.id)}
-                    className={`flex w-full items-center justify-between rounded-xl px-4 py-3 text-sm ${
-                      selectedSlotId === slot.id
-                        ? "bg-chocolate text-cream"
-                        : "bg-white ring-1 ring-chocolate/10"
-                    }`}
-                  >
-                    <span>
-                      {slot.window_start.slice(0, 5)} – {slot.window_end.slice(0, 5)}
-                    </span>
-                    {selectedSlotId === slot.id && <Check size={16} />}
-                  </button>
-                ))}
-              </div>
-            )}
-            {fieldErrors.slot && (
-              <p className="text-xs text-red-600">{fieldErrors.slot}</p>
-            )}
+            <DeliverySlotSelects
+              slots={bookableSlots}
+              selectedDate={selectedDate}
+              selectedSlotId={selectedSlotId}
+              onDateChange={setSelectedDate}
+              onSlotChange={setSelectedSlotId}
+              slotError={fieldErrors.slot}
+            />
 
             <section className="rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
               <div className="flex items-center gap-2">
                 <Tag size={16} className="text-gold" />
                 <h3 className="text-sm font-medium text-chocolate">Coupon codes</h3>
               </div>
-              {availableCoupons.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {availableCoupons.map((coupon) => (
-                    <button
-                      key={coupon.code}
-                      type="button"
-                      disabled={applyingCoupon || appliedCoupon?.code === coupon.code}
-                      onClick={() => applyCoupon(coupon.code)}
-                      className={`rounded-full px-3 py-1.5 text-left text-xs ring-1 transition ${
-                        appliedCoupon?.code === coupon.code
-                          ? "bg-green-50 text-green-800 ring-green-200"
-                          : "bg-cream text-chocolate ring-chocolate/10 hover:ring-chocolate/25"
-                      }`}
-                    >
-                      <span className="font-semibold">{coupon.code}</span>
-                      <span className="ml-1 text-chocolate/60">
-                        · {describeCoupon(coupon)}
-                      </span>
-                    </button>
-                  ))}
-                </div>
+              {!appliedCoupon && availableCoupons.length > 0 && (
+                <AvailableCouponsPicker
+                  coupons={availableCoupons}
+                  applyingCoupon={applyingCoupon}
+                  onApply={applyCoupon}
+                />
               )}
               {appliedCoupon ? (
                 <div className="mt-3 flex items-center justify-between gap-2">
@@ -763,7 +807,7 @@ export function DeliveryCheckoutClient({
             {!otpVerified ? (
               <>
                 <p className="text-sm text-chocolate/60">
-                  Step 1 — Enter the verification code for +91 {session.phone}
+                  Step 1 — Enter the verification code for +91 {session.whatsappPhone}
                 </p>
 
                 {otpHint && (
@@ -832,14 +876,12 @@ export function DeliveryCheckoutClient({
                 </p>
 
                 <div className="rounded-xl bg-cream px-3 py-3 text-xs leading-relaxed text-chocolate/70 ring-1 ring-chocolate/10">
-                  <p className="font-medium text-chocolate">Test payment (Razorpay test mode)</p>
-                  <p className="mt-1">
-                    Card: <strong>4111 1111 1111 1111</strong> · any future expiry · any CVV
-                  </p>
-                  <p className="mt-1">
-                    On Razorpay&apos;s bank OTP screen, enter a new 6-digit code (e.g.{" "}
-                    <strong>123456</strong>) — not the verification code above.
-                  </p>
+                  <p className="font-medium text-chocolate">Test payment tips</p>
+                  <ul className="mt-2 list-disc space-y-1 pl-4">
+                    {razorpayTestHelp.map((tip) => (
+                      <li key={tip}>{tip}</li>
+                    ))}
+                  </ul>
                 </div>
 
                 {!razorpayReady && (
@@ -855,25 +897,37 @@ export function DeliveryCheckoutClient({
                   </p>
                 </div>
 
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep(0);
-                      setError("");
-                    }}
-                    className="flex-1 rounded-full border border-chocolate/20 py-4 text-sm"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    disabled={placingOrder || !razorpayReady}
-                    onClick={payWithRazorpay}
-                    className="flex-1 rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
-                  >
-                    {placingOrder ? "Processing..." : `Pay ${formatCurrency(total)}`}
-                  </button>
+                <div className="flex flex-col gap-2 pt-2">
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setStep(0);
+                        setError("");
+                      }}
+                      className="flex-1 rounded-full border border-chocolate/20 py-4 text-sm"
+                    >
+                      Back
+                    </button>
+                    <button
+                      type="button"
+                      disabled={placingOrder || !razorpayReady}
+                      onClick={payWithRazorpay}
+                      className="flex-1 rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
+                    >
+                      {placingOrder ? "Processing..." : `Pay ${formatCurrency(total)}`}
+                    </button>
+                  </div>
+                  {razorpayTestMode && (
+                    <button
+                      type="button"
+                      disabled={placingOrder}
+                      onClick={completeDemoOrder}
+                      className="w-full rounded-full border border-dashed border-chocolate/25 py-3 text-sm text-chocolate/70 disabled:opacity-40"
+                    >
+                      Skip card payment (demo only)
+                    </button>
+                  )}
                 </div>
               </>
             )}

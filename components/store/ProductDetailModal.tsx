@@ -12,22 +12,39 @@ interface ProductDetailModalProps {
   product: Product | null;
   onClose: () => void;
   onAdd: (product: Product) => void;
+  cartQuantity?: number;
+  onQuantityChange?: (productId: string, quantity: number) => void;
+  selectionMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (product: Product) => void;
 }
 
 export function ProductDetailModal({
   product,
   onClose,
   onAdd,
+  cartQuantity,
+  onQuantityChange,
+  selectionMode = false,
+  selected = false,
+  onToggleSelect,
 }: ProductDetailModalProps) {
-  const { items, updateQuantity } = useCart();
+  const cart = useCart();
 
   if (!product) return null;
 
   const unitPrice = getUnitPrice(product);
   const soldOut = product.sold_out_today || !product.is_active;
   const quantity =
-    items.find((item) => item.productId === product.id)?.quantity ?? 0;
+    onQuantityChange !== undefined
+      ? (cartQuantity ?? 0)
+      : (cart.items.find((item) => item.productId === product.id)?.quantity ?? 0);
   const inCart = quantity > 0;
+
+  const changeQuantity = (next: number) => {
+    if (onQuantityChange) onQuantityChange(product.id, next);
+    else cart.updateQuantity(product.id, next);
+  };
   const activeAllergens = ALLERGEN_OPTIONS.filter(
     (a) => product.allergens[a.key]
   );
@@ -104,11 +121,26 @@ export function ProductDetailModal({
             >
               Sold out
             </button>
+          ) : selectionMode ? (
+            <button
+              type="button"
+              onClick={() => {
+                onToggleSelect?.(product);
+                onClose();
+              }}
+              className={`mt-6 w-full rounded-full py-3.5 text-sm font-medium transition ${
+                selected
+                  ? "bg-cream text-chocolate ring-1 ring-chocolate/20"
+                  : "bg-chocolate text-cream hover:bg-chocolate-dark"
+              }`}
+            >
+              {selected ? "Remove from selection" : "Select"}
+            </button>
           ) : inCart ? (
             <div className="mt-6 flex items-center justify-center gap-4">
               <button
                 type="button"
-                onClick={() => updateQuantity(product.id, quantity - 1)}
+                onClick={() => changeQuantity(quantity - 1)}
                 className="flex h-11 w-11 items-center justify-center rounded-full bg-white text-chocolate ring-1 ring-chocolate/10"
               >
                 <Minus size={18} />
@@ -118,7 +150,7 @@ export function ProductDetailModal({
               </span>
               <button
                 type="button"
-                onClick={() => updateQuantity(product.id, quantity + 1)}
+                onClick={() => changeQuantity(quantity + 1)}
                 className="flex h-11 w-11 items-center justify-center rounded-full bg-chocolate text-cream"
               >
                 <Plus size={18} />

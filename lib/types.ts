@@ -115,6 +115,7 @@ export interface Order {
   customer_id: string | null;
   customer_name: string;
   phone: string;
+  alt_phone: string;
   house: string;
   street: string;
   landmark: string | null;
@@ -200,4 +201,35 @@ export interface Expense {
   expense_date: string;
   notes: string | null;
   created_at: string;
+}
+
+export type EnquiryType = "kitty_party" | "general" | "landing" | "pre_order";
+
+export type EnquiryStatus = "new" | "in_progress" | "replied" | "closed";
+
+export interface EnquiryItem {
+  id: string;
+  enquiry_id: string;
+  product_id: string;
+  product_name: string;
+  quantity: number;
+  created_at?: string;
+}
+
+export interface ContactEnquiry {
+  id: string;
+  name: string;
+  phone: string;
+  email: string | null;
+  message: string;
+  source: string;
+  type: EnquiryType;
+  status: EnquiryStatus;
+  event_date: string | null;
+  event_time: string | null;
+  admin_notes: string | null;
+  phone_verified_at: string | null;
+  created_at: string;
+  updated_at: string;
+  enquiry_items?: EnquiryItem[];
 }

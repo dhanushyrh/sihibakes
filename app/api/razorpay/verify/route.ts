@@ -25,7 +25,14 @@ export async function POST(request: Request) {
       .digest("hex");
 
     if (expected !== razorpay_signature) {
-      return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
+      console.error("Razorpay signature mismatch for order", order_id);
+      return NextResponse.json(
+        {
+          error: "Payment signature mismatch",
+          code: "INVALID_SIGNATURE",
+        },
+        { status: 400 }
+      );
     }
 
     await markOrderPaid(order_id, razorpay_payment_id);

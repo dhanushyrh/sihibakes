@@ -6,7 +6,8 @@ export type RosterGroupMode = "slot" | "day";
 export const ROSTER_HEADERS = [
   "Order #",
   "Customer",
-  "Phone",
+  "WhatsApp",
+  "Alt. Phone",
   "Address",
   "Items",
   "Status",
@@ -58,6 +59,7 @@ export function orderToRosterRow(order: RosterOrder): (string | number)[] {
     order.order_number,
     order.customer_name,
     order.phone,
+    order.alt_phone || "",
     formatOrderAddress(order),
     formatOrderItems(order.order_items ?? []),
     order.status,
