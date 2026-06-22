@@ -8,8 +8,7 @@ import { format, parseISO } from "date-fns";
 import { Tag } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { useScrollToTopOnChange } from "@/components/store/ScrollToTop";
-import { SelectedLocationMap } from "@/components/store/SelectedLocationMap";
-import { DeliveryLocationModal } from "@/components/store/DeliveryLocationModal";
+import { DeliveryLocationPicker } from "@/components/store/DeliveryLocationPicker";
 import { DeliverySlotSelects } from "@/components/store/DeliverySlotSelects";
 import { AvailableCouponsPicker } from "@/components/store/AvailableCouponsPicker";
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
@@ -26,8 +25,9 @@ import {
   isValidIndianPincode,
 } from "@/lib/checkout-validation";
 import { isMenuProduct } from "@/lib/cart-products";
+import type { ParsedMapAddress } from "@/lib/map-address";
 import { BRAND } from "@/lib/constants";
-import { formatCurrency, formatDistance } from "@/lib/delivery";
+import { formatCurrency } from "@/lib/delivery";
 import { normalizePhone } from "@/lib/storefront";
 import { getUnitPrice } from "@/lib/pricing";
 import {
@@ -90,8 +90,6 @@ export function DeliveryCheckoutClient({
     clearSession,
   } = useDeliverySession();
 
-  const [locationModalOpen, setLocationModalOpen] = useState(false);
-
   const [step, setStep] = useState(0);
   useScrollToTopOnChange(step);
   const [products, setProducts] = useState<Product[]>([]);
@@ -118,11 +116,19 @@ export function DeliveryCheckoutClient({
   const razorpayTestMode = isRazorpayTestMode();
   const razorpayTestHelp = useMemo(() => getRazorpayTestPaymentHelp(), []);
 
+  const prefillAddressFromMap = (address: ParsedMapAddress) => {
+    setAddress({
+      street: address.street,
+      landmark: address.landmark,
+      pincode: address.pincode ? formatPincodeInput(address.pincode) : "",
+      ...(address.house ? { house: address.house } : {}),
+    });
+  };
+
   useEffect(() => {
     if (!sessionReady || completingOrderRef.current || placingOrder) return;
-    if (!isLocationReady) router.replace("/orders/delivery");
-    else if (itemCount === 0) router.replace("/orders/delivery/cart");
-  }, [sessionReady, isLocationReady, itemCount, placingOrder, router]);
+    if (itemCount === 0) router.replace("/orders/delivery/cart");
+  }, [sessionReady, itemCount, placingOrder, router]);
 
   useEffect(() => {
     setAppliedCoupon(readAppliedCoupon());
@@ -217,6 +223,9 @@ export function DeliveryCheckoutClient({
       errors.pincode = "Enter a valid 6-digit pincode";
     }
     if (!selectedSlotId) errors.slot = "Choose a delivery date and time slot";
+    if (!isLocationReady) {
+      errors.location = "Search your area and pin your location on the map";
+    }
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
@@ -506,10 +515,7 @@ export function DeliveryCheckoutClient({
     }
   };
 
-  if (
-    !sessionReady ||
-    (!completingOrderRef.current && (!isLocationReady || itemCount === 0))
-  ) {
+  if (!sessionReady || (!completingOrderRef.current && itemCount === 0)) {
     return null;
   }
 
@@ -524,8 +530,16 @@ export function DeliveryCheckoutClient({
     );
   }
 
+  const showPaymentBar = step === 1 && otpVerified;
+
   return (
-    <div className="flex min-h-screen flex-col pb-[calc(2rem+env(safe-area-inset-bottom))]">
+    <div
+      className={`flex min-h-screen flex-col ${
+        showPaymentBar
+          ? "pb-[calc(10.5rem+env(safe-area-inset-bottom))]"
+          : "pb-[calc(2rem+env(safe-area-inset-bottom))]"
+      }`}
+    >
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
         strategy="afterInteractive"
@@ -584,52 +598,24 @@ export function DeliveryCheckoutClient({
                 Delivery details
               </h2>
               <p className="mt-1 text-sm text-chocolate/60">
-                Confirm address for your pinned map location.
+                Pin your location, then confirm your address.
               </p>
             </div>
 
-            {session.lat != null && session.lng != null && (
-              <section className="overflow-hidden rounded-2xl bg-white ring-1 ring-chocolate/10">
-                <SelectedLocationMap
-                  lat={session.lat}
-                  lng={session.lng}
-                  kitchenLat={kitchenLat}
-                  kitchenLng={kitchenLng}
-                  deliveryFence={deliveryFence}
-                />
-                <div className="border-t border-chocolate/10 px-4 py-3">
-                  {session.delivery?.reachable ? (
-                    <p className="text-xs text-chocolate/60">
-                      {formatDistance(session.delivery.distance_km)} from kitchen ·
-                      Delivery {formatCurrency(session.delivery.delivery_fee_inr)}
-                    </p>
-                  ) : session.delivery ? (
-                    <p className="text-xs text-red-700">
-                      {session.delivery.message ??
-                        "This location is outside our delivery zone."}
-                    </p>
-                  ) : null}
-                  <button
-                    type="button"
-                    onClick={() => setLocationModalOpen(true)}
-                    className="mt-1 text-xs font-medium text-chocolate underline"
-                  >
-                    Change pinned location
-                  </button>
-                </div>
-              </section>
-            )}
-
-            <DeliveryLocationModal
-              open={locationModalOpen}
-              kitchenLat={kitchenLat}
-              kitchenLng={kitchenLng}
-              deliveryFence={deliveryFence}
-              initialLat={session.lat ?? kitchenLat}
-              initialLng={session.lng ?? kitchenLng}
-              onClose={() => setLocationModalOpen(false)}
-              onConfirm={(lat, lng, delivery) => setLocation(lat, lng, delivery)}
-            />
+            <section className="overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
+              <DeliveryLocationPicker
+                kitchenLat={kitchenLat}
+                kitchenLng={kitchenLng}
+                deliveryFence={deliveryFence}
+                initialLat={session.lat ?? kitchenLat + 0.01}
+                initialLng={session.lng ?? kitchenLng + 0.01}
+                onUpdate={(lat, lng, delivery) => setLocation(lat, lng, delivery)}
+                onAddressPrefill={prefillAddressFromMap}
+              />
+              {fieldErrors.location && (
+                <p className="mt-3 text-xs text-red-600">{fieldErrors.location}</p>
+              )}
+            </section>
 
             <div>
               <label className="text-xs text-chocolate/55">Full name</label>
@@ -676,6 +662,11 @@ export function DeliveryCheckoutClient({
                 <p className="mt-1 text-xs text-red-600">{fieldErrors.altPhone}</p>
               )}
             </div>
+
+            <p className="text-xs text-chocolate/45">
+              Street, landmark, and pincode are filled from your pinned location. Add
+              your flat or house number if needed.
+            </p>
 
             <div>
               <label className="text-xs text-chocolate/55">House / Flat no.</label>
@@ -897,14 +888,23 @@ export function DeliveryCheckoutClient({
                   Step 2 — Pay securely with Razorpay
                 </p>
 
-                <div className="rounded-xl bg-cream px-3 py-3 text-xs leading-relaxed text-chocolate/70 ring-1 ring-chocolate/10">
-                  <p className="font-medium text-chocolate">Test payment tips</p>
+                {razorpayTestMode && (
+                  <p className="rounded-xl bg-gold/20 px-3 py-3 text-sm text-chocolate ring-1 ring-gold/40">
+                    Testing? Use <strong>Skip card payment</strong> in the bar at the
+                    bottom — no Razorpay or card OTP needed.
+                  </p>
+                )}
+
+                <details className="rounded-xl bg-cream px-3 py-3 text-xs leading-relaxed text-chocolate/70 ring-1 ring-chocolate/10">
+                  <summary className="cursor-pointer font-medium text-chocolate">
+                    Test payment tips
+                  </summary>
                   <ul className="mt-2 list-disc space-y-1 pl-4">
                     {razorpayTestHelp.map((tip) => (
                       <li key={tip}>{tip}</li>
                     ))}
                   </ul>
-                </div>
+                </details>
 
                 {!razorpayReady && (
                   <p className="text-xs text-chocolate/50">Loading secure payment...</p>
@@ -918,44 +918,48 @@ export function DeliveryCheckoutClient({
                     {formatCurrency(total)}
                   </p>
                 </div>
-
-                <div className="flex flex-col gap-2 pt-2">
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setStep(0);
-                        setError("");
-                      }}
-                      className="flex-1 rounded-full border border-chocolate/20 py-4 text-sm"
-                    >
-                      Back
-                    </button>
-                    <button
-                      type="button"
-                      disabled={placingOrder || !razorpayReady}
-                      onClick={payWithRazorpay}
-                      className="flex-1 rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
-                    >
-                      {placingOrder ? "Processing..." : `Pay ${formatCurrency(total)}`}
-                    </button>
-                  </div>
-                  {razorpayTestMode && (
-                    <button
-                      type="button"
-                      disabled={placingOrder}
-                      onClick={completeDemoOrder}
-                      className="w-full rounded-full border border-dashed border-chocolate/25 py-3 text-sm text-chocolate/70 disabled:opacity-40"
-                    >
-                      Skip card payment (demo only)
-                    </button>
-                  )}
-                </div>
               </>
             )}
           </div>
         )}
       </main>
+
+      {showPaymentBar && (
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-chocolate/10 bg-cream/95 backdrop-blur-md">
+          <div className="mx-auto max-w-lg space-y-2 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setStep(0);
+                  setError("");
+                }}
+                className="flex-1 rounded-full border border-chocolate/20 py-3.5 text-sm"
+              >
+                Back
+              </button>
+              <button
+                type="button"
+                disabled={placingOrder || !razorpayReady}
+                onClick={payWithRazorpay}
+                className="flex-[2] rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-40"
+              >
+                {placingOrder ? "Processing..." : `Pay ${formatCurrency(total)}`}
+              </button>
+            </div>
+            {razorpayTestMode && (
+              <button
+                type="button"
+                disabled={placingOrder}
+                onClick={completeDemoOrder}
+                className="w-full rounded-full border border-dashed border-chocolate/30 bg-white py-3.5 text-sm font-medium text-chocolate disabled:opacity-40"
+              >
+                Skip card payment (demo only)
+              </button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

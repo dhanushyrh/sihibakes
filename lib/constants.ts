@@ -8,6 +8,12 @@ export const BRAND = {
   },
 } as const;
 
+/** Public contact shown when shop settings phone is unset */
+export const STORE_CONTACT = {
+  phone: "8310293990",
+  instagramUrl: "https://www.instagram.com/sihi.bakes",
+} as const;
+
 export const ALLERGEN_OPTIONS = [
   { key: "egg" as const, label: "Egg" },
   { key: "dairy" as const, label: "Dairy" },

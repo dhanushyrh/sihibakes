@@ -6,12 +6,17 @@ import {
   Rectangle,
   useJsApiLoader,
 } from "@react-google-maps/api";
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { MapPin, Search } from "lucide-react";
 import { AdvancedMapMarker } from "@/components/store/AdvancedMapMarker";
 import { getFenceBounds } from "@/lib/delivery-fence";
 import type { DeliveryFenceKm } from "@/lib/types";
 import { getGoogleMapsLoaderOptions, withGoogleMapId } from "@/lib/google-maps-config";
+import {
+  parseAddressComponents,
+  reverseGeocodeAddress,
+  type ParsedMapAddress,
+} from "@/lib/map-address";
 
 const mapContainerStyle = {
   width: "100%",
@@ -26,6 +31,7 @@ interface MapPickerProps {
   lng: number;
   deliveryFence?: DeliveryFenceKm;
   onChange: (lat: number, lng: number) => void;
+  onAddressResolved?: (address: ParsedMapAddress) => void;
 }
 
 export function MapPicker({
@@ -35,6 +41,7 @@ export function MapPicker({
   lng,
   deliveryFence,
   onChange,
+  onAddressResolved,
 }: MapPickerProps) {
   const apiKey = getGoogleMapsLoaderOptions().googleMapsApiKey;
   const { isLoaded } = useJsApiLoader(getGoogleMapsLoaderOptions());
@@ -64,12 +71,21 @@ export function MapPicker({
   }, [isLoaded, fenceBounds, kitchenLat, kitchenLng]);
 
   const movePin = useCallback(
-    (newLat: number, newLng: number, zoom = 15) => {
+    (newLat: number, newLng: number, zoom = 15, address?: ParsedMapAddress) => {
       onChange(newLat, newLng);
       map?.panTo({ lat: newLat, lng: newLng });
       if (zoom) map?.setZoom(zoom);
+
+      if (address) {
+        onAddressResolved?.(address);
+        return;
+      }
+
+      void reverseGeocodeAddress(newLat, newLng).then((resolved) => {
+        if (resolved) onAddressResolved?.(resolved);
+      });
     },
-    [map, onChange]
+    [map, onChange, onAddressResolved]
   );
 
   const onLoad = useCallback(
@@ -96,7 +112,10 @@ export function MapPicker({
     const newLat = loc.lat();
     const newLng = loc.lng();
     setSearchValue(place.formatted_address ?? place.name ?? "");
-    movePin(newLat, newLng, 15);
+    const address = place.address_components?.length
+      ? parseAddressComponents(place.address_components)
+      : undefined;
+    movePin(newLat, newLng, 15, address);
   };
 
   const useMyLocation = () => {
@@ -106,6 +125,15 @@ export function MapPicker({
       movePin(pos.coords.latitude, pos.coords.longitude, 15);
     });
   };
+
+  useEffect(() => {
+    if (!isLoaded) return;
+    void reverseGeocodeAddress(lat, lng).then((address) => {
+      if (address) onAddressResolved?.(address);
+    });
+    // Prefill address fields for the initial pin when the map loads.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isLoaded]);
 
   if (!apiKey) {
     return (
@@ -141,7 +169,7 @@ export function MapPicker({
           bounds: searchBounds,
           strictBounds: false,
           componentRestrictions: { country: "in" },
-          fields: ["geometry", "formatted_address", "name"],
+          fields: ["geometry", "formatted_address", "name", "address_components"],
         }}
       >
         <div className="relative">
@@ -162,8 +190,8 @@ export function MapPicker({
       <div className="overflow-hidden rounded-2xl ring-1 ring-[#4B2C20]/10">
         <GoogleMap
           mapContainerStyle={mapContainerStyle}
-          center={{ lat, lng }}
-          zoom={14}
+          defaultCenter={{ lat, lng }}
+          defaultZoom={14}
           onLoad={onLoad}
           onClick={(e) => {
             if (e.latLng) movePin(e.latLng.lat(), e.latLng.lng(), 0);
@@ -172,6 +200,7 @@ export function MapPicker({
             disableDefaultUI: true,
             zoomControl: true,
             gestureHandling: "greedy",
+            draggable: true,
           })}
         >
           {fenceBounds && (
@@ -204,7 +233,7 @@ export function MapPicker({
             zIndex={2}
             onDragEnd={(newLat, newLng) => {
               setSearchValue("");
-              onChange(newLat, newLng);
+              movePin(newLat, newLng, 0);
             }}
           />
         </GoogleMap>
@@ -219,8 +248,8 @@ export function MapPicker({
         Use my location
       </button>
 
-      <p className="text-center text-xs text-[#4B2C20]/50">
-        Search for your area, then tap the map or drag the pin to fine-tune
+      <p className="text-center text-xs text-chocolate/50">
+        Search your area, drag the pin, or tap the map to fine-tune
       </p>
     </div>
   );

@@ -36,11 +36,27 @@ export type RazorpayCheckoutBuildParams = {
   description: string;
   image?: string;
   themeColor?: string;
-  prefill?: { name?: string; contact?: string };
+  prefill?: { name?: string; contact?: string; email?: string };
 };
+
+function buildCheckoutPrefill(prefill?: RazorpayCheckoutBuildParams["prefill"]) {
+  if (!prefill) return undefined;
+
+  const contact = prefill.contact?.replace(/\s/g, "");
+  const digits = contact?.replace(/\D/g, "").slice(-10);
+  // Razorpay only pre-selects a payment method when contact and email are prefilled.
+  const email =
+    prefill.email ??
+    (digits ? `orders+${digits}@customers.sihibakes.in` : undefined);
+
+  return { ...prefill, contact, email };
+}
 
 /** Standard Checkout options — amount comes from the Razorpay order, not the client. */
 export function buildRazorpayCheckoutOptions(params: RazorpayCheckoutBuildParams) {
+  const testMode = isRazorpayTestMode(params.key);
+  const prefill = buildCheckoutPrefill(params.prefill);
+
   return {
     key: params.key,
     currency: "INR",
@@ -48,18 +64,25 @@ export function buildRazorpayCheckoutOptions(params: RazorpayCheckoutBuildParams
     description: params.description,
     image: params.image ?? "/logo.png",
     order_id: params.orderId,
-    prefill: params.prefill,
+    prefill,
     theme: { color: params.themeColor ?? "#4B2C20" },
     retry: { enabled: true, max_count: 3 },
+    config: {
+      display: {
+        sequence: ["upi", "card", "netbanking", "wallet"],
+        preferences: { show_default_blocks: true },
+      },
+    },
+    ...(testMode ? { method: "upi" as const } : {}),
   };
 }
 
 export function getRazorpayTestPaymentHelp(): string[] {
   return [
-    "Use test keys (rzp_test_…) in .env — both RAZORPAY_KEY_ID and NEXT_PUBLIC_RAZORPAY_KEY_ID must match.",
-    "Card: 5267 3181 8797 5449 or 4111 1111 1111 1111 · any future expiry · any CVV.",
-    "On Razorpay's test bank page, enter any 4–10 digit code (e.g. 123456) and tap Submit — or tap Success if shown.",
-    "Easier: choose UPI and pay with success@razorpay (no OTP).",
-    "The code on our checkout screen is only for phone verification — not the card OTP.",
+    "Fastest: tap Skip card payment (demo only) in the bar at the bottom — skips Razorpay entirely.",
+    "In Razorpay: UPI opens first — enter success@razorpay and confirm (no card OTP).",
+    "Card test: 5267 3181 8797 5449 or 4111 1111 1111 1111 · any future expiry · any CVV.",
+    "On Razorpay's mock bank page tap Success, or enter any 4–10 digit OTP and tap Submit.",
+    "The 6-digit code on our checkout is only for phone verification — not Razorpay's card OTP.",
   ];
 }

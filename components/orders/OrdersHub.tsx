@@ -10,8 +10,13 @@ import {
 } from "lucide-react";
 import { HeartDivider } from "@/components/landing/HeartDivider";
 import { InstagramIcon } from "@/components/landing/InstagramIcon";
-import { instagramHref, telHref, whatsappHref } from "@/lib/storefront";
+import { HorizontalMarquee } from "@/components/store/HorizontalMarquee";
+import { formatDisplayPhone, instagramHref, telHref, whatsappHref } from "@/lib/storefront";
+import { formatCurrency } from "@/lib/delivery";
+import { formatReviewDate } from "@/lib/reviews";
+import { getUnitPrice } from "@/lib/pricing";
 import { BRAND } from "@/lib/constants";
+import type { CustomerReview, Product } from "@/lib/types";
 import type { StorefrontDetails } from "@/lib/storefront";
 
 const OPTIONS = [
@@ -20,7 +25,7 @@ const OPTIONS = [
     title: "Delivery",
     subtitle: "To your doorstep",
     icon: Truck,
-    href: "/orders/delivery",
+    href: "/orders/delivery/menu",
     style: "bg-chocolate text-cream",
   },
   {
@@ -55,7 +60,68 @@ function WhatsAppIcon({ size = 22 }: { size?: number }) {
   );
 }
 
-export function OrdersHub({ store }: { store: StorefrontDetails }) {
+function ProductMarqueeCard({ product }: { product: Product }) {
+  const unitPrice = getUnitPrice(product);
+  const hasDiscount = (product.discount_percent ?? 0) > 0;
+
+  return (
+    <Link
+      href="/orders/delivery/menu"
+      className="flex w-[132px] shrink-0 flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chocolate/8 transition active:scale-[0.98]"
+    >
+      <div className="relative aspect-square overflow-hidden bg-parchment">
+        <Image
+          src={product.image_path || "/hero-tiramisu.png"}
+          alt={product.title}
+          fill
+          className="object-cover"
+          sizes="132px"
+        />
+      </div>
+      <div className="px-2.5 py-2">
+        <p className="line-clamp-2 font-display text-xs font-semibold leading-tight text-chocolate">
+          {product.title}
+        </p>
+        <p className="mt-1 text-[11px] font-medium text-chocolate/75">
+          {formatCurrency(unitPrice)}
+          {hasDiscount && (
+            <span className="ml-1 text-[10px] font-normal text-chocolate/40 line-through">
+              {formatCurrency(product.price_inr)}
+            </span>
+          )}
+        </p>
+      </div>
+    </Link>
+  );
+}
+
+function ReviewMarqueeCard({ review }: { review: CustomerReview }) {
+  return (
+    <article className="w-[260px] shrink-0 rounded-2xl bg-white px-4 py-3 shadow-sm ring-1 ring-chocolate/8">
+      <p className="line-clamp-3 text-xs leading-relaxed text-chocolate/75">
+        &ldquo;{review.quote}&rdquo;
+      </p>
+      <div className="mt-2.5 flex items-baseline justify-between gap-2">
+        <p className="truncate font-display text-sm font-semibold text-chocolate">
+          {review.name}
+        </p>
+        <p className="shrink-0 text-[10px] text-chocolate/45">
+          {formatReviewDate(review.reviewed_at)}
+        </p>
+      </div>
+    </article>
+  );
+}
+
+export function OrdersHub({
+  store,
+  products,
+  reviews,
+}: {
+  store: StorefrontDetails;
+  products: Product[];
+  reviews: CustomerReview[];
+}) {
   return (
     <main className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-lg flex-col px-4 py-6 pb-[env(safe-area-inset-bottom)]">
       <div className="text-center">
@@ -67,6 +133,15 @@ export function OrdersHub({ store }: { store: StorefrontDetails }) {
           className="mx-auto h-auto w-36"
           priority
         />
+        {products.length > 0 && (
+          <div className="-mx-4 mt-4">
+            <HorizontalMarquee direction="left" durationSeconds={32}>
+              {products.map((product) => (
+                <ProductMarqueeCard key={product.id} product={product} />
+              ))}
+            </HorizontalMarquee>
+          </div>
+        )}
         <HeartDivider className="my-3" />
         <h1 className="font-display text-[clamp(1.5rem,5vw,2rem)] font-semibold text-chocolate">
           How can we help?
@@ -95,22 +170,33 @@ export function OrdersHub({ store }: { store: StorefrontDetails }) {
         ))}
       </div>
 
+      {reviews.length > 0 && (
+        <div className="-mx-4 mt-6">
+          <p className="mb-2.5 px-4 text-center text-[10px] uppercase tracking-[0.2em] text-chocolate/40">
+            Loved by customers
+          </p>
+          <HorizontalMarquee direction="right" durationSeconds={40}>
+            {reviews.map((review) => (
+              <ReviewMarqueeCard key={review.id} review={review} />
+            ))}
+          </HorizontalMarquee>
+        </div>
+      )}
+
       <div className="mt-8 space-y-4">
         <p className="text-center text-[11px] uppercase tracking-[0.25em] text-chocolate/45">
           Contact us
         </p>
         <div className="flex items-center justify-center gap-4">
-          {store.phone && (
-            <a
-              href={whatsappHref(store.phone, "Hi Sihi Bakes! I'd like to place an order.")}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366]/10 text-[#25D366] transition hover:bg-[#25D366]/20 active:scale-95"
-              aria-label="Chat on WhatsApp"
-            >
-              <WhatsAppIcon size={24} />
-            </a>
-          )}
+          <a
+            href={whatsappHref(store.phone, "Hi Sihi Bakes! I'd like to place an order.")}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex h-12 w-12 items-center justify-center rounded-full bg-[#25D366]/10 text-[#25D366] transition hover:bg-[#25D366]/20 active:scale-95"
+            aria-label="Chat on WhatsApp"
+          >
+            <WhatsAppIcon size={24} />
+          </a>
           <a
             href={instagramHref()}
             target="_blank"
@@ -121,14 +207,15 @@ export function OrdersHub({ store }: { store: StorefrontDetails }) {
             <InstagramIcon size={24} />
           </a>
         </div>
-        {store.phone && (
-          <p className="text-center text-xs text-chocolate/50">
-            Prefer to call?{" "}
-            <a href={telHref(store.phone)} className="font-medium text-chocolate underline">
-              {store.phone}
-            </a>
-          </p>
-        )}
+        <p className="text-center text-xs text-chocolate/50">
+          Prefer to call?{"\u00a0"}
+          <a
+            href={telHref(store.phone)}
+            className="whitespace-nowrap font-medium text-chocolate underline"
+          >
+            {formatDisplayPhone(store.phone)}
+          </a>
+        </p>
       </div>
     </main>
   );

@@ -13,6 +13,8 @@ import {
   getDeliveryFence,
   maxFenceKm,
 } from "@/lib/delivery-fence";
+import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
+import { formatDisplayPhone, normalizePhone } from "@/lib/storefront";
 
 type SettingsSectionId = "store" | "shop" | "closed" | "slabs";
 
@@ -146,8 +148,8 @@ export default function AdminSettingsPage() {
         closed_dates: normalizeClosedDates(s.closed_dates),
         store_address: s.store_address ?? "",
         fssai_license_no: s.fssai_license_no ?? "",
-        phone: s.phone ?? "",
-        alt_phone: s.alt_phone ?? "",
+        phone: normalizePhone(s.phone ?? ""),
+        alt_phone: normalizePhone(s.alt_phone ?? ""),
         delivery_fence_north_km:
           row.delivery_fence_north_km ?? row.max_delivery_radius_km ?? 15,
         delivery_fence_south_km:
@@ -216,8 +218,8 @@ export default function AdminSettingsPage() {
       .update({
         store_address: storeDraft.store_address.trim(),
         fssai_license_no: storeDraft.fssai_license_no.trim(),
-        phone: storeDraft.phone.trim(),
-        alt_phone: storeDraft.alt_phone.trim(),
+        phone: normalizePhone(storeDraft.phone.trim()),
+        alt_phone: normalizePhone(storeDraft.alt_phone.trim()),
         updated_at: new Date().toISOString(),
       })
       .eq("id", settings.id);
@@ -397,27 +399,20 @@ export default function AdminSettingsPage() {
                 </div>
                 <div>
                   <label className="text-xs text-[#4B2C20]/60">Phone</label>
-                  <input
-                    type="tel"
+                  <IndianPhoneInput
                     value={storeDraft.phone}
-                    onChange={(e) =>
-                      setStoreDraft({ ...storeDraft, phone: e.target.value })
+                    onChange={(phone) =>
+                      setStoreDraft({ ...storeDraft, phone })
                     }
-                    className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
                   />
                 </div>
                 <div>
                   <label className="text-xs text-[#4B2C20]/60">Alt. phone</label>
-                  <input
-                    type="tel"
+                  <IndianPhoneInput
                     value={storeDraft.alt_phone}
-                    onChange={(e) =>
-                      setStoreDraft({
-                        ...storeDraft,
-                        alt_phone: e.target.value,
-                      })
+                    onChange={(alt_phone) =>
+                      setStoreDraft({ ...storeDraft, alt_phone })
                     }
-                    className="mt-1 w-full rounded-xl border px-3 py-2 text-sm"
                   />
                 </div>
               </div>
@@ -437,8 +432,18 @@ export default function AdminSettingsPage() {
                 label="FSSAI license no."
                 value={settings.fssai_license_no}
               />
-              <ViewField label="Phone" value={settings.phone} />
-              <ViewField label="Alt. phone" value={settings.alt_phone} />
+              <ViewField
+                label="Phone"
+                value={formatDisplayPhone(settings.phone) || "—"}
+              />
+              <ViewField
+                label="Alt. phone"
+                value={
+                  settings.alt_phone
+                    ? formatDisplayPhone(settings.alt_phone)
+                    : "—"
+                }
+              />
             </div>
           </div>
         )}

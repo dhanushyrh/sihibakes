@@ -15,17 +15,10 @@ import type { Product } from "@/lib/types";
 
 export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
   const router = useRouter();
-  const { session, sessionReady, isLocationReady } = useDeliverySession();
+  const { session, sessionReady } = useDeliverySession();
   const { items, updateQuantity, removeItem, itemCount, pruneItems } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    if (!sessionReady) return;
-    if (!isLocationReady) {
-      router.replace("/orders/delivery");
-    }
-  }, [sessionReady, isLocationReady, router]);
 
   useEffect(() => {
     const ids = items.map((i) => i.productId);
@@ -66,10 +59,10 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
   }, [items, products]);
 
   const subtotal = cartLines.reduce((s, l) => s + l.lineTotal, 0);
-  const deliveryFee = session.delivery?.delivery_fee_inr ?? 0;
-  const estimatedTotal = subtotal + deliveryFee;
+  const deliveryFee = session.delivery?.delivery_fee_inr;
+  const estimatedTotal = subtotal + (deliveryFee ?? 0);
 
-  if (!sessionReady || !isLocationReady) return null;
+  if (!sessionReady) return null;
 
   return (
     <div className="flex min-h-screen flex-col pb-[env(safe-area-inset-bottom)]">
@@ -166,7 +159,11 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
               </div>
               <div className="mt-2 flex justify-between">
                 <span className="text-chocolate/60">Delivery</span>
-                <span>{formatCurrency(deliveryFee)}</span>
+                <span>
+                  {deliveryFee != null
+                    ? formatCurrency(deliveryFee)
+                    : "At checkout"}
+                </span>
               </div>
               <div className="mt-3 flex justify-between border-t border-chocolate/10 pt-3 font-semibold">
                 <span>Estimated total</span>

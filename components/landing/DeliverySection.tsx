@@ -13,9 +13,9 @@ import { formatDeliveryFenceShort } from "@/lib/delivery-fence";
 gsap.registerPlugin(ScrollTrigger);
 
 const STEPS = [
-  { icon: MapPin, title: "Pin your address", desc: "Select delivery location on the map" },
-  { icon: Clock, title: "Pick a slot", desc: "Choose a date and time that suits you" },
-  { icon: Package, title: "Enjoy fresh", desc: "Handcrafted desserts at your door" },
+  { icon: Package, title: "Choose desserts", desc: "Browse the menu and add to cart" },
+  { icon: MapPin, title: "Pin at checkout", desc: "Drop your location when you checkout" },
+  { icon: Clock, title: "Pick a slot & pay", desc: "Choose delivery time and place your order" },
 ];
 
 export function DeliverySection({ store }: { store: StorefrontDetails }) {
@@ -75,7 +75,7 @@ export function DeliverySection({ store }: { store: StorefrontDetails }) {
               </div>
 
               <Link
-                href="/orders/delivery"
+                href="/orders/delivery/menu"
                 className="mt-8 inline-flex items-center gap-2 rounded-full bg-cream px-7 py-3.5 text-sm font-medium text-chocolate transition hover:bg-white"
               >
                 Start delivery order

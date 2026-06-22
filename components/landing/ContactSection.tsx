@@ -6,7 +6,7 @@ import gsap from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 import { Phone, MapPin, ShieldCheck } from "lucide-react";
 import type { StorefrontDetails } from "@/lib/storefront";
-import { telHref } from "@/lib/storefront";
+import { formatDisplayPhone, telHref } from "@/lib/storefront";
 import { ContactForm } from "./ContactForm";
 
 gsap.registerPlugin(ScrollTrigger);
@@ -34,7 +34,10 @@ export function ContactSection({ store }: { store: StorefrontDetails }) {
       href: telHref(store.phone),
       icon: Phone,
       title: "Call us",
-      lines: [store.phone, store.alt_phone].filter(Boolean) as string[],
+      lines: [
+        formatDisplayPhone(store.phone),
+        store.alt_phone ? formatDisplayPhone(store.alt_phone) : "",
+      ].filter(Boolean),
     },
     store.store_address && {
       key: "address",

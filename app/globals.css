@@ -88,3 +88,45 @@ body {
   animation: fade-up 0.6s ease-out 0.15s forwards;
   opacity: 0;
 }
+
+@keyframes marquee-left {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes marquee-right {
+  from {
+    transform: translateX(-50%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+.marquee-track {
+  animation: marquee-left var(--marquee-duration, 35s) linear infinite;
+}
+
+.animate-marquee-right.marquee-track {
+  animation-name: marquee-right;
+}
+
+.marquee-fade {
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    black 8%,
+    black 92%,
+    transparent
+  );
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+}

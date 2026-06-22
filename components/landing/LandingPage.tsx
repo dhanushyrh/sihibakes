@@ -13,17 +13,18 @@ import { ReviewsSection } from "./ReviewsSection";
 import { DeliverySection } from "./DeliverySection";
 import { InstagramSection } from "./InstagramSection";
 import { ContactSection } from "./ContactSection";
-import type { Product } from "@/lib/types";
+import type { Product, CustomerReview } from "@/lib/types";
 import type { StorefrontDetails } from "@/lib/storefront";
 
 gsap.registerPlugin(ScrollTrigger);
 
 type LandingPageProps = {
   products: Product[];
+  reviews: CustomerReview[];
   store: StorefrontDetails;
 };
 
-export function LandingPage({ products, store }: LandingPageProps) {
+export function LandingPage({ products, reviews, store }: LandingPageProps) {
   useEffect(() => {
     return () => {
       ScrollTrigger.getAll().forEach((t) => t.kill());
@@ -39,7 +40,7 @@ export function LandingPage({ products, store }: LandingPageProps) {
         <WhyUsSection />
         <QualitySection />
         <ProductsSection products={products} />
-        <ReviewsSection />
+        <ReviewsSection reviews={reviews} />
         <DeliverySection store={store} />
         <InstagramSection store={store} />
         <ContactSection store={store} />

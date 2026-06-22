@@ -16,6 +16,7 @@ import {
   Users,
   Banknote,
   MessageSquare,
+  Star,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -27,6 +28,7 @@ const NAV = [
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
   { href: "/admin/enquiries", label: "Enquiries", icon: MessageSquare },
+  { href: "/admin/reviews", label: "Reviews", icon: Star },
   { href: "/admin/customers", label: "Customers", icon: Users },
   { href: "/admin/coupons", label: "Coupons", icon: Ticket },
   { href: "/admin/expenses", label: "Expenses", icon: Banknote },

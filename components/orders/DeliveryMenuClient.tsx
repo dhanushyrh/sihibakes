@@ -1,31 +1,20 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ProductCard } from "@/components/store/ProductCard";
 import { ProductDetailModal } from "@/components/store/ProductDetailModal";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { useCart } from "@/components/store/CartProvider";
-import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
 import { isMenuProduct } from "@/lib/cart-products";
 import type { Product, ProductTag } from "@/lib/types";
 import { TAG_OPTIONS } from "@/lib/constants";
 
 export function DeliveryMenuClient({ products: initialProducts }: { products: Product[] }) {
-  const router = useRouter();
-  const { sessionReady, isLocationReady } = useDeliverySession();
   const { addItem, itemCount, pruneItems } = useCart();
   const [products, setProducts] = useState(initialProducts);
   const [selected, setSelected] = useState<Product | null>(null);
   const [tagFilter, setTagFilter] = useState<ProductTag | "all">("all");
-
-  useEffect(() => {
-    if (!sessionReady) return;
-    if (!isLocationReady) {
-      router.replace("/orders/delivery");
-    }
-  }, [sessionReady, isLocationReady, router]);
 
   useEffect(() => {
     setProducts(initialProducts);
@@ -44,13 +33,11 @@ export function DeliveryMenuClient({ products: initialProducts }: { products: Pr
     });
   }, [products, tagFilter]);
 
-  if (!sessionReady || !isLocationReady) return null;
-
   return (
     <div className="flex min-h-screen flex-col pb-24">
       <OrderFlowHeader
         title="Choose desserts"
-        backHref="/orders/delivery"
+        backHref="/orders"
         showCart
       />
 

@@ -203,6 +203,21 @@ export interface Expense {
   created_at: string;
 }
 
+export interface CustomerReview {
+  id: string;
+  name: string;
+  area: string;
+  product: string;
+  rating: number;
+  quote: string;
+  image_path: string | null;
+  reviewed_at: string;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
 export type EnquiryType = "kitty_party" | "general" | "landing" | "pre_order";
 
 export type EnquiryStatus = "new" | "in_progress" | "replied" | "closed";

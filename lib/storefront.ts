@@ -1,4 +1,4 @@
-import { DEFAULT_KITCHEN } from "@/lib/constants";
+import { DEFAULT_KITCHEN, STORE_CONTACT } from "@/lib/constants";
 import { getDeliveryFence } from "@/lib/delivery-fence";
 import type { DeliveryFenceKm, ShopSettings } from "@/lib/types";
 
@@ -26,8 +26,8 @@ export function getStorefrontDetails(
   return {
     store_address: settings?.store_address?.trim() ?? "",
     fssai_license_no: settings?.fssai_license_no?.trim() ?? "",
-    phone: settings?.phone?.trim() ?? "",
-    alt_phone: settings?.alt_phone?.trim() ?? "",
+    phone: normalizePhone(settings?.phone?.trim() ?? "") || STORE_CONTACT.phone,
+    alt_phone: normalizePhone(settings?.alt_phone?.trim() ?? ""),
     max_delivery_radius_km: settings?.max_delivery_radius_km ?? 15,
     delivery_fence: getDeliveryFence(settings),
     kitchen_lat: settings?.kitchen_lat ?? DEFAULT_KITCHEN.lat,
@@ -68,11 +68,22 @@ export function googleMapsUrl(lat: number, lng: number): string {
 }
 
 export function telHref(phone: string): string {
-  return `tel:${phone.replace(/[^\d+]/g, "")}`;
+  const digits = normalizePhone(phone);
+  return digits ? `tel:+91${digits}` : "tel:";
 }
 
 export function normalizePhone(phone: string): string {
-  return phone.replace(/\D/g, "").slice(-10);
+  const digits = phone.replace(/\D/g, "");
+  if (!digits) return "";
+  if (digits.length <= 10) return digits;
+  return digits.slice(-10);
+}
+
+/** Single canonical display: +91 XXXXXXXXXX */
+export function formatDisplayPhone(phone: string): string {
+  const digits = normalizePhone(phone);
+  if (digits.length !== 10) return "";
+  return `+91 ${digits}`;
 }
 
 export function whatsappHref(phone: string, message?: string): string {
@@ -86,7 +97,7 @@ export function whatsappHref(phone: string, message?: string): string {
 export function instagramHref(): string {
   const url = process.env.NEXT_PUBLIC_INSTAGRAM_URL?.trim();
   if (url) return url.startsWith("http") ? url : `https://${url}`;
-  return "https://instagram.com/sihibakes";
+  return STORE_CONTACT.instagramUrl;
 }
 
 export function hasStoreContact(details: StorefrontDetails): boolean {

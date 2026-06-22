@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { markOrderPaid } from "@/lib/order-payment";
+import { isRazorpayTestMode } from "@/lib/razorpay";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
   try {
+    if (!isRazorpayTestMode()) {
+      return NextResponse.json({ error: "Not available" }, { status: 403 });
+    }
+
     const { order_id, order_number, phone } = await request.json();
     if (!order_id || !order_number || !phone) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });

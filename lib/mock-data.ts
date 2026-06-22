@@ -3,6 +3,7 @@ import type {
   DeliverySlot,
   Product,
   ShopSettings,
+  CustomerReview,
 } from "./types";
 
 export const MOCK_SETTINGS: ShopSettings = {
@@ -48,6 +49,39 @@ export const MOCK_PRODUCTS: Product[] = [
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     sold_out_today: false,
+  },
+];
+
+export const MOCK_REVIEWS: CustomerReview[] = [
+  {
+    id: "mock-review-1",
+    name: "Ananya R.",
+    area: "Indiranagar",
+    product: "Classic Tiramisu",
+    rating: 5,
+    quote:
+      "The layers are insane — creamy, coffee-rich, and not too sweet. Ordered for a dinner party and everyone asked where it's from!",
+    image_path: "/landing/hero-scoop.png",
+    reviewed_at: "2025-03-12",
+    sort_order: 1,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  },
+  {
+    id: "mock-review-2",
+    name: "Rohit K.",
+    area: "HSR Layout",
+    product: "Tres Leches",
+    rating: 5,
+    quote:
+      "Soaked perfectly and melts in your mouth. You can tell it's made fresh — delivery was on time and beautifully packed.",
+    image_path: "/landing/tres-leches.png",
+    reviewed_at: "2025-04-02",
+    sort_order: 2,
+    is_active: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
   },
 ];
 

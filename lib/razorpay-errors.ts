@@ -12,14 +12,17 @@ export function formatRazorpayPaymentError(error?: {
     lower.includes("authentication failed")
   ) {
     return (
-      "Card OTP was rejected on Razorpay's test page. Enter any 4–10 digit code and tap Submit, " +
-      "or tap Success if that button appears. Try UPI with success@razorpay instead. " +
-      "This is not the phone verification code from our checkout."
+      "Card OTP was rejected on Razorpay's test page — this is not our phone verification code. " +
+      "Tap Success on the mock bank page if shown, or use UPI with success@razorpay. " +
+      "Easiest: tap Skip card payment (demo only) at the bottom of checkout."
     );
   }
 
   if (reason === "otp_attempts_exceeded" || lower.includes("otp attempts")) {
-    return "Too many wrong card OTP attempts. Close Razorpay, wait a minute, and try UPI (success@razorpay) or a fresh card payment.";
+    return (
+      "Too many wrong card OTP attempts. Close Razorpay and tap Skip card payment (demo only), " +
+      "or try UPI with success@razorpay."
+    );
   }
 
   if (lower.includes("cancelled") || reason === "payment_cancelled") {

@@ -1,6 +1,6 @@
 import { CheckCircle } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
-import { telHref } from "@/lib/storefront";
+import { formatDisplayPhone, telHref } from "@/lib/storefront";
 import type { StorefrontDetails } from "@/lib/storefront";
 
 export function EnquirySuccess({
@@ -26,7 +26,7 @@ export function EnquirySuccess({
             href={telHref(store.phone)}
             className="mt-6 text-sm font-medium text-chocolate underline"
           >
-            Or call {store.phone}
+            Or call {formatDisplayPhone(store.phone)}
           </a>
         )}
       </main>

@@ -1,6 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { DeliveryFeeSlab, DeliverySlot, Product, ShopSettings } from "@/lib/types";
+import type { DeliveryFeeSlab, DeliverySlot, Product, ShopSettings, CustomerReview } from "@/lib/types";
 import { format } from "date-fns";
 import {
   getNextDeliveryDate,
@@ -13,6 +13,7 @@ import {
   getMockSlots,
   isSupabaseConfigured,
   MOCK_PRODUCTS,
+  MOCK_REVIEWS,
   MOCK_SETTINGS,
   MOCK_SLABS,
 } from "@/lib/mock-data";
@@ -318,4 +319,20 @@ export async function checkProductAvailability(
     };
   }
   return { ok: true, remaining };
+}
+
+export async function getPublishedReviews(): Promise<CustomerReview[]> {
+  if (!isSupabaseConfigured()) {
+    return MOCK_REVIEWS.filter((r) => r.is_active);
+  }
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("customer_reviews")
+    .select("*")
+    .eq("is_active", true)
+    .order("sort_order", { ascending: true })
+    .order("reviewed_at", { ascending: false });
+
+  return (data ?? []) as CustomerReview[];
 }
