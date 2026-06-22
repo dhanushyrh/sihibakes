@@ -3,7 +3,6 @@ import { Cormorant_Garamond, Sora, Great_Vibes } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/components/store/CartProvider";
 import { DeliverySessionProvider } from "@/components/store/DeliverySessionProvider";
-import { MobileNav } from "@/components/store/MobileNav";
 import { BRAND } from "@/lib/constants";
 
 export const dynamic = "force-dynamic";
@@ -50,7 +49,6 @@ export default function RootLayout({
         <CartProvider>
           <DeliverySessionProvider>
             {children}
-            <MobileNav />
           </DeliverySessionProvider>
         </CartProvider>
       </body>

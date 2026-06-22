@@ -72,7 +72,7 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
   if (!sessionReady || !isLocationReady) return null;
 
   return (
-    <div className="flex min-h-screen flex-col pb-[calc(5rem+env(safe-area-inset-bottom))]">
+    <div className="flex min-h-screen flex-col pb-[env(safe-area-inset-bottom)]">
       <OrderFlowHeader title="Your cart" backHref="/orders/delivery/menu" />
 
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">

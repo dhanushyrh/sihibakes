@@ -58,7 +58,7 @@ function WhatsAppIcon({ size = 22 }: { size?: number }) {
 
 export function OrdersHub({ store }: { store: StorefrontDetails }) {
   return (
-    <main className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-lg flex-col px-4 py-6 pb-[calc(5rem+env(safe-area-inset-bottom))]">
+    <main className="mx-auto flex min-h-[calc(100svh-5rem)] w-full max-w-lg flex-col px-4 py-6 pb-[env(safe-area-inset-bottom)]">
       <div className="text-center">
         <Image
           src="/orders-logo.png"
