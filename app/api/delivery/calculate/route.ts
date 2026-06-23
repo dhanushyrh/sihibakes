@@ -1,13 +1,20 @@
 import { NextResponse } from "next/server";
 import {
+  getAvailableDeliverySlots,
   getDeliveryFeeSlabs,
   getShopSettings,
 } from "@/lib/data";
+import { getDefaultDeliverySelection } from "@/lib/customer-delivery-slots";
 import { haversineDistanceKm, lookupDeliveryFee } from "@/lib/delivery";
 import { getDeliveryFence, isWithinDeliveryFence } from "@/lib/delivery-fence";
 import { isBorzoConfigured } from "@/lib/borzo/config";
 import { borzoDistanceKm, quoteBorzoDelivery } from "@/lib/borzo/delivery";
-import { BorzoApiError } from "@/lib/borzo/client";
+import {
+  buildBorzoQuoteSlotFromDeliverySlot,
+  buildBorzoQuoteSlotFromWindow,
+  buildDefaultBorzoQuoteSlot,
+} from "@/lib/borzo/quote-slot";
+import { BorzoApiError, formatBorzoError } from "@/lib/borzo/client";
 
 export async function POST(request: Request) {
   try {
@@ -55,37 +62,54 @@ export async function POST(request: Request) {
       });
     }
 
-    const slot =
-      delivery_date && window_start && window_end
-        ? { date: delivery_date, windowStart: window_start, windowEnd: window_end }
-        : undefined;
+    const borzoConfigured = isBorzoConfigured();
 
-    if (isBorzoConfigured()) {
+    if (borzoConfigured) {
       try {
+        let borzoSlot;
+        if (delivery_date && window_start) {
+          borzoSlot = buildBorzoQuoteSlotFromWindow(delivery_date, window_start);
+        } else {
+          const slots = await getAvailableDeliverySlots();
+          const defaultSelection = getDefaultDeliverySelection(slots);
+          const nextSlot = slots.find((slot) => slot.id === defaultSelection.slotId);
+          borzoSlot = nextSlot
+            ? buildBorzoQuoteSlotFromDeliverySlot(nextSlot)
+            : buildDefaultBorzoQuoteSlot();
+        }
+
         const quote = await quoteBorzoDelivery({
           settings,
           customerLat: lat,
           customerLng: lng,
           customerAddress: "Customer delivery location",
-          slot,
+          slot: borzoSlot,
         });
 
-        if (quote.delivery_fee_inr > 0) {
-          return NextResponse.json({
-            distance_km: borzoDistanceKm(settings, lat, lng),
-            delivery_fee_inr: quote.delivery_fee_inr,
-            reachable: true,
-            provider: "borzo",
-          });
-        }
+        return NextResponse.json({
+          distance_km: borzoDistanceKm(settings, lat, lng),
+          delivery_fee_inr: quote.delivery_fee_inr,
+          reachable: true,
+          provider: "borzo",
+        });
       } catch (err) {
-        console.error("Borzo delivery quote failed, falling back to slabs:", err);
-        if (err instanceof BorzoApiError && err.status >= 500) {
-          return NextResponse.json(
-            { error: "Delivery pricing is temporarily unavailable" },
-            { status: 503 }
-          );
-        }
+        console.error("Borzo delivery quote failed:", err);
+
+        const message =
+          err instanceof BorzoApiError
+            ? formatBorzoError(err)
+            : err instanceof Error
+              ? err.message
+              : "Borzo delivery quote failed";
+
+        return NextResponse.json(
+          {
+            error: message,
+            provider: "borzo",
+            borzo_configured: true,
+          },
+          { status: err instanceof BorzoApiError && err.status < 500 ? 400 : 502 }
+        );
       }
     }
 
@@ -97,6 +121,11 @@ export async function POST(request: Request) {
       delivery_fee_inr: fee,
       reachable: true,
       provider: "slab",
+      borzo_configured: false,
+      message:
+        process.env.NODE_ENV === "development"
+          ? "Using distance slabs — set BORZO_AUTH_TOKEN for live Borzo quotes"
+          : undefined,
     });
   } catch {
     return NextResponse.json({ error: "Calculation failed" }, { status: 500 });

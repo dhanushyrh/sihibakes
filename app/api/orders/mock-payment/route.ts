@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { markOrderPaid } from "@/lib/order-payment";
+import { notifyOrderPlaced } from "@/lib/whatsapp/notifications";
 import { isRazorpayTestMode } from "@/lib/razorpay";
 
 export const runtime = "nodejs";
@@ -36,15 +37,29 @@ export async function POST(request: Request) {
     }
 
     if (order.payment_status === "paid") {
-      return NextResponse.json({ ok: true, already_paid: true });
+      const whatsapp = await notifyOrderPlaced(order_id);
+      return NextResponse.json({
+        ok: true,
+        already_paid: true,
+        whatsapp_sent: whatsapp.ok,
+        whatsapp_error: whatsapp.error,
+      });
     }
 
-    const paid = await markOrderPaid(order_id, `mock_${Date.now()}`);
-    if (!paid) {
+    const { newlyPaid, whatsapp } = await markOrderPaid(
+      order_id,
+      `mock_${Date.now()}`
+    );
+    if (!newlyPaid) {
       return NextResponse.json({ error: "Payment update failed" }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true, newly_paid: true });
+    return NextResponse.json({
+      ok: true,
+      newly_paid: true,
+      whatsapp_sent: whatsapp?.ok ?? false,
+      whatsapp_error: whatsapp?.error ?? null,
+    });
   } catch {
     return NextResponse.json({ error: "Payment failed" }, { status: 500 });
   }

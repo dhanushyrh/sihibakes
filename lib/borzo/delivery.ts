@@ -3,6 +3,7 @@ import { haversineDistanceKm } from "@/lib/delivery";
 import type { Order, ShopSettings } from "@/lib/types";
 import { calculateBorzoOrder, createBorzoOrder, getBorzoCourier } from "./client";
 import { BORZO_VENDOR_NAME } from "./config";
+import type { BorzoQuoteSlot } from "./quote-slot";
 import type {
   BorzoDeliveryQuote,
   BorzoDispatchResult,
@@ -32,6 +33,11 @@ export function formatCustomerAddress(order: Pick<Order, "house" | "street" | "l
 function slotDatetime(date: string, time: string): string {
   const normalizedTime = time.length === 5 ? `${time}:00` : time;
   return `${date}T${normalizedTime}+05:30`;
+}
+
+function applyQuoteWindow(point: BorzoPoint, window: BorzoQuoteSlot["pickup"]) {
+  point.required_start_datetime = slotDatetime(window.startDate, window.startTime);
+  point.required_finish_datetime = slotDatetime(window.finishDate, window.finishTime);
 }
 
 export function generateDeliveryOtp(): string {
@@ -98,10 +104,41 @@ function buildOrderPayload(params: {
   };
 }
 
-function parsePaymentInr(paymentAmount: string | null | undefined): number {
-  const parsed = Number.parseFloat(paymentAmount ?? "0");
-  if (!Number.isFinite(parsed) || parsed <= 0) return 0;
-  return Math.ceil(parsed);
+function parseBorzoFeeInr(order: {
+  payment_amount?: string | null;
+  delivery_fee_amount?: string | null;
+}): number {
+  for (const amount of [order.payment_amount, order.delivery_fee_amount]) {
+    const parsed = Number.parseFloat(amount ?? "0");
+    if (Number.isFinite(parsed) && parsed > 0) {
+      return Math.ceil(parsed);
+    }
+  }
+  return 0;
+}
+
+function buildQuotePoints(params: {
+  settings: ShopSettings;
+  customerLat: number;
+  customerLng: number;
+  customerAddress: string;
+  slot: BorzoQuoteSlot;
+}): BorzoPoint[] {
+  const storePoint: BorzoPoint = {
+    address: params.settings.store_address || "Store pickup",
+    latitude: formatCoordinate(params.settings.kitchen_lat),
+    longitude: formatCoordinate(params.settings.kitchen_lng),
+  };
+  applyQuoteWindow(storePoint, params.slot.pickup);
+
+  const customerPoint: BorzoPoint = {
+    address: params.customerAddress,
+    latitude: formatCoordinate(params.customerLat),
+    longitude: formatCoordinate(params.customerLng),
+  };
+  applyQuoteWindow(customerPoint, params.slot.delivery);
+
+  return [storePoint, customerPoint];
 }
 
 function formatEstimatedArrival(
@@ -146,17 +183,13 @@ export async function quoteBorzoDelivery(params: {
   customerLat: number;
   customerLng: number;
   customerAddress: string;
-  customerName?: string;
-  customerPhone?: string;
-  slot?: { date: string; windowStart: string; windowEnd: string };
+  slot: BorzoQuoteSlot;
 }): Promise<BorzoDeliveryQuote> {
-  const points = buildPoints({
+  const points = buildQuotePoints({
     settings: params.settings,
     customerLat: params.customerLat,
     customerLng: params.customerLng,
     customerAddress: params.customerAddress,
-    customerName: params.customerName ?? "Customer",
-    customerPhone: params.customerPhone ?? params.settings.phone,
     slot: params.slot,
   });
 
@@ -167,9 +200,16 @@ export async function quoteBorzoDelivery(params: {
     })
   );
 
+  const delivery_fee_inr = parseBorzoFeeInr(order);
+  if (delivery_fee_inr <= 0) {
+    throw new Error(
+      `Borzo returned no delivery fee (payment_amount=${order.payment_amount ?? "null"}, delivery_fee_amount=${order.delivery_fee_amount ?? "null"})`
+    );
+  }
+
   return {
-    delivery_fee_inr: parsePaymentInr(order.payment_amount),
-    payment_amount: order.payment_amount ?? "0.00",
+    delivery_fee_inr,
+    payment_amount: order.payment_amount ?? order.delivery_fee_amount ?? "0.00",
     warnings: [],
   };
 }

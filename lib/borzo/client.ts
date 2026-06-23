@@ -13,6 +13,20 @@ export class BorzoApiError extends Error {
   }
 }
 
+export function formatBorzoError(err: BorzoApiError): string {
+  const code = err.errors?.[0];
+  if (code === "invalid_auth_token") {
+    return "Borzo auth token is invalid — check BORZO_AUTH_TOKEN in .env.local";
+  }
+  if (code === "insufficient_balance") {
+    return "Borzo test account balance is too low to quote this delivery";
+  }
+  const details = err.parameterErrors
+    ? ` (${JSON.stringify(err.parameterErrors)})`
+    : "";
+  return `${err.message}${details}`;
+}
+
 async function borzoRequest<T>(
   path: string,
   options: { method?: string; body?: unknown; query?: Record<string, string> } = {}

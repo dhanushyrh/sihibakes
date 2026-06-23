@@ -35,9 +35,17 @@ export async function POST(request: Request) {
       );
     }
 
-    const paid = await markOrderPaid(order_id, razorpay_payment_id);
+    const { newlyPaid, whatsapp } = await markOrderPaid(
+      order_id,
+      razorpay_payment_id
+    );
 
-    return NextResponse.json({ success: true, newly_paid: paid });
+    return NextResponse.json({
+      success: true,
+      newly_paid: newlyPaid,
+      whatsapp_sent: whatsapp?.ok ?? false,
+      whatsapp_error: whatsapp?.error ?? null,
+    });
   } catch (err) {
     console.error("Payment verify error:", err);
     return NextResponse.json({ error: "Verification failed" }, { status: 500 });

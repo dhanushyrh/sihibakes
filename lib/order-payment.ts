@@ -3,11 +3,16 @@ import { incrementProductCountsForOrder } from "@/lib/inventory-server";
 import { notifyOrderPlaced } from "@/lib/whatsapp/notifications";
 import type { OrderStatus } from "@/lib/types";
 
-/** Marks order paid if not already. Returns true when payment was newly applied. */
+export type MarkOrderPaidResult = {
+  newlyPaid: boolean;
+  whatsapp: Awaited<ReturnType<typeof notifyOrderPlaced>> | null;
+};
+
+/** Marks order paid if not already. Always attempts the order-placed WhatsApp once. */
 export async function markOrderPaid(
   orderId: string,
   paymentId: string
-): Promise<boolean> {
+): Promise<MarkOrderPaidResult> {
   const admin = createAdminClient();
 
   const { data: order } = await admin
@@ -16,24 +21,41 @@ export async function markOrderPaid(
     .eq("id", orderId)
     .single();
 
-  if (!order || order.payment_status === "paid") return false;
+  if (!order) {
+    return { newlyPaid: false, whatsapp: null };
+  }
 
-  await admin
-    .from("orders")
-    .update({
-      payment_status: "paid",
-      status: "pending",
-      razorpay_payment_id: paymentId,
-    })
-    .eq("id", orderId);
+  const newlyPaid = order.payment_status !== "paid";
 
+  if (newlyPaid) {
+    await admin
+      .from("orders")
+      .update({
+        payment_status: "paid",
+        status: "pending",
+        razorpay_payment_id: paymentId,
+      })
+      .eq("id", orderId);
+  }
+
+  let whatsapp: MarkOrderPaidResult["whatsapp"] = null;
   try {
-    await notifyOrderPlaced(orderId);
+    whatsapp = await notifyOrderPlaced(orderId);
+    if (!whatsapp.ok) {
+      console.error(
+        `WhatsApp order placed notification failed for order ${orderId}:`,
+        whatsapp.error ?? "unknown error"
+      );
+    } else if (whatsapp.messageId) {
+      console.info(
+        `WhatsApp order placed notification sent for order ${orderId} (${whatsapp.messageId})`
+      );
+    }
   } catch (err) {
     console.error("WhatsApp order placed notification failed after payment:", err);
   }
 
-  return true;
+  return { newlyPaid, whatsapp };
 }
 
 /** Reserve daily inventory when admin accepts a paid order for fulfillment. */

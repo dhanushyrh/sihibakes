@@ -183,6 +183,9 @@ export interface DeliveryCalculation {
   delivery_fee_inr: number;
   reachable: boolean;
   message?: string;
+  provider?: "borzo" | "slab";
+  borzo_configured?: boolean;
+  error?: string;
 }
 
 export interface CouponValidation {

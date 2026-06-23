@@ -33,7 +33,7 @@ type DeliveryLocationPickerProps = {
   hasSavedLocation?: boolean;
   useGeolocationInitially?: boolean;
   variant?: "default" | "gate";
-  onUpdate: (lat: number, lng: number, delivery: DeliveryCalculation) => void;
+  onUpdate: (lat: number, lng: number, delivery: DeliveryCalculation | null) => void;
   onStatusChange?: (status: LocationStatus) => void;
   onUnreachableExit?: () => void;
 };
@@ -93,7 +93,14 @@ export function DeliveryLocationPicker({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ lat: newLat, lng: newLng }),
         });
-        const data = (await res.json()) as DeliveryCalculation;
+        const data = (await res.json()) as DeliveryCalculation & { error?: string };
+        if (!res.ok) {
+          const message = data.error || "Could not calculate delivery fee";
+          setGeoError(message);
+          setDelivery(null);
+          onUpdate(newLat, newLng, null);
+          return null;
+        }
         setDelivery(data);
         onUpdate(newLat, newLng, data);
         return data;
