@@ -35,8 +35,9 @@ export async function POST(request: Request) {
       );
     }
 
-    await markOrderPaid(order_id, razorpay_payment_id);
-    return NextResponse.json({ success: true });
+    const paid = await markOrderPaid(order_id, razorpay_payment_id);
+
+    return NextResponse.json({ success: true, newly_paid: paid });
   } catch (err) {
     console.error("Payment verify error:", err);
     return NextResponse.json({ error: "Verification failed" }, { status: 500 });

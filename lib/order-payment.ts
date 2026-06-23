@@ -27,7 +27,11 @@ export async function markOrderPaid(
     })
     .eq("id", orderId);
 
-  void notifyOrderPlaced(orderId);
+  try {
+    await notifyOrderPlaced(orderId);
+  } catch (err) {
+    console.error("WhatsApp order placed notification failed after payment:", err);
+  }
 
   return true;
 }

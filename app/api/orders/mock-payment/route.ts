@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Payment update failed" }, { status: 500 });
     }
 
-    return NextResponse.json({ ok: true });
+    return NextResponse.json({ ok: true, newly_paid: true });
   } catch {
     return NextResponse.json({ error: "Payment failed" }, { status: 500 });
   }

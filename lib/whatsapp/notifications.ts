@@ -1,7 +1,7 @@
 import { BRAND } from "@/lib/constants";
 import { statusChangeLabel } from "@/lib/order-status-update";
 import type { Order, OrderStatus } from "@/lib/types";
-import { getWhatsAppConfig } from "@/lib/whatsapp/config";
+import { getWhatsAppConfig, isWhatsAppConfigured } from "@/lib/whatsapp/config";
 import {
   hasSentMessage,
   sendWhatsAppTemplate,
@@ -78,7 +78,14 @@ export async function sendCheckoutOtp(phone: string, code: string) {
 
 /** Meta sample utility template: customer name, order id, expected delivery. */
 export async function sendOrderPlacedNotification(order: Order) {
-  if (await hasSentMessage(order.id, "order_placed")) return;
+  if (!isWhatsAppConfigured()) {
+    console.warn("WhatsApp not configured — skipping order placed notification");
+    return { ok: false, messageId: null, error: "WhatsApp not configured" };
+  }
+
+  if (await hasSentMessage(order.id, "order_placed")) {
+    return { ok: true, messageId: null, error: null };
+  }
 
   const config = getWhatsAppConfig();
   const templateName =
@@ -96,7 +103,7 @@ export async function sendOrderPlacedNotification(order: Order) {
     },
   ];
 
-  return sendWhatsAppTemplate({
+  const result = await sendWhatsAppTemplate({
     phone: order.phone,
     messageType: "order_placed",
     templateName,
@@ -104,6 +111,15 @@ export async function sendOrderPlacedNotification(order: Order) {
     orderId: order.id,
     languageCode: config?.orderPlacedLanguageCode ?? "en_US",
   });
+
+  if (!result.ok) {
+    console.error(
+      `WhatsApp order placed notification failed for ${order.order_number}:`,
+      result.error
+    );
+  }
+
+  return result;
 }
 
 export async function sendOrderConfirmedNotification(order: Order) {
@@ -252,13 +268,12 @@ export async function notifyOrderPlaced(orderId: string) {
     .eq("id", orderId)
     .single();
 
-  if (!order) return;
-
-  try {
-    await sendOrderPlacedNotification(order as Order);
-  } catch (err) {
-    console.error("WhatsApp order placed notification failed:", err);
+  if (!order) {
+    console.error("WhatsApp order placed notification skipped — order not found:", orderId);
+    return { ok: false, messageId: null, error: "Order not found" };
   }
+
+  return sendOrderPlacedNotification(order as Order);
 }
 
 export async function notifyOrderConfirmed(orderId: string) {
