@@ -5,6 +5,8 @@ import type { DeliveryVendor, Order, OrderStatus } from "@/lib/types";
 import {
   requiresDeliveryDispatch,
   requiresPartnerDispatchDetails,
+  requiresBorzoAutoDispatch,
+  BORZO_VENDOR_NAME,
   statusChangeLabel,
   type DeliveryDispatchDetails,
   type DeliveryDispatchMode,
@@ -44,8 +46,9 @@ export function OrderStatusChangeModal({
   const needsDispatch = targetStatus
     ? requiresDeliveryDispatch(targetStatus)
     : false;
-  const needsPartnerDetails = targetStatus
-    ? requiresPartnerDispatchDetails(targetStatus, dispatchMode)
+  const needsPartnerDispatch = needsDispatch && dispatchMode === "partner";
+  const isBorzoDispatch = targetStatus
+    ? requiresBorzoAutoDispatch(targetStatus, dispatchMode, delivery.delivery_vendor)
     : false;
 
   useEffect(() => {
@@ -60,7 +63,7 @@ export function OrderStatusChangeModal({
   }, [open, order]);
 
   useEffect(() => {
-    if (!open || !needsPartnerDetails) return;
+    if (!open || !needsPartnerDispatch) return;
 
     let cancelled = false;
     setVendorsLoading(true);
@@ -75,8 +78,14 @@ export function OrderStatusChangeModal({
         if (cancelled) return;
         setVendors(loaded);
         setDelivery((current) => {
+          const borzo = loaded.find(
+            (vendor) => vendor.name.toLowerCase() === BORZO_VENDOR_NAME.toLowerCase()
+          );
           if (current.delivery_vendor) return current;
-          return { ...current, delivery_vendor: loaded[0]?.name ?? "" };
+          return {
+            ...current,
+            delivery_vendor: borzo?.name ?? loaded[0]?.name ?? "",
+          };
         });
       })
       .catch(() => {
@@ -89,15 +98,16 @@ export function OrderStatusChangeModal({
     return () => {
       cancelled = true;
     };
-  }, [open, needsPartnerDetails]);
+  }, [open, needsPartnerDispatch]);
 
   if (!open || !order || !targetStatus) return null;
 
   const partnerDispatchValid =
-    delivery.delivery_partner_order_id.trim() &&
     delivery.delivery_vendor.trim() &&
-    delivery.delivery_otp.trim() &&
-    delivery.delivery_partner_name.trim();
+    (isBorzoDispatch ||
+      (delivery.delivery_partner_order_id.trim() &&
+        delivery.delivery_otp.trim() &&
+        delivery.delivery_partner_name.trim()));
 
   const dispatchReady = needsDispatch
     ? dispatchMode === "self" ||
@@ -110,7 +120,7 @@ export function OrderStatusChangeModal({
     onConfirm({
       status: targetStatus,
       dispatchMode: needsDispatch ? dispatchMode : undefined,
-      delivery: needsPartnerDetails
+      delivery: needsDispatch && dispatchMode === "partner"
         ? {
             delivery_partner_order_id: delivery.delivery_partner_order_id.trim(),
             delivery_vendor: delivery.delivery_vendor.trim(),
@@ -233,24 +243,17 @@ export function OrderStatusChangeModal({
                 </p>
               ) : (
                 <>
-                  <p className="text-xs text-[#4B2C20]/50">
-                    Enter delivery partner details before dispatching.
-                  </p>
-                  <label className="block">
-                    <span className="text-xs font-medium text-[#4B2C20]">Order ID</span>
-                    <input
-                      required
-                      value={delivery.delivery_partner_order_id}
-                      onChange={(e) =>
-                        setDelivery((d) => ({
-                          ...d,
-                          delivery_partner_order_id: e.target.value,
-                        }))
-                      }
-                      placeholder="Partner / vendor order ID"
-                      className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
-                    />
-                  </label>
+                  {isBorzoDispatch ? (
+                    <p className="text-xs text-[#4B2C20]/60">
+                      Borzo will create a two-wheeler delivery from the store to the
+                      customer, set the handoff OTP, and notify the customer on
+                      WhatsApp with the ETA.
+                    </p>
+                  ) : (
+                    <p className="text-xs text-[#4B2C20]/50">
+                      Enter delivery partner details before dispatching.
+                    </p>
+                  )}
                   <label className="block">
                     <span className="text-xs font-medium text-[#4B2C20]">Vendor</span>
                     <select
@@ -271,6 +274,23 @@ export function OrderStatusChangeModal({
                         </option>
                       ))}
                     </select>
+                  </label>
+                  {!isBorzoDispatch && (
+                    <>
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#4B2C20]">Order ID</span>
+                    <input
+                      required
+                      value={delivery.delivery_partner_order_id}
+                      onChange={(e) =>
+                        setDelivery((d) => ({
+                          ...d,
+                          delivery_partner_order_id: e.target.value,
+                        }))
+                      }
+                      placeholder="Partner / vendor order ID"
+                      className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
+                    />
                   </label>
                   <label className="block">
                     <span className="text-xs font-medium text-[#4B2C20]">OTP</span>
@@ -301,6 +321,8 @@ export function OrderStatusChangeModal({
                       className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
                     />
                   </label>
+                    </>
+                  )}
                 </>
               )}
             </>

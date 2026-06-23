@@ -9,6 +9,7 @@ import { Tag } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { useScrollToTopOnChange } from "@/components/store/ScrollToTop";
 import { DeliveryLocationPicker } from "@/components/store/DeliveryLocationPicker";
+import { SelectedLocationMap } from "@/components/store/SelectedLocationMap";
 import { DeliverySlotSelects } from "@/components/store/DeliverySlotSelects";
 import { AvailableCouponsPicker } from "@/components/store/AvailableCouponsPicker";
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
@@ -26,7 +27,7 @@ import {
 } from "@/lib/checkout-validation";
 import { isMenuProduct } from "@/lib/cart-products";
 import { BRAND } from "@/lib/constants";
-import { formatCurrency } from "@/lib/delivery";
+import { formatCurrency, formatDistance } from "@/lib/delivery";
 import { normalizePhone } from "@/lib/storefront";
 import { getUnitPrice } from "@/lib/pricing";
 import {
@@ -44,7 +45,7 @@ import {
 } from "@/lib/razorpay-errors";
 import "@/lib/razorpay-checkout";
 
-const STEPS = ["Details", "Verify & pay"];
+const STEPS = ["Location", "Details", "Pay"];
 
 type PlacedOrder = {
   order_id: string;
@@ -161,6 +162,44 @@ export function DeliveryCheckoutClient({
     if (next.slotId !== selectedSlotId) setSelectedSlotId(next.slotId);
   }, [bookableSlots, selectedDate, selectedSlotId]);
 
+  const selectedSlot = useMemo(
+    () => bookableSlots.find((slot) => slot.id === selectedSlotId) ?? null,
+    [bookableSlots, selectedSlotId]
+  );
+
+  useEffect(() => {
+    if (session.lat == null || session.lng == null || !selectedSlot) return;
+
+    let cancelled = false;
+    void fetch("/api/delivery/calculate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        lat: session.lat,
+        lng: session.lng,
+        delivery_date: selectedSlot.slot_date,
+        window_start: selectedSlot.window_start,
+        window_end: selectedSlot.window_end,
+      }),
+    })
+      .then((res) => res.json())
+      .then((data: DeliveryCalculation) => {
+        if (!cancelled) {
+          setLocation(session.lat!, session.lng!, data);
+        }
+      })
+      .catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    selectedSlot,
+    session.lat,
+    session.lng,
+    setLocation,
+  ]);
+
   useEffect(() => {
     setOtp("");
     setOtpSent(false);
@@ -185,6 +224,12 @@ export function DeliveryCheckoutClient({
     sessionLatRef.current = session.lat;
     sessionLngRef.current = session.lng;
   }, [session.lat, session.lng]);
+
+  useEffect(() => {
+    if (step > 0 && session.delivery && !session.delivery.reachable) {
+      setStep(0);
+    }
+  }, [session.delivery, step]);
 
   useEffect(() => {
     if (!customerLookupReady || isFirstOrder || !appliedCoupon) return;
@@ -575,36 +620,32 @@ export function DeliveryCheckoutClient({
       rzp.open();
     });
 
+  const continueToDetails = () => {
+    if (!isLocationReady) return;
+    setFieldErrors({});
+    setStep(1);
+  };
+
   const continueToVerification = async () => {
     setError("");
     if (!isLocationReady) {
-      const locationMessage =
-        session.lat != null &&
-        session.lng != null &&
-        session.delivery &&
-        !session.delivery.reachable
-          ? (session.delivery.message ??
-            "This location is outside our delivery zone — tap the map to choose another spot")
-          : "Set your delivery location on the map to continue";
-      setFieldErrors({ location: locationMessage });
-      locationSectionRef.current?.scrollIntoView({
-        behavior: "smooth",
-        block: "center",
-      });
+      setStep(0);
       return;
     }
     const errors = validateDetails();
     if (Object.keys(errors).length > 0) {
       if (errors.location) {
-        locationSectionRef.current?.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
+        setStep(0);
       }
       return;
     }
-    setStep(1);
+    setStep(2);
     if (!otpSent) await sendOtp();
+  };
+
+  const goBack = () => {
+    setError("");
+    if (step > 0) setStep(step - 1);
   };
 
   const verifyPhoneOtp = async () => {
@@ -682,7 +723,7 @@ export function DeliveryCheckoutClient({
     );
   }
 
-  const showPaymentBar = step === 1 && otpVerified;
+  const showPaymentBar = step === 2 && otpVerified;
 
   return (
     <div
@@ -697,7 +738,11 @@ export function DeliveryCheckoutClient({
         strategy="afterInteractive"
         onLoad={() => setRazorpayReady(true)}
       />
-      <OrderFlowHeader title="Checkout" backHref="/orders/delivery/cart" />
+      <OrderFlowHeader
+        title="Checkout"
+        backHref={step === 0 ? "/orders/delivery/cart" : undefined}
+        onBack={step > 0 ? goBack : undefined}
+      />
 
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">
         <div className="flex gap-1">
@@ -715,10 +760,10 @@ export function DeliveryCheckoutClient({
           <div className="mt-6 space-y-4">
             <div>
               <h2 className="font-display text-lg font-semibold text-chocolate">
-                Delivery location
+                Where should we deliver?
               </h2>
               <p className="mt-1 text-sm text-chocolate/60">
-                Allow location access or set your pin on the map to continue.
+                Search for your area, or use the buttons below to set your pin.
               </p>
             </div>
 
@@ -728,58 +773,39 @@ export function DeliveryCheckoutClient({
             >
               <DeliveryLocationPicker
                 key={locationPickerKey}
+                variant="gate"
                 kitchenLat={kitchenLat}
                 kitchenLng={kitchenLng}
                 deliveryFence={deliveryFence}
                 initialLat={session.lat ?? kitchenLat}
                 initialLng={session.lng ?? kitchenLng}
                 hasSavedLocation={session.lat != null && session.lng != null}
-                useGeolocationInitially={session.lat == null && session.lng == null}
+                useGeolocationInitially={false}
                 onUpdate={(lat, lng, delivery) => setLocation(lat, lng, delivery)}
+                onUnreachableExit={() => router.push("/orders/delivery/menu")}
               />
-              {fieldErrors.location && (
-                <p className="mt-3 text-xs text-red-600">{fieldErrors.location}</p>
-              )}
             </section>
 
-            <section className="rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
-              <h2 className="text-sm font-medium text-chocolate">Your order</h2>
-              <ul className="mt-3 space-y-3">
-                {cartLines.map((line) => (
-                  <li key={line.productId} className="flex gap-3">
-                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-cream">
-                      {line.product.image_path ? (
-                        <Image
-                          src={line.product.image_path}
-                          alt={line.product.title}
-                          fill
-                          className="object-cover"
-                          sizes="56px"
-                        />
-                      ) : null}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-chocolate">
-                        {line.product.title}
-                      </p>
-                      <p className="text-xs text-chocolate/55">
-                        Qty {line.quantity} · {formatCurrency(line.unitPrice)} each
-                      </p>
-                    </div>
-                    <p className="text-sm font-medium text-chocolate">
-                      {formatCurrency(line.lineTotal)}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </section>
+            {isLocationReady && (
+              <button
+                type="button"
+                onClick={continueToDetails}
+                className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream"
+              >
+                Continue
+              </button>
+            )}
+          </div>
+        )}
 
+        {step === 1 && (
+          <div className="mt-6 space-y-4">
             <div>
               <h2 className="font-display text-lg font-semibold text-chocolate">
                 Delivery details
               </h2>
               <p className="mt-1 text-sm text-chocolate/60">
-                Add your address and choose a delivery slot.
+                Add your contact info, address, and optional coupon.
               </p>
             </div>
 
@@ -832,8 +858,38 @@ export function DeliveryCheckoutClient({
               )}
             </div>
 
+            <section className="overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <h3 className="text-sm font-medium text-chocolate">Delivery location</h3>
+                <button
+                  type="button"
+                  onClick={() => setStep(0)}
+                  className="text-xs text-chocolate/60 underline"
+                >
+                  Edit
+                </button>
+              </div>
+              {session.lat != null && session.lng != null && (
+                <SelectedLocationMap
+                  lat={session.lat}
+                  lng={session.lng}
+                  kitchenLat={kitchenLat}
+                  kitchenLng={kitchenLng}
+                  deliveryFence={deliveryFence}
+                  variant="preview"
+                  onEdit={() => setStep(0)}
+                />
+              )}
+              {session.delivery?.reachable && (
+                <p className="mt-2 text-center text-xs text-chocolate/55">
+                  {formatDistance(session.delivery.distance_km)} away · Delivery fee{" "}
+                  {formatCurrency(session.delivery.delivery_fee_inr)}
+                </p>
+              )}
+            </section>
+
             <p className="text-xs text-chocolate/45">
-              Enter your full delivery address below.
+              Enter the address for your pinned delivery location.
             </p>
 
             <div>
@@ -942,6 +998,38 @@ export function DeliveryCheckoutClient({
               )}
             </section>
 
+            <section className="rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
+              <h2 className="text-sm font-medium text-chocolate">Your order</h2>
+              <ul className="mt-3 space-y-3">
+                {cartLines.map((line) => (
+                  <li key={line.productId} className="flex gap-3">
+                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-cream">
+                      {line.product.image_path ? (
+                        <Image
+                          src={line.product.image_path}
+                          alt={line.product.title}
+                          fill
+                          className="object-cover"
+                          sizes="56px"
+                        />
+                      ) : null}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-chocolate">
+                        {line.product.title}
+                      </p>
+                      <p className="text-xs text-chocolate/55">
+                        Qty {line.quantity} · {formatCurrency(line.unitPrice)} each
+                      </p>
+                    </div>
+                    <p className="text-sm font-medium text-chocolate">
+                      {formatCurrency(line.lineTotal)}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            </section>
+
             <div className="rounded-2xl bg-white p-4 text-sm ring-1 ring-chocolate/10">
               <div className="flex justify-between">
                 <span>Subtotal</span>
@@ -972,25 +1060,14 @@ export function DeliveryCheckoutClient({
             <button
               type="button"
               onClick={continueToVerification}
-              disabled={!isLocationReady}
-              className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
+              className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream"
             >
               Continue to phone verification
             </button>
-            {!isLocationReady && (
-              <p className="text-center text-xs text-chocolate/55">
-                {session.lat != null &&
-                session.lng != null &&
-                session.delivery &&
-                !session.delivery.reachable
-                  ? "This location is outside our delivery zone"
-                  : "Set your delivery location to continue"}
-              </p>
-            )}
           </div>
         )}
 
-        {step === 1 && (
+        {step === 2 && (
           <div className="mt-6 space-y-4">
             <h2 className="font-display text-lg font-semibold text-chocolate">
               Verify & pay
@@ -1039,10 +1116,7 @@ export function DeliveryCheckoutClient({
                 <div className="flex gap-2 pt-2">
                   <button
                     type="button"
-                    onClick={() => {
-                      setStep(0);
-                      setError("");
-                    }}
+                    onClick={goBack}
                     className="flex-1 rounded-full border border-chocolate/20 py-4 text-sm"
                   >
                     Back
@@ -1091,10 +1165,7 @@ export function DeliveryCheckoutClient({
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={() => {
-                  setStep(0);
-                  setError("");
-                }}
+                onClick={goBack}
                 className="flex-1 rounded-full border border-chocolate/20 py-3.5 text-sm"
               >
                 Back

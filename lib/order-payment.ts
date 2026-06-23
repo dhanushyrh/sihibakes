@@ -1,5 +1,6 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { incrementProductCountsForOrder } from "@/lib/inventory-server";
+import { notifyOrderPlaced } from "@/lib/whatsapp/notifications";
 import type { OrderStatus } from "@/lib/types";
 
 /** Marks order paid if not already. Returns true when payment was newly applied. */
@@ -25,6 +26,8 @@ export async function markOrderPaid(
       razorpay_payment_id: paymentId,
     })
     .eq("id", orderId);
+
+  void notifyOrderPlaced(orderId);
 
   return true;
 }

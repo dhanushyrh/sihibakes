@@ -51,6 +51,7 @@ export async function sendWhatsAppTemplate(params: {
   templateName: string;
   components?: TemplateComponent[];
   orderId?: string | null;
+  languageCode?: string;
 }): Promise<SendTemplateResult> {
   const waPhone = formatPhoneForWhatsApp(params.phone);
   if (!waPhone) {
@@ -87,7 +88,7 @@ export async function sendWhatsAppTemplate(params: {
     type: "template",
     template: {
       name: params.templateName,
-      language: { code: config.languageCode },
+      language: { code: params.languageCode ?? config.languageCode },
       ...(params.components?.length ? { components: params.components } : {}),
     },
   };

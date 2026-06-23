@@ -8,10 +8,7 @@ import { getFenceBounds } from "@/lib/delivery-fence";
 import type { DeliveryFenceKm } from "@/lib/types";
 import { getGoogleMapsApiKey, GOOGLE_MAPS_LOADER_OPTIONS, withGoogleMapId } from "@/lib/google-maps-config";
 
-const mapContainerStyle = {
-  width: "100%",
-  height: "200px",
-};
+const DEFAULT_MAP_HEIGHT = 200;
 
 const LOCKED_ZOOM = 16;
 
@@ -24,6 +21,7 @@ type SelectedLocationMapProps = {
   kitchenLng?: number;
   deliveryFence?: DeliveryFenceKm;
   variant?: SelectedLocationMapVariant;
+  mapHeight?: number;
   onEdit?: () => void;
 };
 
@@ -34,8 +32,17 @@ export function SelectedLocationMap({
   kitchenLng,
   deliveryFence,
   variant = "preview",
+  mapHeight = DEFAULT_MAP_HEIGHT,
   onEdit,
 }: SelectedLocationMapProps) {
+  const mapContainerStyle = {
+    width: "100%",
+    height: `${mapHeight}px`,
+  };
+  const placeholderHeightClass =
+    mapHeight === DEFAULT_MAP_HEIGHT ? "h-[200px]" : undefined;
+  const placeholderStyle =
+    placeholderHeightClass == null ? { height: `${mapHeight}px` } : undefined;
   const apiKey = getGoogleMapsApiKey();
   const { isLoaded } = useJsApiLoader(GOOGLE_MAPS_LOADER_OPTIONS);
   const [map, setMap] = useState<google.maps.Map | null>(null);
@@ -52,7 +59,10 @@ export function SelectedLocationMap({
 
   if (variant === "loading") {
     return (
-      <div className="flex h-[200px] flex-col items-center justify-center rounded-2xl bg-cream ring-1 ring-chocolate/10">
+      <div
+        className={`flex flex-col items-center justify-center rounded-2xl bg-cream ring-1 ring-chocolate/10 ${placeholderHeightClass ?? ""}`}
+        style={placeholderStyle}
+      >
         <div className="mb-3 h-10 w-10 animate-pulse rounded-full bg-chocolate/10" />
         <p className="text-sm text-chocolate/50">Finding your location...</p>
       </div>
@@ -61,7 +71,10 @@ export function SelectedLocationMap({
 
   if (variant === "empty") {
     const emptyContent = (
-      <div className="flex h-[200px] flex-col items-center justify-center rounded-2xl bg-cream px-4 text-center ring-1 ring-chocolate/10">
+      <div
+        className={`flex flex-col items-center justify-center rounded-2xl bg-cream px-4 text-center ring-1 ring-chocolate/10 ${placeholderHeightClass ?? ""}`}
+        style={placeholderStyle}
+      >
         <MapPin size={28} className="mb-2 text-chocolate/35" />
         <p className="text-sm font-medium text-chocolate">Set your delivery pin</p>
         <p className="mt-1 text-xs text-chocolate/50">
@@ -86,7 +99,10 @@ export function SelectedLocationMap({
 
   if (!apiKey) {
     return (
-      <div className="flex h-[200px] flex-col items-center justify-center bg-cream px-4 text-center text-sm text-chocolate/60">
+      <div
+        className={`flex flex-col items-center justify-center bg-cream px-4 text-center text-sm text-chocolate/60 ${placeholderHeightClass ?? ""}`}
+        style={placeholderStyle}
+      >
         <MapPin size={20} className="mb-2 text-chocolate/40" />
         <p>Location pinned</p>
         <p className="mt-1 text-xs text-chocolate/45">
@@ -98,7 +114,10 @@ export function SelectedLocationMap({
 
   if (!isLoaded) {
     return (
-      <div className="flex h-[200px] items-center justify-center bg-cream">
+      <div
+        className={`flex items-center justify-center bg-cream ${placeholderHeightClass ?? ""}`}
+        style={placeholderStyle}
+      >
         <p className="text-sm text-chocolate/50">Loading map...</p>
       </div>
     );

@@ -20,6 +20,22 @@ function formatDeliverySlot(order: Pick<Order, "delivery_date" | "delivery_windo
   return `${order.delivery_date}, ${order.delivery_window_start.slice(0, 5)}–${order.delivery_window_end.slice(0, 5)}`;
 }
 
+function formatExpectedDelivery(
+  order: Pick<Order, "delivery_date" | "delivery_window_start" | "delivery_window_end">
+): string {
+  const date = new Date(`${order.delivery_date}T12:00:00`);
+  const dateLabel = Number.isNaN(date.getTime())
+    ? order.delivery_date
+    : date.toLocaleDateString("en-IN", {
+        day: "numeric",
+        month: "short",
+        year: "numeric",
+      });
+  const start = order.delivery_window_start.slice(0, 5);
+  const end = order.delivery_window_end.slice(0, 5);
+  return `${dateLabel}, ${start}–${end}`;
+}
+
 function statusDetailMessage(status: OrderStatus): string {
   switch (status) {
     case "preparing":
@@ -60,6 +76,36 @@ export async function sendCheckoutOtp(phone: string, code: string) {
   });
 }
 
+/** Meta sample utility template: customer name, order id, expected delivery. */
+export async function sendOrderPlacedNotification(order: Order) {
+  if (await hasSentMessage(order.id, "order_placed")) return;
+
+  const config = getWhatsAppConfig();
+  const templateName =
+    config?.templates.orderPlaced ?? "jaspers_market_order_confirmation_v1";
+  const firstName = order.customer_name.trim().split(/\s+/)[0] || "there";
+
+  const components: TemplateComponent[] = [
+    {
+      type: "body",
+      parameters: [
+        textParam(firstName),
+        textParam(order.order_number),
+        textParam(formatExpectedDelivery(order)),
+      ],
+    },
+  ];
+
+  return sendWhatsAppTemplate({
+    phone: order.phone,
+    messageType: "order_placed",
+    templateName,
+    components,
+    orderId: order.id,
+    languageCode: config?.orderPlacedLanguageCode ?? "en_US",
+  });
+}
+
 export async function sendOrderConfirmedNotification(order: Order) {
   if (await hasSentMessage(order.id, "order_confirmed")) return;
 
@@ -90,7 +136,8 @@ export async function sendOrderConfirmedNotification(order: Order) {
 
 export async function sendOrderStatusNotification(
   order: Order,
-  newStatus: OrderStatus
+  newStatus: OrderStatus,
+  extras?: { estimatedArrival?: string }
 ) {
   if (newStatus === "confirmed") {
     return sendOrderConfirmedNotification(order);
@@ -99,6 +146,9 @@ export async function sendOrderStatusNotification(
   if (newStatus === "out_for_delivery") {
     const config = getWhatsAppConfig();
     const templateName = config?.templates.orderDispatch ?? "order_out_for_delivery";
+    const estimatedArrival =
+      extras?.estimatedArrival?.trim() ||
+      formatDeliverySlot(order);
 
     const components: TemplateComponent[] = [
       {
@@ -107,6 +157,7 @@ export async function sendOrderStatusNotification(
           textParam(order.order_number),
           textParam(order.delivery_partner_name || "Delivery partner"),
           textParam(order.delivery_otp || "—"),
+          textParam(estimatedArrival),
         ],
       },
     ];
@@ -170,7 +221,8 @@ export async function sendOrderStatusNotification(
 
 export async function notifyOrderStatusChange(
   orderId: string,
-  newStatus: OrderStatus
+  newStatus: OrderStatus,
+  extras?: { estimatedArrival?: string }
 ) {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const admin = createAdminClient();
@@ -184,13 +236,13 @@ export async function notifyOrderStatusChange(
   if (!order) return;
 
   try {
-    await sendOrderStatusNotification(order as Order, newStatus);
+    await sendOrderStatusNotification(order as Order, newStatus, extras);
   } catch (err) {
     console.error(`WhatsApp status notification failed (${newStatus}):`, err);
   }
 }
 
-export async function notifyOrderConfirmed(orderId: string) {
+export async function notifyOrderPlaced(orderId: string) {
   const { createAdminClient } = await import("@/lib/supabase/admin");
   const admin = createAdminClient();
 
@@ -203,10 +255,14 @@ export async function notifyOrderConfirmed(orderId: string) {
   if (!order) return;
 
   try {
-    await sendOrderConfirmedNotification(order as Order);
+    await sendOrderPlacedNotification(order as Order);
   } catch (err) {
-    console.error("WhatsApp order confirmation failed:", err);
+    console.error("WhatsApp order placed notification failed:", err);
   }
+}
+
+export async function notifyOrderConfirmed(orderId: string) {
+  return notifyOrderPlaced(orderId);
 }
 
 export function getWhatsAppSetupHint(): string {

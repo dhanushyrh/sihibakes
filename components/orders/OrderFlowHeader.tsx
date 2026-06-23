@@ -8,11 +8,13 @@ import { useCart } from "@/components/store/CartProvider";
 export function OrderFlowHeader({
   title,
   backHref,
+  onBack,
   showCart = false,
   cartHref = "/orders/delivery/cart",
 }: {
   title: string;
   backHref?: string;
+  onBack?: () => void;
   showCart?: boolean;
   cartHref?: string;
 }) {
@@ -22,7 +24,16 @@ export function OrderFlowHeader({
   return (
     <header className="sticky top-0 z-40 border-b border-chocolate/10 bg-cream/95 backdrop-blur-md">
       <div className="mx-auto flex max-w-lg items-center justify-between gap-3 px-4 py-3">
-        {backHref ? (
+        {onBack ? (
+          <button
+            type="button"
+            onClick={onBack}
+            className="flex h-9 w-9 items-center justify-center rounded-full text-chocolate transition hover:bg-chocolate/5"
+            aria-label="Go back"
+          >
+            <ArrowLeft size={20} />
+          </button>
+        ) : backHref ? (
           <Link
             href={backHref}
             className="flex h-9 w-9 items-center justify-center rounded-full text-chocolate transition hover:bg-chocolate/5"

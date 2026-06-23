@@ -19,6 +19,11 @@ import {
   listActiveDeliveryVendors,
   resolveDeliveryVendorName,
 } from "@/lib/delivery-vendors";
+import { getShopSettings } from "@/lib/data";
+import { isBorzoConfigured } from "@/lib/borzo/config";
+import { dispatchBorzoDelivery, isBorzoVendorName } from "@/lib/borzo/delivery";
+import { BorzoApiError } from "@/lib/borzo/client";
+import { BORZO_VENDOR_NAME } from "@/lib/order-status-update";
 
 const VALID_STATUSES = new Set(ORDER_STATUS_OPTIONS.map((s) => s.key));
 
@@ -84,7 +89,7 @@ export async function PATCH(
   const admin = createAdminClient();
   const { data: order } = await admin
     .from("orders")
-    .select("status, payment_status")
+    .select("*")
     .eq("id", id)
     .single();
 
@@ -151,26 +156,88 @@ export async function PATCH(
       return NextResponse.json(data);
     }
 
-    const partnerOrderId = delivery_partner_order_id?.trim();
     const vendorInput = delivery_vendor?.trim();
-    const otp = delivery_otp?.trim();
-    const partnerName = delivery_partner_name?.trim();
+    const vendors = await listActiveDeliveryVendors(admin);
 
-    if (!partnerOrderId || !vendorInput || !otp || !partnerName) {
+    if (!vendorInput) {
       return NextResponse.json(
-        {
-          error:
-            "Order ID, vendor, OTP, and delivery partner name are required for out for delivery",
-        },
+        { error: "Select a delivery vendor for out for delivery" },
         { status: 400 }
       );
     }
 
-    const vendors = await listActiveDeliveryVendors(admin);
     const vendor = resolveDeliveryVendorName(vendors, vendorInput);
     if (!vendor) {
       return NextResponse.json(
         { error: "Select a valid delivery vendor" },
+        { status: 400 }
+      );
+    }
+
+    if (isBorzoVendorName(vendor.name)) {
+      if (!isBorzoConfigured()) {
+        return NextResponse.json(
+          { error: "Borzo delivery is not configured on the server" },
+          { status: 503 }
+        );
+      }
+
+      const settings = await getShopSettings();
+      if (!settings) {
+        return NextResponse.json({ error: "Shop not configured" }, { status: 500 });
+      }
+
+      let borzoDispatch;
+      try {
+        borzoDispatch = await dispatchBorzoDelivery(order, settings);
+      } catch (err) {
+        console.error("Borzo dispatch failed:", err);
+        const message =
+          err instanceof BorzoApiError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "Failed to create Borzo delivery";
+        return NextResponse.json({ error: message }, { status: 502 });
+      }
+
+      const { data, error } = await admin
+        .from("orders")
+        .update({
+          status,
+          delivery_partner_order_id: borzoDispatch.borzo_order_id,
+          delivery_vendor: BORZO_VENDOR_NAME,
+          delivery_otp: borzoDispatch.delivery_otp,
+          delivery_partner_name: borzoDispatch.delivery_partner_name,
+          out_for_delivery_at: new Date().toISOString(),
+        })
+        .eq("id", id)
+        .select()
+        .single();
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 });
+      }
+
+      if (order.status !== status) {
+        void notifyOrderStatusChange(id, status, {
+          estimatedArrival: borzoDispatch.estimated_arrival_display,
+        });
+      }
+
+      return NextResponse.json(data);
+    }
+
+    const partnerOrderId = delivery_partner_order_id?.trim();
+    const otp = delivery_otp?.trim();
+    const partnerName = delivery_partner_name?.trim();
+
+    if (!partnerOrderId || !otp || !partnerName) {
+      return NextResponse.json(
+        {
+          error:
+            "Order ID, OTP, and delivery partner name are required for out for delivery",
+        },
         { status: 400 }
       );
     }

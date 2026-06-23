@@ -22,12 +22,6 @@ import {
 } from "@/lib/map-location-label";
 import type { DeliveryFenceKm } from "@/lib/types";
 
-const mapContainerStyle = {
-  width: "100%",
-  height: "320px",
-  borderRadius: "1rem",
-};
-
 const PIN_ZOOM = 16;
 
 interface MapPickerProps {
@@ -37,6 +31,10 @@ interface MapPickerProps {
   lng: number;
   deliveryFence?: DeliveryFenceKm;
   searchLabel?: string;
+  showSearch?: boolean;
+  showUseLocationButton?: boolean;
+  showHint?: boolean;
+  mapHeight?: number;
   onChange: (lat: number, lng: number) => void;
   onSearchLabelChange?: (label: string) => void;
 }
@@ -48,6 +46,10 @@ export function MapPicker({
   lng,
   deliveryFence,
   searchLabel,
+  showSearch = true,
+  showUseLocationButton = true,
+  showHint = true,
+  mapHeight = 320,
   onChange,
   onSearchLabelChange,
 }: MapPickerProps) {
@@ -62,6 +64,12 @@ export function MapPicker({
   const [editingSearch, setEditingSearch] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [detectingLocation, setDetectingLocation] = useState(false);
+
+  const mapContainerStyle = {
+    width: "100%",
+    height: `${mapHeight}px`,
+    borderRadius: "1rem",
+  };
 
   const fenceBounds = useMemo(() => {
     if (!deliveryFence) return null;
@@ -164,7 +172,10 @@ export function MapPicker({
 
   if (!apiKey) {
     return (
-      <div className="flex h-[320px] flex-col items-center justify-center rounded-2xl bg-[#F5E6D3] p-4 text-center text-sm text-[#4B2C20]/70">
+      <div
+        className="flex flex-col items-center justify-center rounded-2xl bg-[#F5E6D3] p-4 text-center text-sm text-[#4B2C20]/70"
+        style={{ height: mapHeight }}
+      >
         <MapPin className="mb-2" />
         <p>Google Maps API key not configured.</p>
         <p className="mt-2 text-xs">Set NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in .env</p>
@@ -181,7 +192,10 @@ export function MapPicker({
 
   if (!isLoaded) {
     return (
-      <div className="flex h-[320px] items-center justify-center rounded-2xl bg-[#F5E6D3]">
+      <div
+        className="flex items-center justify-center rounded-2xl bg-[#F5E6D3]"
+        style={{ height: mapHeight }}
+      >
         <p className="text-sm text-[#4B2C20]/50">Loading map...</p>
       </div>
     );
@@ -189,36 +203,38 @@ export function MapPicker({
 
   return (
     <div className="space-y-3">
-      <Autocomplete
-        onLoad={setAutocomplete}
-        onPlaceChanged={onPlaceChanged}
-        options={{
-          bounds: searchBounds,
-          strictBounds: false,
-          componentRestrictions: { country: "in" },
-          fields: ["geometry", "formatted_address", "name"],
-        }}
-      >
-        <div className="relative">
-          <Search
-            size={16}
-            className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#4B2C20]/40"
-          />
-          <input
-            type="search"
-            enterKeyHint="search"
-            value={searchValue}
-            onChange={(e) => {
-              setEditingSearch(true);
-              setSearchValue(e.target.value);
-            }}
-            onFocus={() => setEditingSearch(true)}
-            onBlur={() => setEditingSearch(false)}
-            placeholder="Search area, street, or landmark"
-            className="w-full rounded-2xl border border-[#4B2C20]/15 bg-white py-3 pl-10 pr-4 text-base text-[#4B2C20] placeholder:text-[#4B2C20]/40 ring-1 ring-[#4B2C20]/5 focus:border-[#4B2C20]/30 focus:outline-none focus:ring-2 focus:ring-[#4B2C20]/10"
-          />
-        </div>
-      </Autocomplete>
+      {showSearch && (
+        <Autocomplete
+          onLoad={setAutocomplete}
+          onPlaceChanged={onPlaceChanged}
+          options={{
+            bounds: searchBounds,
+            strictBounds: false,
+            componentRestrictions: { country: "in" },
+            fields: ["geometry", "formatted_address", "name"],
+          }}
+        >
+          <div className="relative">
+            <Search
+              size={16}
+              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#4B2C20]/40"
+            />
+            <input
+              type="search"
+              enterKeyHint="search"
+              value={searchValue}
+              onChange={(e) => {
+                setEditingSearch(true);
+                setSearchValue(e.target.value);
+              }}
+              onFocus={() => setEditingSearch(true)}
+              onBlur={() => setEditingSearch(false)}
+              placeholder="Search area, street, or landmark"
+              className="w-full rounded-2xl border border-[#4B2C20]/15 bg-white py-3 pl-10 pr-4 text-base text-[#4B2C20] placeholder:text-[#4B2C20]/40 ring-1 ring-[#4B2C20]/5 focus:border-[#4B2C20]/30 focus:outline-none focus:ring-2 focus:ring-[#4B2C20]/10"
+            />
+          </div>
+        </Autocomplete>
+      )}
 
       <div className="overflow-hidden rounded-2xl ring-1 ring-[#4B2C20]/10">
         <GoogleMap
@@ -274,15 +290,17 @@ export function MapPicker({
         </GoogleMap>
       </div>
 
-      <button
-        type="button"
-        onClick={() => void useMyLocation()}
-        disabled={detectingLocation}
-        className="flex w-full items-center justify-center gap-2 rounded-full border border-[#4B2C20]/20 py-2.5 text-sm text-[#4B2C20] transition hover:bg-white disabled:opacity-50"
-      >
-        <MapPin size={16} />
-        {detectingLocation ? "Finding your location..." : "Use my location"}
-      </button>
+      {showUseLocationButton && (
+        <button
+          type="button"
+          onClick={() => void useMyLocation()}
+          disabled={detectingLocation}
+          className="flex w-full items-center justify-center gap-2 rounded-full border border-[#4B2C20]/20 py-2.5 text-sm text-[#4B2C20] transition hover:bg-white disabled:opacity-50"
+        >
+          <MapPin size={16} />
+          {detectingLocation ? "Finding your location..." : "Use my location"}
+        </button>
+      )}
 
       {geoError && (
         <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-700 ring-1 ring-red-200">
@@ -290,9 +308,11 @@ export function MapPicker({
         </p>
       )}
 
-      <p className="text-center text-xs text-chocolate/50">
-        Search your area, drag the pin, or tap the map to fine-tune
-      </p>
+      {showHint && (
+        <p className="text-center text-xs text-chocolate/50">
+          Search your area, drag the pin, or tap the map to fine-tune
+        </p>
+      )}
     </div>
   );
 }

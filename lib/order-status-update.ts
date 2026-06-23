@@ -1,6 +1,9 @@
 import type { OrderStatus } from "@/lib/types";
+import { BORZO_VENDOR_NAME } from "@/lib/borzo/config";
+import { isBorzoVendorName } from "@/lib/borzo/delivery";
 
 export const SELF_DELIVERY_VENDOR = "Self delivery";
+export { BORZO_VENDOR_NAME };
 
 export type DeliveryDispatchMode = "partner" | "self";
 
@@ -36,7 +39,26 @@ export function requiresDeliveryDispatch(status: OrderStatus): boolean {
 
 export function requiresPartnerDispatchDetails(
   status: OrderStatus,
-  dispatchMode: DeliveryDispatchMode = "partner"
+  dispatchMode: DeliveryDispatchMode = "partner",
+  vendor?: string
 ): boolean {
-  return requiresDeliveryDispatch(status) && dispatchMode === "partner";
+  if (!requiresDeliveryDispatch(status) || dispatchMode !== "partner") {
+    return false;
+  }
+  if (vendor && isBorzoVendorName(vendor)) {
+    return false;
+  }
+  return true;
+}
+
+export function requiresBorzoAutoDispatch(
+  status: OrderStatus,
+  dispatchMode: DeliveryDispatchMode = "partner",
+  vendor?: string
+): boolean {
+  return (
+    requiresDeliveryDispatch(status) &&
+    dispatchMode === "partner" &&
+    Boolean(vendor && isBorzoVendorName(vendor))
+  );
 }

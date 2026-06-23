@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { MapPin, Navigation, LocateFixed } from "lucide-react";
 import { DeliveryLocationModal } from "@/components/store/DeliveryLocationModal";
+import { LocationPlaceSearch } from "@/components/store/LocationPlaceSearch";
+import { MapPicker } from "@/components/store/MapPicker";
 import {
   deliveryUnreachableMessage,
   LocationUnreachableBanner,
@@ -30,9 +32,13 @@ type DeliveryLocationPickerProps = {
   initialLng: number;
   hasSavedLocation?: boolean;
   useGeolocationInitially?: boolean;
+  variant?: "default" | "gate";
   onUpdate: (lat: number, lng: number, delivery: DeliveryCalculation) => void;
   onStatusChange?: (status: LocationStatus) => void;
+  onUnreachableExit?: () => void;
 };
+
+const GATE_MAP_HEIGHT = 280;
 
 export function DeliveryLocationPicker({
   kitchenLat,
@@ -42,11 +48,16 @@ export function DeliveryLocationPicker({
   initialLng,
   hasSavedLocation = false,
   useGeolocationInitially = false,
+  variant = "default",
   onUpdate,
   onStatusChange,
+  onUnreachableExit,
 }: DeliveryLocationPickerProps) {
+  const isGate = variant === "gate";
+  const mapHeight = isGate ? GATE_MAP_HEIGHT : undefined;
+
   const [status, setStatus] = useState<LocationStatus>(
-    hasSavedLocation ? "confirmed" : useGeolocationInitially ? "detecting" : "needs_manual"
+    hasSavedLocation ? "confirmed" : useGeolocationInitially && !isGate ? "detecting" : "needs_manual"
   );
   const [lat, setLat] = useState(initialLat);
   const [lng, setLng] = useState(initialLng);
@@ -60,6 +71,8 @@ export function DeliveryLocationPicker({
   );
   const [draftLocationLabel, setDraftLocationLabel] = useState(locationLabel);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [showMap, setShowMap] = useState(hasSavedLocation);
+  const [interactiveMap, setInteractiveMap] = useState(false);
   const initStarted = useRef(false);
   const autoOpenedModal = useRef(false);
 
@@ -97,6 +110,8 @@ export function DeliveryLocationPicker({
       setLng(newLng);
       setLocationLabel(label);
       setGeoError(null);
+      setShowMap(true);
+      setInteractiveMap(false);
       updateStatus("confirmed");
       await calcDelivery(newLat, newLng);
     },
@@ -104,6 +119,8 @@ export function DeliveryLocationPicker({
   );
 
   const requestGps = useCallback(async () => {
+    setShowMap(true);
+    setInteractiveMap(false);
     updateStatus("detecting");
     setGeoError(null);
     setLoading(true);
@@ -124,7 +141,7 @@ export function DeliveryLocationPicker({
       setGeoError(message);
       updateStatus("needs_manual");
 
-      if (!autoOpenedModal.current) {
+      if (!isGate && !autoOpenedModal.current) {
         autoOpenedModal.current = true;
         setDraftLat(kitchenLat);
         setDraftLng(kitchenLng);
@@ -132,7 +149,34 @@ export function DeliveryLocationPicker({
         setModalOpen(true);
       }
     }
-  }, [confirmLocation, kitchenLat, kitchenLng, updateStatus]);
+  }, [confirmLocation, isGate, kitchenLat, kitchenLng, updateStatus]);
+
+  const handleSearchSelect = useCallback(
+    (newLat: number, newLng: number, label: string) => {
+      void confirmLocation(newLat, newLng, label);
+    },
+    [confirmLocation]
+  );
+
+  const openInteractiveMap = useCallback(() => {
+    setShowMap(true);
+    setInteractiveMap(true);
+    setGeoError(null);
+    const startLat = status === "confirmed" ? lat : kitchenLat;
+    const startLng = status === "confirmed" ? lng : kitchenLng;
+    setLat(startLat);
+    setLng(startLng);
+    if (status !== "confirmed") {
+      updateStatus("needs_manual");
+    }
+  }, [kitchenLat, kitchenLng, lat, lng, status, updateStatus]);
+
+  const handleInteractiveChange = useCallback(
+    (newLat: number, newLng: number) => {
+      void confirmLocation(newLat, newLng, formatCoordinates(newLat, newLng));
+    },
+    [confirmLocation]
+  );
 
   useEffect(() => {
     if (initStarted.current) return;
@@ -141,7 +185,14 @@ export function DeliveryLocationPicker({
     if (hasSavedLocation) {
       void calcDelivery(initialLat, initialLng).then(() => {
         updateStatus("confirmed");
+        setShowMap(true);
       });
+      return;
+    }
+
+    if (isGate) {
+      updateStatus("needs_manual");
+      setLoading(false);
       return;
     }
 
@@ -182,9 +233,144 @@ export function DeliveryLocationPicker({
   const mapVariant =
     status === "detecting"
       ? "loading"
-      : status === "confirmed"
+      : status === "confirmed" || showMap
         ? "preview"
         : "empty";
+
+  const gateActionButtons = (
+    <div className="flex flex-col gap-2 sm:flex-row">
+      <button
+        type="button"
+        onClick={() => void requestGps()}
+        disabled={status === "detecting"}
+        className="flex flex-1 items-center justify-center gap-2 rounded-full border border-chocolate/20 py-3.5 text-sm text-chocolate transition hover:bg-white disabled:opacity-50"
+      >
+        <LocateFixed size={18} className="text-gold" />
+        {status === "detecting" ? "Finding location..." : "Use my location"}
+      </button>
+      <button
+        type="button"
+        onClick={openInteractiveMap}
+        className="flex flex-1 items-center justify-center gap-2 rounded-full bg-white py-3.5 text-sm font-medium text-chocolate ring-1 ring-chocolate/10 transition hover:ring-chocolate/25"
+      >
+        <MapPin size={18} className="text-gold" />
+        Select on map
+      </button>
+    </div>
+  );
+
+  const gateMapSection = showMap && (
+    <div className="mt-4">
+      {interactiveMap ? (
+        <MapPicker
+          kitchenLat={kitchenLat}
+          kitchenLng={kitchenLng}
+          lat={lat}
+          lng={lng}
+          deliveryFence={deliveryFence}
+          showSearch={false}
+          showUseLocationButton={false}
+          showHint={false}
+          mapHeight={GATE_MAP_HEIGHT}
+          onChange={handleInteractiveChange}
+        />
+      ) : (
+        <SelectedLocationMap
+          lat={lat}
+          lng={lng}
+          kitchenLat={kitchenLat}
+          kitchenLng={kitchenLng}
+          deliveryFence={deliveryFence}
+          variant={mapVariant}
+          mapHeight={mapHeight}
+          onEdit={openInteractiveMap}
+        />
+      )}
+    </div>
+  );
+
+  if (isGate) {
+    return (
+      <div>
+        {isConfirmed && delivery?.reachable && (
+          <div className="mb-4 flex justify-end">
+            <span className="shrink-0 rounded-full bg-green-50 px-2.5 py-1 text-xs font-medium text-green-800 ring-1 ring-green-200">
+              Delivering here
+            </span>
+          </div>
+        )}
+
+        <LocationPlaceSearch
+          kitchenLat={kitchenLat}
+          kitchenLng={kitchenLng}
+          deliveryFence={deliveryFence}
+          value={locationLabel}
+          onPlaceSelect={handleSearchSelect}
+        />
+
+        {geoError && (
+          <div className="mt-3 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-950 ring-1 ring-amber-200">
+            <p>{geoError}</p>
+          </div>
+        )}
+
+        <div className="mt-3">{gateActionButtons}</div>
+
+        {errorMessage && (
+          <div className="mt-4">
+            <LocationUnreachableBanner message={errorMessage} />
+            <div className="mt-4 flex flex-col gap-2">
+              <button
+                type="button"
+                onClick={openInteractiveMap}
+                className="w-full rounded-full border border-chocolate/20 py-3.5 text-sm text-chocolate"
+              >
+                Try another location
+              </button>
+              {onUnreachableExit && (
+                <button
+                  type="button"
+                  onClick={onUnreachableExit}
+                  className="w-full rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream"
+                >
+                  Browse menu
+                </button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {gateMapSection}
+
+        {isConfirmed && locationLabel && !isUnreachable && (
+          <p className="mt-2 text-center text-xs text-chocolate/55">{locationLabel}</p>
+        )}
+
+        <div className="mt-4">
+          {loading ? (
+            <p className="rounded-2xl bg-white/60 px-4 py-4 text-center text-sm text-chocolate/50 ring-1 ring-chocolate/10">
+              Checking delivery distance...
+            </p>
+          ) : isConfirmed && delivery?.reachable ? (
+            <div className="rounded-2xl bg-white px-4 py-4 text-sm ring-1 ring-chocolate/10">
+              <div className="flex items-start gap-3">
+                <Navigation size={18} className="mt-0.5 shrink-0 text-gold" />
+                <div>
+                  <p className="font-medium text-chocolate">
+                    You&apos;re in our delivery zone
+                  </p>
+                  <p className="mt-1 text-chocolate/65">
+                    {formatDistance(delivery.distance_km)} away · Delivery fee{" "}
+                    {formatCurrency(delivery.delivery_fee_inr)}
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
@@ -238,10 +424,11 @@ export function DeliveryLocationPicker({
         kitchenLng={kitchenLng}
         deliveryFence={deliveryFence}
         variant={mapVariant}
+        mapHeight={mapHeight}
         onEdit={openModal}
       />
 
-      {isConfirmed && locationLabel && (
+      {isConfirmed && locationLabel && !isUnreachable && (
         <p className="mt-2 text-center text-xs text-chocolate/55">{locationLabel}</p>
       )}
 

@@ -4,12 +4,14 @@ export type WhatsAppConfig = {
   apiVersion: string;
   templates: {
     otp: string;
+    orderPlaced: string;
     orderConfirmed: string;
     orderStatus: string;
     orderDispatch: string;
     orderCancelled: string;
   };
   languageCode: string;
+  orderPlacedLanguageCode: string;
 };
 
 export function isWhatsAppConfigured(): boolean {
@@ -36,6 +38,9 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
     languageCode: process.env.WHATSAPP_LANGUAGE_CODE?.trim() || "en",
     templates: {
       otp: process.env.WHATSAPP_TEMPLATE_OTP?.trim() || "checkout_otp",
+      orderPlaced:
+        process.env.WHATSAPP_TEMPLATE_ORDER_PLACED?.trim() ||
+        "jaspers_market_order_confirmation_v1",
       orderConfirmed:
         process.env.WHATSAPP_TEMPLATE_ORDER_CONFIRMED?.trim() || "order_confirmed",
       orderStatus:
@@ -45,5 +50,7 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
       orderCancelled:
         process.env.WHATSAPP_TEMPLATE_ORDER_CANCELLED?.trim() || "order_cancelled",
     },
+    orderPlacedLanguageCode:
+      process.env.WHATSAPP_TEMPLATE_ORDER_PLACED_LANGUAGE?.trim() || "en_US",
   };
 }
