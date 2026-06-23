@@ -10,7 +10,7 @@ export const BRAND = {
 
 /** Public contact shown when shop settings phone is unset */
 export const STORE_CONTACT = {
-  phone: "8310293990",
+  phone: "8310923990",
   instagramUrl: "https://www.instagram.com/sihi.bakes",
 } as const;
 

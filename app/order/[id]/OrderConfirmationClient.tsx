@@ -8,12 +8,17 @@ import { CheckCircle, MessageCircle } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { formatCurrency } from "@/lib/delivery";
 import { orderItemTitle } from "@/lib/order-roster";
-import { whatsappHref } from "@/lib/storefront";
+import { formatDisplayPhone, whatsappHref } from "@/lib/storefront";
 import type { Order, OrderItem } from "@/lib/types";
 
 type OrderResponse = Order & {
   order_items?: OrderItem[];
   shop_phone?: string | null;
+  whatsapp_notification?: {
+    status: "sent" | "failed" | "skipped";
+    error_message: string | null;
+    sent_at: string;
+  } | null;
 };
 
 export default function OrderConfirmationClient({
@@ -62,6 +67,25 @@ export default function OrderConfirmationClient({
             Thank you for ordering from Sihi Bakes. Our kitchen will confirm your
             order shortly and share delivery updates with you.
           </p>
+          {order && !("error" in order) && order.whatsapp_notification?.status === "sent" && (
+            <p className="mt-3 rounded-xl bg-green-50 px-3 py-2 text-sm text-green-900 ring-1 ring-green-200">
+              Order confirmation sent to WhatsApp{" "}
+              {formatDisplayPhone(order.phone)}. Check chats from the business
+              test number if you do not see it immediately.
+            </p>
+          )}
+          {order && !("error" in order) && order.whatsapp_notification?.status === "failed" && (
+            <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-amber-200">
+              {order.whatsapp_notification.error_message ||
+                "Could not send WhatsApp confirmation."}
+            </p>
+          )}
+          {order && !("error" in order) && order.whatsapp_notification?.status === "skipped" && (
+            <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-amber-200">
+              WhatsApp is not configured on this server, so no confirmation
+              message was sent.
+            </p>
+          )}
           {orderNumber && (
             <p className="mt-4 inline-block rounded-full bg-white px-4 py-2 text-sm font-medium text-chocolate ring-1 ring-chocolate/10">
               Order #{orderNumber}

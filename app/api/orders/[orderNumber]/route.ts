@@ -31,8 +31,24 @@ export async function GET(
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
+  const { data: whatsappLog } = await admin
+    .from("whatsapp_message_log")
+    .select("status, error_message, created_at")
+    .eq("order_id", order.id)
+    .eq("message_type", "order_placed")
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   return NextResponse.json({
     ...order,
     shop_phone: settings?.phone ?? null,
+    whatsapp_notification: whatsappLog
+      ? {
+          status: whatsappLog.status,
+          error_message: whatsappLog.error_message,
+          sent_at: whatsappLog.created_at,
+        }
+      : null,
   });
 }

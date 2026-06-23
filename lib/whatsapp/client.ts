@@ -20,6 +20,20 @@ type SendTemplateResult = {
   error: string | null;
 };
 
+function formatWhatsAppApiError(error?: {
+  message?: string;
+  code?: number;
+}): string {
+  if (!error?.message) return "WhatsApp API request failed";
+  if (
+    error.code === 131030 ||
+    error.message.includes("not in allowed list")
+  ) {
+    return "This WhatsApp number is not on the Meta test allow list. In Meta Developers → WhatsApp → API Setup, add it under “To”, verify the code, then place the order again.";
+  }
+  return error.message;
+}
+
 async function logMessage(params: {
   phone: string;
   messageType: string;
@@ -105,11 +119,11 @@ export async function sendWhatsAppTemplate(params: {
 
     const data = (await res.json()) as {
       messages?: { id: string }[];
-      error?: { message?: string };
+      error?: { message?: string; code?: number };
     };
 
     if (!res.ok) {
-      const error = data.error?.message || `WhatsApp API error (${res.status})`;
+      const error = formatWhatsAppApiError(data.error) || `WhatsApp API error (${res.status})`;
       console.error("WhatsApp send failed:", error, data);
       await logMessage({
         phone: params.phone,

@@ -544,10 +544,15 @@ export function DeliveryCheckoutClient({
         phone: order.phone,
       }),
     });
-    const data = await res.json();
+    const data = (await res.json()) as {
+      error?: string;
+      whatsapp_sent?: boolean;
+      whatsapp_error?: string | null;
+    };
     if (!res.ok) {
       throw new Error(data.error || "Could not confirm order");
     }
+    return data;
   };
 
   const finishOrder = (orderNumber: string, phone: string) => {
@@ -1180,7 +1185,11 @@ export function DeliveryCheckoutClient({
                 onClick={payWithRazorpay}
                 className="flex-[2] rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-40"
               >
-                {placingOrder ? "Processing..." : `Pay ${formatCurrency(total)}`}
+                {placingOrder
+                  ? "Processing..."
+                  : razorpayTestMode
+                    ? `Place order (skip payment) · ${formatCurrency(total)}`
+                    : `Pay ${formatCurrency(total)}`}
               </button>
             </div>
           </div>
