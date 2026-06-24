@@ -130,3 +130,36 @@ body {
     animation: none;
   }
 }
+
+/* Google Maps PlaceAutocompleteElement (replaces legacy Autocomplete) */
+.place-autocomplete-wrap .place-autocomplete-host {
+  display: block;
+  width: 100%;
+}
+
+.place-autocomplete-wrap gmp-place-autocomplete {
+  width: 100%;
+  color-scheme: light;
+}
+
+.place-autocomplete-wrap gmp-place-autocomplete::part(input) {
+  width: 100%;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in srgb, var(--chocolate) 15%, transparent);
+  background: #fff;
+  padding: 0.75rem 1rem 0.75rem 2.5rem;
+  font-size: 1rem;
+  line-height: 1.5;
+  color: var(--chocolate);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--chocolate) 5%, transparent);
+}
+
+.place-autocomplete-wrap gmp-place-autocomplete::part(input):focus {
+  outline: none;
+  border-color: color-mix(in srgb, var(--chocolate) 30%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--chocolate) 10%, transparent);
+}
+
+.place-autocomplete-wrap gmp-place-autocomplete::part(input)::placeholder {
+  color: color-mix(in srgb, var(--chocolate) 40%, transparent);
+}

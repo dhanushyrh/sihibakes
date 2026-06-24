@@ -1,8 +1,7 @@
 "use client";
 
-import { Autocomplete, useJsApiLoader } from "@react-google-maps/api";
-import { useCallback, useEffect, useMemo, useState } from "react";
-import { Search } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { useJsApiLoader } from "@react-google-maps/api";
 import { getFenceBounds } from "@/lib/delivery-fence";
 import {
   getGoogleMapsApiKey,
@@ -12,6 +11,7 @@ import {
   labelFromPlace,
   locationLabelForCoords,
 } from "@/lib/map-location-label";
+import { PlaceAutocompleteInput } from "@/components/store/PlaceAutocompleteInput";
 import type { DeliveryFenceKm } from "@/lib/types";
 
 type LocationPlaceSearchProps = {
@@ -33,23 +33,16 @@ export function LocationPlaceSearch({
 }: LocationPlaceSearchProps) {
   const apiKey = getGoogleMapsApiKey();
   const { isLoaded } = useJsApiLoader(GOOGLE_MAPS_LOADER_OPTIONS);
-  const [autocomplete, setAutocomplete] =
-    useState<google.maps.places.Autocomplete | null>(null);
   const [searchValue, setSearchValue] = useState(value);
-  const [editing, setEditing] = useState(false);
 
   useEffect(() => {
-    if (!editing) setSearchValue(value);
-  }, [value, editing]);
+    setSearchValue(value);
+  }, [value]);
 
-  const fenceBounds = useMemo(() => {
-    if (!deliveryFence) return null;
-    return getFenceBounds(kitchenLat, kitchenLng, deliveryFence);
-  }, [deliveryFence, kitchenLat, kitchenLng]);
-
-  const searchBounds = useMemo(() => {
+  const locationRestriction = useMemo(() => {
     if (!isLoaded || typeof google === "undefined") return undefined;
-    if (fenceBounds) {
+    if (deliveryFence) {
+      const fenceBounds = getFenceBounds(kitchenLat, kitchenLng, deliveryFence);
       return new google.maps.LatLngBounds(
         { lat: fenceBounds.south, lng: fenceBounds.west },
         { lat: fenceBounds.north, lng: fenceBounds.east }
@@ -60,20 +53,7 @@ export function LocationPlaceSearch({
       radius: 25_000,
     });
     return circle.getBounds() ?? undefined;
-  }, [isLoaded, fenceBounds, kitchenLat, kitchenLng]);
-
-  const onPlaceChanged = useCallback(() => {
-    const place = autocomplete?.getPlace();
-    const loc = place?.geometry?.location;
-    if (!loc) return;
-
-    const lat = loc.lat();
-    const lng = loc.lng();
-    const label = locationLabelForCoords(lat, lng, labelFromPlace(place));
-    setEditing(false);
-    setSearchValue(label);
-    onPlaceSelect(lat, lng, label);
-  }, [autocomplete, onPlaceSelect]);
+  }, [isLoaded, deliveryFence, kitchenLat, kitchenLng]);
 
   if (!apiKey) {
     return (
@@ -86,53 +66,20 @@ export function LocationPlaceSearch({
     );
   }
 
-  if (!isLoaded) {
-    return (
-      <div className="relative">
-        <Search
-          size={16}
-          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-chocolate/40"
-        />
-        <input
-          type="search"
-          disabled
-          placeholder="Loading search..."
-          className="w-full rounded-2xl border border-chocolate/15 bg-white py-3 pl-10 pr-4 text-base text-chocolate/40"
-        />
-      </div>
-    );
-  }
-
   return (
-    <Autocomplete
-      onLoad={setAutocomplete}
-      onPlaceChanged={onPlaceChanged}
-      options={{
-        bounds: searchBounds,
-        strictBounds: false,
-        componentRestrictions: { country: "in" },
-        fields: ["geometry", "formatted_address", "name"],
+    <PlaceAutocompleteInput
+      placeholder={placeholder}
+      value={searchValue}
+      locationRestriction={locationRestriction}
+      onPlaceSelect={(selection) => {
+        const label = locationLabelForCoords(
+          selection.lat,
+          selection.lng,
+          labelFromPlace(selection)
+        );
+        setSearchValue(label);
+        onPlaceSelect(selection.lat, selection.lng, label);
       }}
-    >
-      <div className="relative">
-        <Search
-          size={16}
-          className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-chocolate/40"
-        />
-        <input
-          type="search"
-          enterKeyHint="search"
-          value={searchValue}
-          onChange={(e) => {
-            setEditing(true);
-            setSearchValue(e.target.value);
-          }}
-          onFocus={() => setEditing(true)}
-          onBlur={() => setEditing(false)}
-          placeholder={placeholder}
-          className="w-full rounded-2xl border border-chocolate/15 bg-white py-3 pl-10 pr-4 text-base text-chocolate placeholder:text-chocolate/40 ring-1 ring-chocolate/5 focus:border-chocolate/30 focus:outline-none focus:ring-2 focus:ring-chocolate/10"
-        />
-      </div>
-    </Autocomplete>
+    />
   );
 }

@@ -5,9 +5,15 @@ export function formatCoordinates(lat: number, lng: number): string {
 
 export function labelFromPlace(place: {
   formatted_address?: string | null;
+  formattedAddress?: string | null;
   name?: string | null;
+  displayName?: string | null;
 }): string | null {
-  const text = place.formatted_address?.trim() || place.name?.trim();
+  const text =
+    place.formatted_address?.trim() ||
+    place.formattedAddress?.trim() ||
+    place.name?.trim() ||
+    place.displayName?.trim();
   return text || null;
 }
 

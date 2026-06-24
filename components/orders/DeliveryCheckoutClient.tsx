@@ -94,6 +94,7 @@ export function DeliveryCheckoutClient({
   const [completingOrder, setCompletingOrder] = useState(false);
   const [error, setError] = useState("");
   const completingOrderRef = useRef(false);
+  const lastDeliveryQuoteKeyRef = useRef<string | null>(null);
 
   const phoneVerified =
     session.phoneVerified && isValidIndianPhone(session.whatsappPhone);
@@ -175,6 +176,17 @@ export function DeliveryCheckoutClient({
   useEffect(() => {
     if (session.lat == null || session.lng == null || !selectedSlot) return;
 
+    const quoteKey = [
+      session.lat,
+      session.lng,
+      selectedSlot.id,
+      selectedSlot.slot_date,
+      selectedSlot.window_start,
+      selectedSlot.window_end,
+    ].join("|");
+
+    if (lastDeliveryQuoteKeyRef.current === quoteKey) return;
+
     let cancelled = false;
     void fetch("/api/delivery/calculate", {
       method: "POST",
@@ -190,6 +202,7 @@ export function DeliveryCheckoutClient({
       .then((res) => res.json())
       .then((data: DeliveryCalculation) => {
         if (!cancelled) {
+          lastDeliveryQuoteKeyRef.current = quoteKey;
           setLocation(session.lat!, session.lng!, data);
         }
       })

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { DeliveryLocationPicker } from "@/components/store/DeliveryLocationPicker";
@@ -23,7 +23,6 @@ export function DeliveryCheckoutLocationClient({
   const router = useRouter();
   const { session, sessionReady, isLocationReady, setLocation } =
     useDeliverySession();
-  const [locationPickerKey, setLocationPickerKey] = useState(0);
 
   useEffect(() => {
     if (!sessionReady) return;
@@ -62,7 +61,6 @@ export function DeliveryCheckoutLocationClient({
 
           <section className="overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
             <DeliveryLocationPicker
-              key={locationPickerKey}
               variant="gate"
               kitchenLat={kitchenLat}
               kitchenLng={kitchenLng}
@@ -70,11 +68,10 @@ export function DeliveryCheckoutLocationClient({
               initialLat={session.lat ?? kitchenLat}
               initialLng={session.lng ?? kitchenLng}
               hasSavedLocation={session.lat != null && session.lng != null}
+              skipInitialCalculate={session.delivery != null}
+              initialDelivery={session.delivery}
               useGeolocationInitially={false}
-              onUpdate={(lat, lng, delivery) => {
-                setLocation(lat, lng, delivery);
-                setLocationPickerKey((key) => key + 1);
-              }}
+              onUpdate={(lat, lng, delivery) => setLocation(lat, lng, delivery)}
               onUnreachableExit={() => router.push("/orders/delivery/menu")}
             />
           </section>

@@ -31,6 +31,9 @@ type DeliveryLocationPickerProps = {
   initialLat: number;
   initialLng: number;
   hasSavedLocation?: boolean;
+  /** When true, skip the mount-time fee calculation (session already has a quote). */
+  skipInitialCalculate?: boolean;
+  initialDelivery?: DeliveryCalculation | null;
   useGeolocationInitially?: boolean;
   variant?: "default" | "gate";
   onUpdate: (lat: number, lng: number, delivery: DeliveryCalculation | null) => void;
@@ -47,6 +50,8 @@ export function DeliveryLocationPicker({
   initialLat,
   initialLng,
   hasSavedLocation = false,
+  skipInitialCalculate = false,
+  initialDelivery = null,
   useGeolocationInitially = false,
   variant = "default",
   onUpdate,
@@ -61,7 +66,9 @@ export function DeliveryLocationPicker({
   );
   const [lat, setLat] = useState(initialLat);
   const [lng, setLng] = useState(initialLng);
-  const [delivery, setDelivery] = useState<DeliveryCalculation | null>(null);
+  const [delivery, setDelivery] = useState<DeliveryCalculation | null>(
+    skipInitialCalculate ? initialDelivery : null
+  );
   const [loading, setLoading] = useState(hasSavedLocation);
   const [modalOpen, setModalOpen] = useState(false);
   const [draftLat, setDraftLat] = useState(kitchenLat);
@@ -190,6 +197,13 @@ export function DeliveryLocationPicker({
     initStarted.current = true;
 
     if (hasSavedLocation) {
+      if (skipInitialCalculate) {
+        if (initialDelivery) setDelivery(initialDelivery);
+        updateStatus("confirmed");
+        setShowMap(true);
+        setLoading(false);
+        return;
+      }
       void calcDelivery(initialLat, initialLng).then(() => {
         updateStatus("confirmed");
         setShowMap(true);

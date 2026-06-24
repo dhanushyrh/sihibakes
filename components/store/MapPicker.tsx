@@ -1,14 +1,14 @@
 "use client";
 
 import {
-  Autocomplete,
   GoogleMap,
   Rectangle,
   useJsApiLoader,
 } from "@react-google-maps/api";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MapPin, Search } from "lucide-react";
+import { MapPin } from "lucide-react";
 import { AdvancedMapMarker } from "@/components/store/AdvancedMapMarker";
+import { PlaceAutocompleteInput } from "@/components/store/PlaceAutocompleteInput";
 import { getFenceBounds } from "@/lib/delivery-fence";
 import {
   geolocationErrorMessage,
@@ -59,12 +59,9 @@ export function MapPicker({
   const apiKey = getGoogleMapsApiKey();
   const { isLoaded } = useJsApiLoader(GOOGLE_MAPS_LOADER_OPTIONS);
   const [map, setMap] = useState<google.maps.Map | null>(null);
-  const [autocomplete, setAutocomplete] =
-    useState<google.maps.places.Autocomplete | null>(null);
   const [searchValue, setSearchValue] = useState(
     searchLabel ?? formatCoordinates(lat, lng)
   );
-  const [editingSearch, setEditingSearch] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
   const [detectingLocation, setDetectingLocation] = useState(false);
 
@@ -79,7 +76,7 @@ export function MapPicker({
     return getFenceBounds(kitchenLat, kitchenLng, deliveryFence);
   }, [deliveryFence, kitchenLat, kitchenLng]);
 
-  const searchBounds = useMemo(() => {
+  const locationRestriction = useMemo(() => {
     if (!isLoaded || typeof google === "undefined") return undefined;
     if (fenceBounds) {
       return new google.maps.LatLngBounds(
@@ -146,21 +143,9 @@ export function MapPicker({
   }, [focusOnMarker, initialView, lat, lng, map]);
 
   useEffect(() => {
-    if (editingSearch || searchLabel === undefined) return;
+    if (searchLabel === undefined) return;
     setSearchValue(searchLabel);
-  }, [searchLabel, editingSearch]);
-
-  const onPlaceChanged = () => {
-    const place = autocomplete?.getPlace();
-    const loc = place?.geometry?.location;
-    if (!loc) return;
-
-    const newLat = loc.lat();
-    const newLng = loc.lng();
-    const label = locationLabelForCoords(newLat, newLng, labelFromPlace(place));
-    setEditingSearch(false);
-    movePin(newLat, newLng, label);
-  };
+  }, [searchLabel]);
 
   const useMyLocation = async () => {
     setGeoError(null);
@@ -168,7 +153,6 @@ export function MapPicker({
     try {
       const pos = await requestCurrentPosition();
       const { latitude, longitude } = pos.coords;
-      setEditingSearch(false);
       movePin(latitude, longitude, formatCoordinates(latitude, longitude));
     } catch (err) {
       const message =
@@ -217,36 +201,19 @@ export function MapPicker({
   return (
     <div className="space-y-3">
       {showSearch && (
-        <Autocomplete
-          onLoad={setAutocomplete}
-          onPlaceChanged={onPlaceChanged}
-          options={{
-            bounds: searchBounds,
-            strictBounds: false,
-            componentRestrictions: { country: "in" },
-            fields: ["geometry", "formatted_address", "name"],
+        <PlaceAutocompleteInput
+          value={searchValue}
+          locationRestriction={locationRestriction}
+          iconClassName="text-[#4B2C20]/40"
+          onPlaceSelect={(selection) => {
+            const label = locationLabelForCoords(
+              selection.lat,
+              selection.lng,
+              labelFromPlace(selection)
+            );
+            movePin(selection.lat, selection.lng, label);
           }}
-        >
-          <div className="relative">
-            <Search
-              size={16}
-              className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-[#4B2C20]/40"
-            />
-            <input
-              type="search"
-              enterKeyHint="search"
-              value={searchValue}
-              onChange={(e) => {
-                setEditingSearch(true);
-                setSearchValue(e.target.value);
-              }}
-              onFocus={() => setEditingSearch(true)}
-              onBlur={() => setEditingSearch(false)}
-              placeholder="Search area, street, or landmark"
-              className="w-full rounded-2xl border border-[#4B2C20]/15 bg-white py-3 pl-10 pr-4 text-base text-[#4B2C20] placeholder:text-[#4B2C20]/40 ring-1 ring-[#4B2C20]/5 focus:border-[#4B2C20]/30 focus:outline-none focus:ring-2 focus:ring-[#4B2C20]/10"
-            />
-          </div>
-        </Autocomplete>
+        />
       )}
 
       <div className="overflow-hidden rounded-2xl ring-1 ring-[#4B2C20]/10">
@@ -255,7 +222,6 @@ export function MapPicker({
           onLoad={onLoad}
           onClick={(e) => {
             if (!e.latLng) return;
-            setEditingSearch(false);
             const newLat = e.latLng.lat();
             const newLng = e.latLng.lng();
             movePin(newLat, newLng, formatCoordinates(newLat, newLng));
@@ -296,7 +262,6 @@ export function MapPicker({
             title="Delivery location"
             zIndex={2}
             onDragEnd={(newLat, newLng) => {
-              setEditingSearch(false);
               movePin(newLat, newLng, formatCoordinates(newLat, newLng));
             }}
           />
