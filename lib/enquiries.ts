@@ -32,7 +32,6 @@ export function validateEnquiryBody(body: EnquirySubmitBody): string | null {
 
   if (type === "kitty_party") {
     if (!body.event_date) return "Please select an event date";
-    if (!body.event_time) return "Please select an event time";
     if (!body.items?.length) return "Please select at least one product";
     for (const item of body.items) {
       if (!item.product_id || !Number.isInteger(item.quantity) || item.quantity < 1) {
@@ -63,7 +62,8 @@ export async function createEnquiry(
   const message = String(body.message ?? "").trim();
   const type = body.type;
 
-  if (!(await isPhoneVerified(phone))) {
+  const requiresOtp = type === "landing";
+  if (requiresOtp && !(await isPhoneVerified(phone))) {
     return { error: "Phone number not verified", status: 403 };
   }
 
@@ -110,7 +110,7 @@ export async function createEnquiry(
       status: "new",
       event_date: type === "kitty_party" ? body.event_date : null,
       event_time: type === "kitty_party" ? body.event_time : null,
-      phone_verified_at: new Date().toISOString(),
+      phone_verified_at: requiresOtp ? new Date().toISOString() : null,
     })
     .select("id")
     .single();

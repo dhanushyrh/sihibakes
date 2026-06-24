@@ -1,27 +1,119 @@
 "use client";
 
-import { useMemo, useState } from "react";
-import { ChevronRight } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
-import { EnquiryStepProgress } from "@/components/orders/EnquiryStepProgress";
 import { EnquirySuccess } from "@/components/orders/EnquirySuccess";
-import { ProductCard } from "@/components/store/ProductCard";
-import { ProductDetailModal } from "@/components/store/ProductDetailModal";
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
-import { PhoneOtpVerification } from "@/components/store/PhoneOtpVerification";
-import { useScrollToTopOnChange } from "@/components/store/ScrollToTop";
 import { DatePicker } from "@/components/store/DatePicker";
-import { TimePicker } from "@/components/store/TimePicker";
 import { HeartDivider } from "@/components/landing/HeartDivider";
 import { isMenuProduct } from "@/lib/cart-products";
 import { isValidIndianPhone } from "@/lib/checkout-validation";
-import { formatTimeDisplay } from "@/lib/datetime-picker";
-import { TAG_OPTIONS } from "@/lib/constants";
-import type { Product, ProductTag } from "@/lib/types";
+import type { Product } from "@/lib/types";
 import type { StorefrontDetails } from "@/lib/storefront";
 import { format } from "date-fns";
 
-const STEPS = 4;
+function buildKittyPartyMessage(notes: string, guestCount: string): string {
+  const parts: string[] = [];
+  if (guestCount.trim()) {
+    parts.push(`Number of people: ${guestCount.trim()}`);
+  }
+  if (notes.trim()) {
+    parts.push(notes.trim());
+  }
+  return parts.join("\n\n") || "Kitty party enquiry";
+}
+
+function ProductMultiSelect({
+  products,
+  selectedIds,
+  onChange,
+}: {
+  products: Product[];
+  selectedIds: string[];
+  onChange: (ids: string[]) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedLabels = products
+    .filter((p) => selectedIds.includes(p.id))
+    .map((p) => p.title);
+
+  const toggleProduct = (productId: string) => {
+    onChange(
+      selectedIds.includes(productId)
+        ? selectedIds.filter((id) => id !== productId)
+        : [...selectedIds, productId]
+    );
+  };
+
+  const summary =
+    selectedLabels.length === 0
+      ? "Select desserts"
+      : selectedLabels.length === 1
+        ? selectedLabels[0]
+        : `${selectedLabels.length} desserts selected`;
+
+  return (
+    <div ref={containerRef} className="relative">
+      <label className="text-xs text-chocolate/55">Desserts</label>
+      <button
+        type="button"
+        onClick={() => setOpen((prev) => !prev)}
+        className="mt-1 flex w-full items-center justify-between rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-left text-sm outline-none focus:border-chocolate/30"
+      >
+        <span className={selectedLabels.length === 0 ? "text-chocolate/40" : "text-chocolate"}>
+          {summary}
+        </span>
+        <ChevronDown
+          size={16}
+          className={`shrink-0 text-chocolate/50 transition ${open ? "rotate-180" : ""}`}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute z-20 mt-1 max-h-60 w-full overflow-y-auto rounded-xl border border-chocolate/10 bg-white py-1 shadow-lg ring-1 ring-chocolate/5">
+          {products.length === 0 ? (
+            <p className="px-3 py-2 text-sm text-chocolate/50">No desserts available</p>
+          ) : (
+            products.map((product) => {
+              const checked = selectedIds.includes(product.id);
+              return (
+                <label
+                  key={product.id}
+                  className="flex cursor-pointer items-center gap-3 px-3 py-2.5 text-sm hover:bg-cream/80"
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => toggleProduct(product.id)}
+                    className="size-4 rounded border-chocolate/20 text-chocolate focus:ring-chocolate/30"
+                  />
+                  <span className="text-chocolate">{product.title}</span>
+                </label>
+              );
+            })
+          )}
+        </div>
+      )}
+
+      {selectedLabels.length > 1 && (
+        <p className="mt-1.5 text-xs text-chocolate/50">{selectedLabels.join(", ")}</p>
+      )}
+    </div>
+  );
+}
 
 export function KittyPartyEnquiryClient({
   store,
@@ -30,46 +122,31 @@ export function KittyPartyEnquiryClient({
   store: StorefrontDetails;
   products: Product[];
 }) {
-  const [step, setStep] = useState(0);
-  useScrollToTopOnChange(step);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
   const [eventDate, setEventDate] = useState("");
-  const [eventTime, setEventTime] = useState("");
+  const [guestCount, setGuestCount] = useState("");
   const [notes, setNotes] = useState("");
-  const [selected, setSelected] = useState<Product | null>(null);
-  const [tagFilter, setTagFilter] = useState<ProductTag | "all">("all");
-  const [otpVerified, setOtpVerified] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   const today = format(new Date(), "yyyy-MM-dd");
 
-  const filtered = useMemo(() => {
-    return products.filter((p) => {
-      if (!isMenuProduct(p)) return false;
-      if (tagFilter !== "all" && !p.tags.includes(tagFilter)) return false;
-      return p.is_active;
-    });
-  }, [products, tagFilter]);
+  const menuProducts = useMemo(
+    () => products.filter((p) => isMenuProduct(p) && p.is_active),
+    [products]
+  );
 
-  const toggleProduct = (productId: string) => {
-    setSelectedProductIds((prev) =>
-      prev.includes(productId)
-        ? prev.filter((id) => id !== productId)
-        : [...prev, productId]
-    );
-  };
-
-  const selectedCount = selectedProductIds.length;
+  const canSubmit =
+    name.trim().length >= 2 &&
+    isValidIndianPhone(phone) &&
+    selectedProductIds.length >= 1 &&
+    Boolean(eventDate);
 
   const submitEnquiry = async () => {
-    if (!otpVerified) {
-      setError("Verify your phone number first");
-      return;
-    }
+    if (!canSubmit) return;
     setSubmitting(true);
     setError("");
     try {
@@ -80,9 +157,8 @@ export function KittyPartyEnquiryClient({
           type: "kitty_party",
           name,
           phone,
-          message: notes.trim() || "Kitty party enquiry",
+          message: buildKittyPartyMessage(notes, guestCount),
           event_date: eventDate,
-          event_time: eventTime,
           items: selectedProductIds.map((productId) => ({
             product_id: productId,
             quantity: 1,
@@ -102,238 +178,101 @@ export function KittyPartyEnquiryClient({
   };
 
   if (submitted) {
-    return <EnquirySuccess store={store} title="Kitty party enquiry sent" />;
+    return (
+      <EnquirySuccess
+        store={store}
+        title="Kitty party enquiry sent"
+        description="Thanks for submitting. Our team will get back to you over WhatsApp."
+      />
+    );
   }
-
-  const stepTitles = [
-    "Your details",
-    "Choose desserts",
-    "Event details",
-    "Verify & send",
-  ];
 
   return (
     <div className="flex min-h-screen flex-col pb-8">
       <OrderFlowHeader title="Kitty Party enquiry" backHref="/orders" />
 
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">
-        <HeartDivider className="mb-2" />
-        <h2 className="text-center font-display text-lg font-semibold text-chocolate">
-          {stepTitles[step]}
-        </h2>
-        <EnquiryStepProgress step={step} total={STEPS} />
+        <HeartDivider className="mb-5" />
+        <p className="text-sm text-chocolate/60">
+          Tell us about your gathering — pick your desserts, date, and any notes. We&apos;ll
+          reach out on WhatsApp.
+        </p>
 
-        {step === 0 && (
-          <div className="mt-6 space-y-4">
-            <p className="text-sm text-chocolate/60">
-              Tell us who to contact. We&apos;ll send a verification code to your
-              WhatsApp number.
-            </p>
-            <div>
-              <label className="text-xs text-chocolate/55">Your name</label>
-              <input
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-sm outline-none focus:border-chocolate/30"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-chocolate/55">WhatsApp number</label>
-              <IndianPhoneInput value={phone} onChange={setPhone} />
-            </div>
-            <button
-              type="button"
-              disabled={name.trim().length < 2 || !isValidIndianPhone(phone)}
-              onClick={() => setStep(1)}
-              className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
-            >
-              Continue
-            </button>
-          </div>
-        )}
-
-        {step === 1 && (
-          <>
-            <p className="mt-4 text-sm text-chocolate/60">
-              Pick the desserts you&apos;re interested in. Select at least one.
-            </p>
-            <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
-              <button
-                type="button"
-                onClick={() => setTagFilter("all")}
-                className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
-                  tagFilter === "all"
-                    ? "bg-chocolate text-cream"
-                    : "bg-white text-chocolate ring-1 ring-chocolate/10"
-                }`}
-              >
-                All
-              </button>
-              {TAG_OPTIONS.map((t) => (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => setTagFilter(t.key)}
-                  className={`shrink-0 rounded-full px-3 py-1.5 text-xs font-medium ${
-                    tagFilter === t.key
-                      ? "bg-chocolate text-cream"
-                      : "bg-white text-chocolate ring-1 ring-chocolate/10"
-                  }`}
-                >
-                  {t.label}
-                </button>
-              ))}
-            </div>
-            <div className="mt-5 grid grid-cols-2 gap-4 pb-24">
-              {filtered.map((product) => (
-                <ProductCard
-                  key={product.id}
-                  product={product}
-                  onSelect={setSelected}
-                  selectionMode
-                  selected={selectedProductIds.includes(product.id)}
-                  onToggleSelect={(p) => toggleProduct(p.id)}
-                />
-              ))}
-            </div>
-            <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-chocolate/10 bg-cream/95 px-4 py-3 backdrop-blur-md">
-              <div className="mx-auto flex max-w-lg gap-2">
-                <button
-                  type="button"
-                  onClick={() => setStep(0)}
-                  className="rounded-full border border-chocolate/20 px-5 py-3.5 text-sm"
-                >
-                  Back
-                </button>
-                <button
-                  type="button"
-                  disabled={selectedCount < 1}
-                  onClick={() => setStep(2)}
-                  className="flex flex-1 items-center justify-center gap-2 rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-40"
-                >
-                  {selectedCount} selected · Continue
-                  <ChevronRight size={16} />
-                </button>
-              </div>
-            </div>
-          </>
-        )}
-
-        {step === 2 && (
-          <div className="mt-6 space-y-4">
-            <DatePicker
-              label="Event date"
-              value={eventDate}
-              onChange={setEventDate}
-              min={today}
-              placeholder="When is your party?"
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void submitEnquiry();
+          }}
+          className="mt-6 space-y-4"
+        >
+          <div>
+            <label className="text-xs text-chocolate/55">Your name</label>
+            <input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-sm outline-none focus:border-chocolate/30"
             />
-            <TimePicker
-              label="Event time"
-              value={eventTime}
-              onChange={setEventTime}
-              startHour={9}
-              endHour={21}
-              placeholder="Pick a time"
-            />
-            <div>
-              <label className="text-xs text-chocolate/55">
-                Notes <span className="text-chocolate/40">(optional)</span>
-              </label>
-              <textarea
-                rows={4}
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                placeholder="Guest count, dietary needs, delivery address…"
-                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-sm outline-none focus:border-chocolate/30"
-              />
-            </div>
-            <div className="flex gap-2 pt-2">
-              <button
-                type="button"
-                onClick={() => setStep(1)}
-                className="flex-1 rounded-full border border-chocolate/20 py-4 text-sm"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                disabled={!eventDate || !eventTime}
-                onClick={() => setStep(3)}
-                className="flex-1 rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
-              >
-                Continue
-              </button>
-            </div>
           </div>
-        )}
 
-        {step === 3 && (
-          <div className="mt-6 space-y-4">
-            <div className="rounded-xl bg-white p-4 ring-1 ring-chocolate/10">
-              <p className="font-medium text-chocolate">{name}</p>
-              <p className="text-sm text-chocolate/60">+91 {phone}</p>
-              {eventDate && (
-                <p className="mt-2 text-sm text-chocolate/70">
-                  {format(new Date(`${eventDate}T12:00:00`), "d MMM yyyy")}
-                  {eventTime ? ` · ${formatTimeDisplay(eventTime)}` : ""}
-                </p>
-              )}
-              <ul className="mt-3 space-y-1 border-t border-chocolate/10 pt-3 text-sm text-chocolate/80">
-                {selectedProductIds.map((productId) => {
-                  const product = products.find((p) => p.id === productId);
-                  return (
-                    <li key={productId}>{product?.title ?? "Product"}</li>
-                  );
-                })}
-              </ul>
-              {notes && (
-                <p className="mt-3 border-t border-chocolate/10 pt-3 text-sm text-chocolate/60">
-                  {notes}
-                </p>
-              )}
-            </div>
-
-            <PhoneOtpVerification
-              phone={phone}
-              onVerified={() => setOtpVerified(true)}
-              onError={setError}
-            />
-
-            {error && <p className="text-sm text-red-600">{error}</p>}
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setStep(2)}
-                className="flex-1 rounded-full border border-chocolate/20 py-4 text-sm"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                disabled={!otpVerified || submitting}
-                onClick={() => void submitEnquiry()}
-                className="flex-1 rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
-              >
-                {submitting ? "Sending..." : "Submit enquiry"}
-              </button>
-            </div>
+          <div>
+            <label className="text-xs text-chocolate/55">WhatsApp number</label>
+            <IndianPhoneInput value={phone} onChange={setPhone} />
           </div>
-        )}
+
+          <ProductMultiSelect
+            products={menuProducts}
+            selectedIds={selectedProductIds}
+            onChange={setSelectedProductIds}
+          />
+
+          <DatePicker
+            label="Event date"
+            value={eventDate}
+            onChange={setEventDate}
+            min={today}
+            placeholder="When is your party?"
+          />
+
+          <div>
+            <label className="text-xs text-chocolate/55">
+              Number of people <span className="text-chocolate/40">(optional)</span>
+            </label>
+            <input
+              type="number"
+              min={1}
+              inputMode="numeric"
+              value={guestCount}
+              onChange={(e) => setGuestCount(e.target.value)}
+              placeholder="e.g. 12"
+              className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-sm outline-none focus:border-chocolate/30"
+            />
+          </div>
+
+          <div>
+            <label className="text-xs text-chocolate/55">
+              Notes <span className="text-chocolate/40">(optional)</span>
+            </label>
+            <textarea
+              rows={4}
+              value={notes}
+              onChange={(e) => setNotes(e.target.value)}
+              placeholder="Dietary needs, delivery address, preferences…"
+              className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-sm outline-none focus:border-chocolate/30"
+            />
+          </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={!canSubmit || submitting}
+            className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
+          >
+            {submitting ? "Submitting..." : "Submit enquiry"}
+          </button>
+        </form>
       </main>
-
-      {selected && (
-        <ProductDetailModal
-          product={selected}
-          onClose={() => setSelected(null)}
-          onAdd={() => {}}
-          selectionMode
-          selected={selectedProductIds.includes(selected.id)}
-          onToggleSelect={(product) => toggleProduct(product.id)}
-        />
-      )}
     </div>
   );
 }

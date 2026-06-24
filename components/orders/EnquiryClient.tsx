@@ -3,13 +3,10 @@
 import { useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
-import { EnquiryStepProgress } from "@/components/orders/EnquiryStepProgress";
 import { EnquirySuccess } from "@/components/orders/EnquirySuccess";
 import { KittyPartyEnquiryClient } from "@/components/orders/KittyPartyEnquiryClient";
 import { HeartDivider } from "@/components/landing/HeartDivider";
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
-import { PhoneOtpVerification } from "@/components/store/PhoneOtpVerification";
-import { useScrollToTopOnChange } from "@/components/store/ScrollToTop";
 import { isValidIndianPhone } from "@/lib/checkout-validation";
 import type { Product } from "@/lib/types";
 import type { StorefrontDetails } from "@/lib/storefront";
@@ -17,7 +14,7 @@ import type { StorefrontDetails } from "@/lib/storefront";
 const TYPE_LABELS: Record<string, { title: string; description: string }> = {
   "kitty-party": {
     title: "Kitty Party enquiry",
-    description: "Tell us about your gathering — guest count, date, and preferences.",
+    description: "Pick your desserts, date, and notes — we'll get back to you on WhatsApp.",
   },
   general: {
     title: "General enquiry",
@@ -25,24 +22,29 @@ const TYPE_LABELS: Record<string, { title: string; description: string }> = {
   },
 };
 
+const GENERAL_ENQUIRY_SUCCESS_MESSAGE =
+  "Thanks for submitting — our team will get back to you over WhatsApp.";
+
 function GeneralEnquiryForm({ store }: { store: StorefrontDetails }) {
-  const [step, setStep] = useState(0);
-  useScrollToTopOnChange(step);
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
-  const [otpVerified, setOtpVerified] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   const meta = TYPE_LABELS.general;
 
-  const submitEnquiry = async () => {
-    if (!otpVerified) {
-      setError("Verify your phone number first");
+  const submitEnquiry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (
+      name.trim().length < 2 ||
+      !isValidIndianPhone(phone) ||
+      message.trim().length < 10
+    ) {
       return;
     }
+
     setSubmitting(true);
     setError("");
     try {
@@ -69,7 +71,12 @@ function GeneralEnquiryForm({ store }: { store: StorefrontDetails }) {
   };
 
   if (submitted) {
-    return <EnquirySuccess store={store} />;
+    return (
+      <EnquirySuccess
+        store={store}
+        description={GENERAL_ENQUIRY_SUCCESS_MESSAGE}
+      />
+    );
   }
 
   return (
@@ -79,97 +86,52 @@ function GeneralEnquiryForm({ store }: { store: StorefrontDetails }) {
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">
         <HeartDivider className="mb-5" />
         <p className="text-sm text-chocolate/60">{meta.description}</p>
-        <EnquiryStepProgress step={step} total={2} />
 
-        {step === 0 && (
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (name.trim().length >= 2 && isValidIndianPhone(phone) && message.trim().length >= 10) {
-                setStep(1);
-              }
-            }}
-            className="mt-6 space-y-4"
-          >
-            <div>
-              <label className="text-xs text-chocolate/55">Your name</label>
-              <input
-                required
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-sm outline-none focus:border-chocolate/30"
-              />
-            </div>
-            <div>
-              <label className="text-xs text-chocolate/55">WhatsApp number</label>
-              <IndianPhoneInput value={phone} onChange={setPhone} />
-              <p className="mt-1 text-xs text-chocolate/50">
-                We&apos;ll send a verification code to this number.
-              </p>
-            </div>
-            <div>
-              <label className="text-xs text-chocolate/55">Your message</label>
-              <textarea
-                required
-                rows={4}
-                minLength={10}
-                value={message}
-                onChange={(e) => setMessage(e.target.value)}
-                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-sm outline-none focus:border-chocolate/30"
-                placeholder="Tell us what you need..."
-              />
-            </div>
-            <button
-              type="submit"
-              disabled={
-                name.trim().length < 2 ||
-                !isValidIndianPhone(phone) ||
-                message.trim().length < 10
-              }
-              className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
-            >
-              Continue
-            </button>
-          </form>
-        )}
-
-        {step === 1 && (
-          <div className="mt-6 space-y-4">
-            <div className="rounded-xl bg-white p-4 ring-1 ring-chocolate/10">
-              <p className="font-medium text-chocolate">{name}</p>
-              <p className="text-sm text-chocolate/60">+91 {phone}</p>
-              <p className="mt-3 border-t border-chocolate/10 pt-3 text-sm text-chocolate/70">
-                {message}
-              </p>
-            </div>
-
-            <PhoneOtpVerification
-              phone={phone}
-              onVerified={() => setOtpVerified(true)}
-              onError={setError}
+        <form onSubmit={(e) => void submitEnquiry(e)} className="mt-6 space-y-4">
+          <div>
+            <label className="text-xs text-chocolate/55">Your name</label>
+            <input
+              required
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-sm outline-none focus:border-chocolate/30"
             />
-
-            {error && <p className="text-sm text-red-600">{error}</p>}
-
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setStep(0)}
-                className="flex-1 rounded-full border border-chocolate/20 py-4 text-sm"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                disabled={!otpVerified || submitting}
-                onClick={() => void submitEnquiry()}
-                className="flex-1 rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
-              >
-                {submitting ? "Sending..." : "Submit enquiry"}
-              </button>
-            </div>
           </div>
-        )}
+          <div>
+            <label className="text-xs text-chocolate/55">WhatsApp number</label>
+            <IndianPhoneInput value={phone} onChange={setPhone} />
+            <p className="mt-1 text-xs text-chocolate/50">
+              We&apos;ll reach out to you on this number.
+            </p>
+          </div>
+          <div>
+            <label className="text-xs text-chocolate/55">Your message</label>
+            <textarea
+              required
+              rows={4}
+              minLength={10}
+              value={message}
+              onChange={(e) => setMessage(e.target.value)}
+              className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-sm outline-none focus:border-chocolate/30"
+              placeholder="Tell us what you need..."
+            />
+          </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          <button
+            type="submit"
+            disabled={
+              submitting ||
+              name.trim().length < 2 ||
+              !isValidIndianPhone(phone) ||
+              message.trim().length < 10
+            }
+            className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
+          >
+            {submitting ? "Sending..." : "Submit enquiry"}
+          </button>
+        </form>
       </main>
     </div>
   );
