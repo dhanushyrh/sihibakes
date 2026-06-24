@@ -26,7 +26,7 @@ type DeliverySessionContextValue = {
   setAddress: (fields: Partial<Pick<DeliverySession, "house" | "street" | "landmark" | "pincode">>) => void;
   setCustomer: (
     fields: Partial<
-      Pick<DeliverySession, "customerName" | "whatsappPhone" | "altPhone">
+      Pick<DeliverySession, "customerName" | "email" | "whatsappPhone" | "altPhone">
     >
   ) => void;
   setPhoneVerified: (verified: boolean) => void;
@@ -95,7 +95,7 @@ export function DeliverySessionProvider({
   const setCustomer = useCallback(
     (
       fields: Partial<
-        Pick<DeliverySession, "customerName" | "whatsappPhone" | "altPhone">
+        Pick<DeliverySession, "customerName" | "email" | "whatsappPhone" | "altPhone">
       >
     ) => {
       setSession((prev) => {

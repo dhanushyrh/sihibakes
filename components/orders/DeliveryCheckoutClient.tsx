@@ -4,17 +4,15 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Script from "next/script";
 import Image from "next/image";
-import { format, parseISO } from "date-fns";
-import { Tag } from "lucide-react";
+import { CheckCircle2, Tag } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
-import { useScrollToTopOnChange } from "@/components/store/ScrollToTop";
-import { DeliveryLocationPicker } from "@/components/store/DeliveryLocationPicker";
 import { SelectedLocationMap } from "@/components/store/SelectedLocationMap";
 import { DeliverySlotSelects } from "@/components/store/DeliverySlotSelects";
 import { AvailableCouponsPicker } from "@/components/store/AvailableCouponsPicker";
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
 import { useCart } from "@/components/store/CartProvider";
 import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
+import { useCustomerPrefill } from "@/hooks/useCustomerPrefill";
 import {
   readAppliedCoupon,
   writeAppliedCoupon,
@@ -22,30 +20,27 @@ import {
 } from "@/lib/applied-coupon";
 import {
   formatPincodeInput,
+  isValidEmail,
   isValidIndianPhone,
   isValidIndianPincode,
+  normalizeEmail,
 } from "@/lib/checkout-validation";
 import { isMenuProduct } from "@/lib/cart-products";
+import { CHECKOUT_LOCATION_PATH } from "@/lib/checkout-routing";
 import { BRAND } from "@/lib/constants";
 import { formatCurrency, formatDistance } from "@/lib/delivery";
 import { normalizePhone } from "@/lib/storefront";
 import { getUnitPrice } from "@/lib/pricing";
-import {
-  resolveDeliverySelection,
-} from "@/lib/customer-delivery-slots";
+import { resolveDeliverySelection } from "@/lib/customer-delivery-slots";
 import type { DeliveryCalculation, DeliveryFenceKm, DeliverySlot, Product } from "@/lib/types";
 import type { PublicCoupon } from "@/lib/public-coupons";
-import type { CustomerCheckoutProfile } from "@/lib/customer-lookup";
-import {
-  buildRazorpayCheckoutOptions,
-} from "@/lib/razorpay";
+import { filterEligiblePublicCoupons } from "@/lib/public-coupons";
+import { buildRazorpayCheckoutOptions } from "@/lib/razorpay";
 import {
   formatRazorpayPaymentError,
   formatRazorpayVerifyError,
 } from "@/lib/razorpay-errors";
 import "@/lib/razorpay-checkout";
-
-const STEPS = ["Location", "Details", "Pay"];
 
 type PlacedOrder = {
   order_id: string;
@@ -84,8 +79,6 @@ export function DeliveryCheckoutClient({
     clearSession,
   } = useDeliverySession();
 
-  const [step, setStep] = useState(0);
-  useScrollToTopOnChange(step);
   const [products, setProducts] = useState<Product[]>([]);
   const [bookableSlots, setBookableSlots] = useState(initialSlots);
   const [selectedDate, setSelectedDate] = useState("");
@@ -96,30 +89,32 @@ export function DeliveryCheckoutClient({
   const [couponMessage, setCouponMessage] = useState("");
   const [applyingCoupon, setApplyingCoupon] = useState(false);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  const [otp, setOtp] = useState("");
-  const [otpSent, setOtpSent] = useState(false);
-  const [otpHint, setOtpHint] = useState("");
-  const [otpDemoMode, setOtpDemoMode] = useState(true);
-  const [otpVerified, setOtpVerified] = useState(false);
-  const [sendingOtp, setSendingOtp] = useState(false);
-  const [verifyingOtp, setVerifyingOtp] = useState(false);
   const [razorpayReady, setRazorpayReady] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
   const [error, setError] = useState("");
   const completingOrderRef = useRef(false);
-  const locationSectionRef = useRef<HTMLElement>(null);
-  const lastLookupPhoneRef = useRef("");
-  const sessionLatRef = useRef(session.lat);
-  const sessionLngRef = useRef(session.lng);
-  const [isFirstOrder, setIsFirstOrder] = useState(true);
-  const [customerLookupReady, setCustomerLookupReady] = useState(false);
-  const [customerPrefillNote, setCustomerPrefillNote] = useState("");
-  const [locationPickerKey, setLocationPickerKey] = useState(0);
+
+  const phoneVerified =
+    session.phoneVerified && isValidIndianPhone(session.whatsappPhone);
+
+  const { isFirstOrder, prefillNote, ready: customerLookupReady } =
+    useCustomerPrefill(session.whatsappPhone, phoneVerified);
 
   useEffect(() => {
     if (!sessionReady || completingOrderRef.current || placingOrder) return;
     if (itemCount === 0) router.replace("/orders/delivery/cart");
   }, [sessionReady, itemCount, placingOrder, router]);
+
+  useEffect(() => {
+    if (!sessionReady) return;
+    if (!phoneVerified) {
+      router.replace("/orders/delivery/cart?auth=1");
+      return;
+    }
+    if (!isLocationReady) {
+      router.replace(CHECKOUT_LOCATION_PATH);
+    }
+  }, [sessionReady, phoneVerified, isLocationReady, router]);
 
   useEffect(() => {
     setAppliedCoupon(readAppliedCoupon());
@@ -193,43 +188,7 @@ export function DeliveryCheckoutClient({
     return () => {
       cancelled = true;
     };
-  }, [
-    selectedSlot,
-    session.lat,
-    session.lng,
-    setLocation,
-  ]);
-
-  useEffect(() => {
-    setOtp("");
-    setOtpSent(false);
-    setOtpHint("");
-    setOtpVerified(false);
-    setCustomerLookupReady(false);
-    setCustomerPrefillNote("");
-    lastLookupPhoneRef.current = "";
-  }, [session.whatsappPhone]);
-
-  const eligibleCoupons = useMemo(
-    () =>
-      availableCoupons.filter(
-        (coupon) =>
-          !coupon.first_order_only ||
-          (customerLookupReady && isFirstOrder)
-      ),
-    [availableCoupons, isFirstOrder, customerLookupReady]
-  );
-
-  useEffect(() => {
-    sessionLatRef.current = session.lat;
-    sessionLngRef.current = session.lng;
-  }, [session.lat, session.lng]);
-
-  useEffect(() => {
-    if (step > 0 && session.delivery && !session.delivery.reachable) {
-      setStep(0);
-    }
-  }, [session.delivery, step]);
+  }, [selectedSlot, session.lat, session.lng, setLocation]);
 
   useEffect(() => {
     if (!customerLookupReady || isFirstOrder || !appliedCoupon) return;
@@ -244,93 +203,6 @@ export function DeliveryCheckoutClient({
       setCouponMessage("That coupon is valid for first orders only");
     }
   }, [customerLookupReady, isFirstOrder, appliedCoupon, availableCoupons]);
-
-  useEffect(() => {
-    if (!isValidIndianPhone(session.whatsappPhone)) {
-      setIsFirstOrder(true);
-      setCustomerLookupReady(false);
-      return;
-    }
-
-    const phone = session.whatsappPhone;
-    const controller = new AbortController();
-
-    const timer = setTimeout(() => {
-      void (async () => {
-        try {
-          const res = await fetch("/api/customers/lookup", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ phone }),
-            signal: controller.signal,
-          });
-          const data = (await res.json()) as CustomerCheckoutProfile & {
-            error?: string;
-          };
-
-          if (controller.signal.aborted || phone !== session.whatsappPhone) return;
-          if (!res.ok) {
-            setCustomerLookupReady(true);
-            return;
-          }
-
-          setIsFirstOrder(data.is_first_order);
-          setCustomerLookupReady(true);
-
-          if (data.found && lastLookupPhoneRef.current !== phone) {
-            lastLookupPhoneRef.current = phone;
-
-            setCustomer({
-              customerName: data.customer_name,
-              altPhone: data.alt_phone,
-            });
-            setAddress({
-              house: data.house,
-              street: data.street,
-              landmark: data.landmark,
-              pincode: data.pincode,
-            });
-            setCustomerPrefillNote("Welcome back — we filled in your saved details.");
-
-            if (
-              sessionLatRef.current == null &&
-              sessionLngRef.current == null &&
-              data.delivery_lat != null &&
-              data.delivery_lng != null
-            ) {
-              const calcRes = await fetch("/api/delivery/calculate", {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({
-                  lat: data.delivery_lat,
-                  lng: data.delivery_lng,
-                }),
-                signal: controller.signal,
-              });
-              if (controller.signal.aborted || phone !== session.whatsappPhone) {
-                return;
-              }
-              const delivery = (await calcRes.json()) as DeliveryCalculation;
-              setLocation(data.delivery_lat, data.delivery_lng, delivery);
-              setLocationPickerKey((key) => key + 1);
-            }
-          } else if (!data.found) {
-            lastLookupPhoneRef.current = phone;
-            setCustomerPrefillNote("");
-          }
-        } catch (err) {
-          if (err instanceof DOMException && err.name === "AbortError") return;
-          setCustomerLookupReady(true);
-        }
-      })();
-    }, 450);
-
-    return () => {
-      clearTimeout(timer);
-      controller.abort();
-    };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.whatsappPhone]);
 
   const cartLines = useMemo(() => {
     return items
@@ -350,6 +222,31 @@ export function DeliveryCheckoutClient({
   }, [items, products]);
 
   const subtotal = cartLines.reduce((s, l) => s + l.lineTotal, 0);
+
+  const eligibleCoupons = useMemo(
+    () =>
+      filterEligiblePublicCoupons(availableCoupons, {
+        subtotal,
+        isFirstOrder,
+        checkFirstOrder: customerLookupReady,
+      }),
+    [availableCoupons, subtotal, isFirstOrder, customerLookupReady]
+  );
+
+  useEffect(() => {
+    if (!appliedCoupon) return;
+    const meta = availableCoupons.find((c) => c.code === appliedCoupon.code);
+    if (!meta) return;
+    if (subtotal < meta.min_subtotal_inr) {
+      setAppliedCoupon(null);
+      writeAppliedCoupon(null);
+      setCouponCode("");
+      setCouponMessage(
+        `Minimum order of ₹${meta.min_subtotal_inr} required for ${meta.code}`
+      );
+    }
+  }, [subtotal, appliedCoupon, availableCoupons]);
+
   const deliveryFee = appliedCoupon?.free_delivery
     ? 0
     : (session.delivery?.delivery_fee_inr ?? 0);
@@ -360,6 +257,9 @@ export function DeliveryCheckoutClient({
     const errors: Record<string, string> = {};
     if (session.customerName.trim().length < 2) {
       errors.customerName = "Enter your full name";
+    }
+    if (!isValidEmail(session.email)) {
+      errors.email = "Enter a valid email address";
     }
     if (!isValidIndianPhone(session.whatsappPhone)) {
       errors.whatsappPhone = "Enter a valid 10-digit WhatsApp number";
@@ -377,14 +277,8 @@ export function DeliveryCheckoutClient({
       errors.pincode = "Enter a valid 6-digit pincode";
     }
     if (!selectedSlotId) errors.slot = "Choose a delivery date and time slot";
-    if (session.lat == null || session.lng == null) {
-      errors.location = "Pin your delivery location on the map";
-    } else if (session.delivery && !session.delivery.reachable) {
-      errors.location =
-        session.delivery.message ??
-        "This location is outside our delivery zone — tap the map to choose another spot";
-    } else if (!isLocationReady) {
-      errors.location = "Confirm your delivery location on the map";
+    if (!isLocationReady) {
+      errors.location = "Set your delivery location before paying";
     }
     setFieldErrors(errors);
     return errors;
@@ -404,7 +298,7 @@ export function DeliveryCheckoutClient({
       return;
     }
     if (couponMeta?.first_order_only && !customerLookupReady) {
-      setCouponMessage("Enter your phone number to check coupon eligibility");
+      setCouponMessage("Checking coupon eligibility…");
       return;
     }
 
@@ -451,46 +345,10 @@ export function DeliveryCheckoutClient({
     setCouponMessage("");
   };
 
-  const sendOtp = async () => {
-    if (!isValidIndianPhone(session.whatsappPhone)) {
-      setError("Enter a valid WhatsApp number before requesting a code");
-      return false;
-    }
-    setSendingOtp(true);
-    setError("");
-    try {
-      const res = await fetch("/api/otp/send", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: session.whatsappPhone }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        setError(data.error || "Could not send OTP");
-        return false;
-      }
-      if (data.already_verified) {
-        setOtpVerified(true);
-        setPhoneVerified(true);
-        setOtpDemoMode(Boolean(data.demo_mode));
-        setOtpHint("Phone number already verified — proceed to payment.");
-        setOtpSent(true);
-        return true;
-      }
-      setOtpDemoMode(Boolean(data.demo_mode));
-      setOtpSent(true);
-      setOtpHint(
-        data.debug_otp
-          ? `Your verification code: ${data.debug_otp}`
-          : data.message || "Code sent to your WhatsApp number"
-      );
-      return true;
-    } catch {
-      setError("Could not send OTP");
-      return false;
-    } finally {
-      setSendingOtp(false);
-    }
+  const useDifferentNumber = () => {
+    setCustomer({ whatsappPhone: "" });
+    setPhoneVerified(false);
+    router.replace("/orders/delivery/cart?auth=1");
   };
 
   const createOrder = async () => {
@@ -505,6 +363,7 @@ export function DeliveryCheckoutClient({
         items,
         customer_name: session.customerName.trim(),
         phone,
+        email: normalizeEmail(session.email),
         alt_phone: altPhone || undefined,
         house: session.house.trim(),
         street: session.street.trim(),
@@ -547,7 +406,6 @@ export function DeliveryCheckoutClient({
     const data = (await res.json()) as {
       error?: string;
       whatsapp_sent?: boolean;
-      whatsapp_error?: string | null;
     };
     if (!res.ok) {
       throw new Error(data.error || "Could not confirm order");
@@ -584,6 +442,7 @@ export function DeliveryCheckoutClient({
           prefill: {
             name: session.customerName.trim(),
             contact: `+91${placed.phone}`,
+            email: normalizeEmail(session.email),
           },
         }),
         handler: async (response: {
@@ -625,72 +484,25 @@ export function DeliveryCheckoutClient({
       rzp.open();
     });
 
-  const continueToDetails = () => {
-    if (!isLocationReady) return;
-    setFieldErrors({});
-    setStep(1);
-  };
-
-  const continueToVerification = async () => {
+  const payWithRazorpay = async () => {
     setError("");
     if (!isLocationReady) {
-      setStep(0);
+      router.push(CHECKOUT_LOCATION_PATH);
       return;
     }
     const errors = validateDetails();
     if (Object.keys(errors).length > 0) {
       if (errors.location) {
-        setStep(0);
+        router.push(CHECKOUT_LOCATION_PATH);
       }
       return;
     }
-    setStep(2);
-    if (!otpSent) await sendOtp();
-  };
-
-  const goBack = () => {
-    setError("");
-    if (step > 0) setStep(step - 1);
-  };
-
-  const verifyPhoneOtp = async () => {
-    if (otp.length !== 6) {
-      setError("Enter the 6-digit verification code");
+    if (!phoneVerified) {
+      router.replace("/orders/delivery/cart?auth=1");
       return;
     }
-    setVerifyingOtp(true);
-    setError("");
-    try {
-      const verifyRes = await fetch("/api/otp/verify", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: session.whatsappPhone, code: otp }),
-      });
-      const verifyData = await verifyRes.json();
-      if (!verifyRes.ok) {
-        throw new Error(verifyData.error || "Invalid verification code");
-      }
-      setOtpVerified(true);
-      setPhoneVerified(true);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not verify phone number");
-    } finally {
-      setVerifyingOtp(false);
-    }
-  };
 
-  const payWithRazorpay = async () => {
-    if (!isLocationReady) {
-      setError("Set your delivery location before paying");
-      setStep(0);
-      return;
-    }
-    if (!otpVerified) {
-      setError("Verify your phone number first");
-      return;
-    }
     setPlacingOrder(true);
-    setError("");
     try {
       const placed = await createOrder();
 
@@ -713,7 +525,12 @@ export function DeliveryCheckoutClient({
     }
   };
 
-  if (!sessionReady || (!completingOrderRef.current && itemCount === 0)) {
+  if (
+    !sessionReady ||
+    (!completingOrderRef.current && itemCount === 0) ||
+    !phoneVerified ||
+    !isLocationReady
+  ) {
     return null;
   }
 
@@ -728,473 +545,333 @@ export function DeliveryCheckoutClient({
     );
   }
 
-  const showPaymentBar = step === 2 && otpVerified;
-
   return (
-    <div
-      className={`flex min-h-screen flex-col ${
-        showPaymentBar
-          ? "pb-[calc(6.5rem+env(safe-area-inset-bottom))]"
-          : "pb-[calc(2rem+env(safe-area-inset-bottom))]"
-      }`}
-    >
+    <div className="flex min-h-screen flex-col pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
       <Script
         src="https://checkout.razorpay.com/v1/checkout.js"
         strategy="afterInteractive"
         onLoad={() => setRazorpayReady(true)}
       />
-      <OrderFlowHeader
-        title="Checkout"
-        backHref={step === 0 ? "/orders/delivery/cart" : undefined}
-        onBack={step > 0 ? goBack : undefined}
-      />
+      <OrderFlowHeader title="Checkout" backHref="/orders/delivery/cart" />
 
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">
-        <div className="flex gap-1">
-          {STEPS.map((label, i) => (
-            <div
-              key={label}
-              className={`h-1 flex-1 rounded-full ${
-                i <= step ? "bg-chocolate" : "bg-chocolate/10"
-              }`}
-            />
-          ))}
-        </div>
+        <div className="space-y-4">
+          <div>
+            <h2 className="font-display text-lg font-semibold text-chocolate">
+              Review your order
+            </h2>
+            <p className="mt-1 text-sm text-chocolate/60">
+              Confirm your details and pay securely.
+            </p>
+          </div>
 
-        {step === 0 && (
-          <div className="mt-6 space-y-4">
-            <div>
-              <h2 className="font-display text-lg font-semibold text-chocolate">
-                Where should we deliver?
-              </h2>
-              <p className="mt-1 text-sm text-chocolate/60">
-                Search for your area, or use the buttons below to set your pin.
-              </p>
+          <div className="flex items-center justify-between gap-3 rounded-2xl bg-green-50 px-4 py-3 ring-1 ring-green-200">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 size={18} className="shrink-0 text-green-700" />
+              <div>
+                <p className="text-sm font-medium text-green-900">
+                  +91 {session.whatsappPhone}
+                </p>
+                <p className="text-xs text-green-700">WhatsApp verified</p>
+              </div>
             </div>
-
-            <section
-              ref={locationSectionRef}
-              className="overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-chocolate/10"
+            <button
+              type="button"
+              onClick={useDifferentNumber}
+              className="shrink-0 text-xs text-green-800 underline"
             >
-              <DeliveryLocationPicker
-                key={locationPickerKey}
-                variant="gate"
+              Change
+            </button>
+          </div>
+
+          {prefillNote && (
+            <p className="text-xs text-green-700">{prefillNote}</p>
+          )}
+
+          <section className="rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
+            <h3 className="text-sm font-medium text-chocolate">Your details</h3>
+            <div className="mt-3 space-y-3">
+              <div>
+                <label className="text-xs text-chocolate/55">Full name</label>
+                <input
+                  value={session.customerName}
+                  onChange={(e) => setCustomer({ customerName: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
+                />
+                {fieldErrors.customerName && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.customerName}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs text-chocolate/55">Email address</label>
+                <input
+                  type="email"
+                  inputMode="email"
+                  autoComplete="email"
+                  value={session.email}
+                  onChange={(e) => setCustomer({ email: e.target.value })}
+                  placeholder="you@example.com"
+                  className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
+                />
+                <p className="mt-1 text-xs text-chocolate/50">
+                  Order confirmation and receipts
+                </p>
+                {fieldErrors.email && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.email}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs text-chocolate/55">
+                  Alternate contact number
+                </label>
+                <IndianPhoneInput
+                  value={session.altPhone}
+                  onChange={(value) => setCustomer({ altPhone: value })}
+                  autoComplete="tel"
+                  placeholder="Optional backup number"
+                />
+                <p className="mt-1 text-xs text-chocolate/50">
+                  Optional — someone else we can call if needed
+                </p>
+                {fieldErrors.altPhone && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.altPhone}</p>
+                )}
+              </div>
+            </div>
+          </section>
+
+          <section className="overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <h3 className="text-sm font-medium text-chocolate">Delivery</h3>
+              <button
+                type="button"
+                onClick={() => router.push(CHECKOUT_LOCATION_PATH)}
+                className="text-xs text-chocolate/60 underline"
+              >
+                Edit location
+              </button>
+            </div>
+            {session.lat != null && session.lng != null && (
+              <SelectedLocationMap
+                lat={session.lat}
+                lng={session.lng}
                 kitchenLat={kitchenLat}
                 kitchenLng={kitchenLng}
                 deliveryFence={deliveryFence}
-                initialLat={session.lat ?? kitchenLat}
-                initialLng={session.lng ?? kitchenLng}
-                hasSavedLocation={session.lat != null && session.lng != null}
-                useGeolocationInitially={false}
-                onUpdate={(lat, lng, delivery) => setLocation(lat, lng, delivery)}
-                onUnreachableExit={() => router.push("/orders/delivery/menu")}
+                variant="preview"
+                onEdit={() => router.push(CHECKOUT_LOCATION_PATH)}
               />
-            </section>
-
-            {isLocationReady && (
-              <button
-                type="button"
-                onClick={continueToDetails}
-                className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream"
-              >
-                Continue
-              </button>
             )}
-          </div>
-        )}
-
-        {step === 1 && (
-          <div className="mt-6 space-y-4">
-            <div>
-              <h2 className="font-display text-lg font-semibold text-chocolate">
-                Delivery details
-              </h2>
-              <p className="mt-1 text-sm text-chocolate/60">
-                Add your contact info, address, and optional coupon.
+            {session.delivery?.reachable && (
+              <p className="mt-2 text-center text-xs text-chocolate/55">
+                {formatDistance(session.delivery.distance_km)} away · Delivery fee{" "}
+                {formatCurrency(session.delivery.delivery_fee_inr)}
               </p>
-            </div>
+            )}
+            {fieldErrors.location && (
+              <p className="mt-2 text-xs text-red-600">{fieldErrors.location}</p>
+            )}
 
-            <div>
-              <label className="text-xs text-chocolate/55">Full name</label>
-              <input
-                value={session.customerName}
-                onChange={(e) => setCustomer({ customerName: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
-              />
-              {fieldErrors.customerName && (
-                <p className="mt-1 text-xs text-red-600">{fieldErrors.customerName}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="text-xs text-chocolate/55">WhatsApp number</label>
-              <IndianPhoneInput
-                value={session.whatsappPhone}
-                onChange={(value) => setCustomer({ whatsappPhone: value })}
-                autoComplete="tel-national"
-              />
-              <p className="mt-1 text-xs text-chocolate/50">
-                Order updates and verification code
-                {otpDemoMode ? "" : " via WhatsApp"}
-              </p>
-              {customerPrefillNote && (
-                <p className="mt-1 text-xs text-green-700">{customerPrefillNote}</p>
-              )}
-              {fieldErrors.whatsappPhone && (
-                <p className="mt-1 text-xs text-red-600">{fieldErrors.whatsappPhone}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="text-xs text-chocolate/55">
-                Alternate contact number
-              </label>
-              <IndianPhoneInput
-                value={session.altPhone}
-                onChange={(value) => setCustomer({ altPhone: value })}
-                autoComplete="tel"
-                placeholder="Optional backup number"
-              />
-              <p className="mt-1 text-xs text-chocolate/50">
-                Optional — someone else we can call if needed
-              </p>
-              {fieldErrors.altPhone && (
-                <p className="mt-1 text-xs text-red-600">{fieldErrors.altPhone}</p>
-              )}
-            </div>
-
-            <section className="overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
-              <div className="mb-3 flex items-center justify-between gap-2">
-                <h3 className="text-sm font-medium text-chocolate">Delivery location</h3>
-                <button
-                  type="button"
-                  onClick={() => setStep(0)}
-                  className="text-xs text-chocolate/60 underline"
-                >
-                  Edit
-                </button>
-              </div>
-              {session.lat != null && session.lng != null && (
-                <SelectedLocationMap
-                  lat={session.lat}
-                  lng={session.lng}
-                  kitchenLat={kitchenLat}
-                  kitchenLng={kitchenLng}
-                  deliveryFence={deliveryFence}
-                  variant="preview"
-                  onEdit={() => setStep(0)}
-                />
-              )}
-              {session.delivery?.reachable && (
-                <p className="mt-2 text-center text-xs text-chocolate/55">
-                  {formatDistance(session.delivery.distance_km)} away · Delivery fee{" "}
-                  {formatCurrency(session.delivery.delivery_fee_inr)}
-                </p>
-              )}
-            </section>
-
-            <p className="text-xs text-chocolate/45">
-              Enter the address for your pinned delivery location.
+            <p className="mt-4 text-xs text-chocolate/45">
+              Address for your pinned location
             </p>
 
-            <div>
-              <label className="text-xs text-chocolate/55">House / Flat no.</label>
-              <input
-                value={session.house}
-                onChange={(e) => setAddress({ house: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
-              />
-              {fieldErrors.house && (
-                <p className="mt-1 text-xs text-red-600">{fieldErrors.house}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="text-xs text-chocolate/55">Street / Area</label>
-              <input
-                value={session.street}
-                onChange={(e) => setAddress({ street: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
-              />
-              {fieldErrors.street && (
-                <p className="mt-1 text-xs text-red-600">{fieldErrors.street}</p>
-              )}
-            </div>
-
-            <div>
-              <label className="text-xs text-chocolate/55">Landmark (optional)</label>
-              <input
-                value={session.landmark}
-                onChange={(e) => setAddress({ landmark: e.target.value })}
-                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
-              />
-            </div>
-
-            <div>
-              <label className="text-xs text-chocolate/55">Pincode</label>
-              <input
-                type="tel"
-                inputMode="numeric"
-                maxLength={6}
-                value={session.pincode}
-                onChange={(e) => setAddress({ pincode: formatPincodeInput(e.target.value) })}
-                placeholder="560001"
-                className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
-              />
-              {fieldErrors.pincode && (
-                <p className="mt-1 text-xs text-red-600">{fieldErrors.pincode}</p>
-              )}
-            </div>
-
-            <DeliverySlotSelects
-              slots={bookableSlots}
-              selectedDate={selectedDate}
-              selectedSlotId={selectedSlotId}
-              onDateChange={setSelectedDate}
-              onSlotChange={setSelectedSlotId}
-              slotError={fieldErrors.slot}
-            />
-
-            <section className="rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
-              <div className="flex items-center gap-2">
-                <Tag size={16} className="text-gold" />
-                <h3 className="text-sm font-medium text-chocolate">Coupon codes</h3>
-              </div>
-              {!appliedCoupon && eligibleCoupons.length > 0 && (
-                <AvailableCouponsPicker
-                  coupons={eligibleCoupons}
-                  applyingCoupon={applyingCoupon}
-                  onApply={applyCoupon}
-                />
-              )}
-              {appliedCoupon ? (
-                <div className="mt-3 flex items-center justify-between gap-2">
-                  <span className="rounded-full bg-green-50 px-3 py-1.5 text-xs font-medium text-green-800 ring-1 ring-green-200">
-                    {appliedCoupon.code} applied
-                  </span>
-                  <button
-                    type="button"
-                    onClick={removeCoupon}
-                    className="text-xs text-chocolate/60 underline"
-                  >
-                    Remove
-                  </button>
-                </div>
-              ) : (
-                <div className="mt-3 flex gap-2">
-                  <input
-                    value={couponCode}
-                    onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
-                    placeholder="Enter code"
-                    className="min-w-0 flex-1 rounded-xl border border-chocolate/10 bg-cream px-3 py-2.5 text-base uppercase outline-none focus:border-chocolate/30"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => applyCoupon()}
-                    disabled={applyingCoupon || !couponCode.trim()}
-                    className="shrink-0 rounded-xl bg-chocolate px-4 py-2.5 text-sm font-medium text-cream disabled:opacity-40"
-                  >
-                    {applyingCoupon ? "..." : "Apply"}
-                  </button>
-                </div>
-              )}
-              {couponMessage && !appliedCoupon && (
-                <p className="mt-2 text-xs text-red-600">{couponMessage}</p>
-              )}
-            </section>
-
-            <section className="rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
-              <h2 className="text-sm font-medium text-chocolate">Your order</h2>
-              <ul className="mt-3 space-y-3">
-                {cartLines.map((line) => (
-                  <li key={line.productId} className="flex gap-3">
-                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-cream">
-                      {line.product.image_path ? (
-                        <Image
-                          src={line.product.image_path}
-                          alt={line.product.title}
-                          fill
-                          className="object-cover"
-                          sizes="56px"
-                        />
-                      ) : null}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-chocolate">
-                        {line.product.title}
-                      </p>
-                      <p className="text-xs text-chocolate/55">
-                        Qty {line.quantity} · {formatCurrency(line.unitPrice)} each
-                      </p>
-                    </div>
-                    <p className="text-sm font-medium text-chocolate">
-                      {formatCurrency(line.lineTotal)}
-                    </p>
-                  </li>
-                ))}
-              </ul>
-            </section>
-
-            <div className="rounded-2xl bg-white p-4 text-sm ring-1 ring-chocolate/10">
-              <div className="flex justify-between">
-                <span>Subtotal</span>
-                <span>{formatCurrency(subtotal)}</span>
-              </div>
-              {couponDiscount > 0 && (
-                <div className="mt-1 flex justify-between text-green-700">
-                  <span>Coupon ({appliedCoupon?.code})</span>
-                  <span>-{formatCurrency(couponDiscount)}</span>
-                </div>
-              )}
-              <div className="mt-1 flex justify-between">
-                <span>Delivery</span>
-                <span>
-                  {appliedCoupon?.free_delivery
-                    ? "FREE"
-                    : formatCurrency(session.delivery?.delivery_fee_inr ?? 0)}
-                </span>
-              </div>
-              <div className="mt-2 flex justify-between border-t border-chocolate/10 pt-2 font-semibold">
-                <span>Total</span>
-                <span>{formatCurrency(total)}</span>
-              </div>
-            </div>
-
-            {error && <p className="text-sm text-red-600">{error}</p>}
-
-            <button
-              type="button"
-              onClick={continueToVerification}
-              className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream"
-            >
-              Continue to phone verification
-            </button>
-          </div>
-        )}
-
-        {step === 2 && (
-          <div className="mt-6 space-y-4">
-            <h2 className="font-display text-lg font-semibold text-chocolate">
-              Verify & pay
-            </h2>
-
-            {!otpVerified ? (
-              <>
-                <p className="text-sm text-chocolate/60">
-                  Step 1 — Enter the verification code for +91 {session.whatsappPhone}
-                </p>
-
-                {otpHint && (
-                  <p className="rounded-xl bg-gold/20 px-3 py-3 text-sm font-medium text-chocolate ring-1 ring-gold/40">
-                    {otpHint}
-                  </p>
-                )}
-
-                {!otpHint && (
-                  <p className="text-xs text-chocolate/50">
-                    {otpDemoMode
-                      ? "Tap Resend to generate a verification code."
-                      : "Waiting for code… If nothing arrives, tap Resend below."}
-                  </p>
-                )}
-
+            <div className="mt-3 space-y-3">
+              <div>
+                <label className="text-xs text-chocolate/55">House / Flat no.</label>
                 <input
+                  value={session.house}
+                  onChange={(e) => setAddress({ house: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
+                />
+                {fieldErrors.house && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.house}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs text-chocolate/55">Street / Area</label>
+                <input
+                  value={session.street}
+                  onChange={(e) => setAddress({ street: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
+                />
+                {fieldErrors.street && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.street}</p>
+                )}
+              </div>
+
+              <div>
+                <label className="text-xs text-chocolate/55">Landmark (optional)</label>
+                <input
+                  value={session.landmark}
+                  onChange={(e) => setAddress({ landmark: e.target.value })}
+                  className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
+                />
+              </div>
+
+              <div>
+                <label className="text-xs text-chocolate/55">Pincode</label>
+                <input
+                  type="tel"
                   inputMode="numeric"
                   maxLength={6}
-                  value={otp}
-                  onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-                  placeholder="6-digit code"
-                  className="w-full rounded-xl border border-chocolate/10 bg-white px-3 py-4 text-center text-2xl tracking-[0.4em] outline-none focus:border-chocolate/30"
+                  value={session.pincode}
+                  onChange={(e) =>
+                    setAddress({ pincode: formatPincodeInput(e.target.value) })
+                  }
+                  placeholder="560001"
+                  className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
                 />
+                {fieldErrors.pincode && (
+                  <p className="mt-1 text-xs text-red-600">{fieldErrors.pincode}</p>
+                )}
+              </div>
+            </div>
+          </section>
 
+          <DeliverySlotSelects
+            slots={bookableSlots}
+            selectedDate={selectedDate}
+            selectedSlotId={selectedSlotId}
+            onDateChange={setSelectedDate}
+            onSlotChange={setSelectedSlotId}
+            slotError={fieldErrors.slot}
+          />
+
+          <section className="rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
+            <div className="flex items-center gap-2">
+              <Tag size={16} className="text-gold" />
+              <h3 className="text-sm font-medium text-chocolate">Coupon codes</h3>
+            </div>
+            {!appliedCoupon && eligibleCoupons.length > 0 && (
+              <AvailableCouponsPicker
+                coupons={eligibleCoupons}
+                applyingCoupon={applyingCoupon}
+                onApply={applyCoupon}
+              />
+            )}
+            {appliedCoupon ? (
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <span className="rounded-full bg-green-50 px-3 py-1.5 text-xs font-medium text-green-800 ring-1 ring-green-200">
+                  {appliedCoupon.code} applied
+                </span>
                 <button
                   type="button"
-                  disabled={sendingOtp}
-                  onClick={sendOtp}
-                  className="text-sm text-chocolate/70 underline"
+                  onClick={removeCoupon}
+                  className="text-xs text-chocolate/60 underline"
                 >
-                  {sendingOtp ? "Sending..." : "Resend code"}
+                  Remove
                 </button>
-
-                {error && <p className="text-sm text-red-600">{error}</p>}
-
-                <div className="flex gap-2 pt-2">
-                  <button
-                    type="button"
-                    onClick={goBack}
-                    className="flex-1 rounded-full border border-chocolate/20 py-4 text-sm"
-                  >
-                    Back
-                  </button>
-                  <button
-                    type="button"
-                    disabled={otp.length !== 6 || verifyingOtp}
-                    onClick={verifyPhoneOtp}
-                    className="flex-1 rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
-                  >
-                    {verifyingOtp ? "Verifying..." : "Verify"}
-                  </button>
-                </div>
-              </>
+              </div>
             ) : (
-              <>
-                <p className="rounded-xl bg-green-50 px-3 py-2 text-sm text-green-800 ring-1 ring-green-200">
-                  Phone number verified
-                </p>
-
-                <p className="text-sm text-chocolate/60">
-                  Step 2 — Pay securely with Razorpay
-                </p>
-
-                {!razorpayTestMode && !razorpayReady && (
-                  <p className="text-xs text-chocolate/50">Loading secure payment...</p>
-                )}
-
-                {error && <p className="text-sm text-red-600">{error}</p>}
-
-                <div className="rounded-2xl bg-white p-4 text-sm ring-1 ring-chocolate/10">
-                  <p className="text-chocolate/60">Amount to pay</p>
-                  <p className="mt-1 text-2xl font-semibold text-chocolate">
-                    {formatCurrency(total)}
-                  </p>
-                </div>
-              </>
+              <div className="mt-3 flex gap-2">
+                <input
+                  value={couponCode}
+                  onChange={(e) => setCouponCode(e.target.value.toUpperCase())}
+                  placeholder="Enter code"
+                  className="min-w-0 flex-1 rounded-xl border border-chocolate/10 bg-cream px-3 py-2.5 text-base uppercase outline-none focus:border-chocolate/30"
+                />
+                <button
+                  type="button"
+                  onClick={() => applyCoupon()}
+                  disabled={applyingCoupon || !couponCode.trim()}
+                  className="shrink-0 rounded-xl bg-chocolate px-4 py-2.5 text-sm font-medium text-cream disabled:opacity-40"
+                >
+                  {applyingCoupon ? "..." : "Apply"}
+                </button>
+              </div>
             )}
-          </div>
-        )}
-      </main>
+            {couponMessage && !appliedCoupon && (
+              <p className="mt-2 text-xs text-red-600">{couponMessage}</p>
+            )}
+          </section>
 
-      {showPaymentBar && (
-        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-chocolate/10 bg-cream/95 backdrop-blur-md">
-          <div className="mx-auto max-w-lg space-y-2 px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={goBack}
-                className="flex-1 rounded-full border border-chocolate/20 py-3.5 text-sm"
-              >
-                Back
-              </button>
-              <button
-                type="button"
-                disabled={
-                  placingOrder ||
-                  !isLocationReady ||
-                  (!razorpayTestMode && !razorpayReady)
-                }
-                onClick={payWithRazorpay}
-                className="flex-[2] rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-40"
-              >
-                {placingOrder
-                  ? "Processing..."
-                  : razorpayTestMode
-                    ? `Place order (skip payment) · ${formatCurrency(total)}`
-                    : `Pay ${formatCurrency(total)}`}
-              </button>
+          <section className="rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
+            <h2 className="text-sm font-medium text-chocolate">Your order</h2>
+            <ul className="mt-3 space-y-3">
+              {cartLines.map((line) => (
+                <li key={line.productId} className="flex gap-3">
+                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl bg-cream">
+                    {line.product.image_path ? (
+                      <Image
+                        src={line.product.image_path}
+                        alt={line.product.title}
+                        fill
+                        className="object-cover"
+                        sizes="56px"
+                      />
+                    ) : null}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium text-chocolate">
+                      {line.product.title}
+                    </p>
+                    <p className="text-xs text-chocolate/55">
+                      Qty {line.quantity} · {formatCurrency(line.unitPrice)} each
+                    </p>
+                  </div>
+                  <p className="text-sm font-medium text-chocolate">
+                    {formatCurrency(line.lineTotal)}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <div className="rounded-2xl bg-white p-4 text-sm ring-1 ring-chocolate/10">
+            <div className="flex justify-between">
+              <span>Subtotal</span>
+              <span>{formatCurrency(subtotal)}</span>
+            </div>
+            {couponDiscount > 0 && (
+              <div className="mt-1 flex justify-between text-green-700">
+                <span>Coupon ({appliedCoupon?.code})</span>
+                <span>-{formatCurrency(couponDiscount)}</span>
+              </div>
+            )}
+            <div className="mt-1 flex justify-between">
+              <span>Delivery</span>
+              <span>
+                {appliedCoupon?.free_delivery
+                  ? "FREE"
+                  : formatCurrency(session.delivery?.delivery_fee_inr ?? 0)}
+              </span>
+            </div>
+            <div className="mt-2 flex justify-between border-t border-chocolate/10 pt-2 font-semibold">
+              <span>Total</span>
+              <span>{formatCurrency(total)}</span>
             </div>
           </div>
+
+          {error && <p className="text-sm text-red-600">{error}</p>}
+
+          {!razorpayTestMode && !razorpayReady && (
+            <p className="text-xs text-chocolate/50">Loading secure payment...</p>
+          )}
         </div>
-      )}
+      </main>
+
+      <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-chocolate/10 bg-cream/95 backdrop-blur-md">
+        <div className="mx-auto max-w-lg px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+          <button
+            type="button"
+            disabled={
+              placingOrder || (!razorpayTestMode && !razorpayReady)
+            }
+            onClick={() => void payWithRazorpay()}
+            className="w-full rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-40"
+          >
+            {placingOrder
+              ? "Processing..."
+              : razorpayTestMode
+                ? `Place order (skip payment) · ${formatCurrency(total)}`
+                : `Pay ${formatCurrency(total)}`}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }

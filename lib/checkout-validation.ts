@@ -24,3 +24,13 @@ export function formatIndianPhoneInput(input: string): string {
 export function formatPincodeInput(input: string): string {
   return input.replace(/\D/g, "").slice(0, 6);
 }
+
+export function normalizeEmail(input: string): string {
+  return input.trim().toLowerCase();
+}
+
+export function isValidEmail(email: string): boolean {
+  const normalized = normalizeEmail(email);
+  if (!normalized || normalized.length > 254) return false;
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(normalized);
+}

@@ -10,6 +10,27 @@ export type PublicCoupon = {
   first_order_only: boolean;
 };
 
+export type EligibleCouponOptions = {
+  subtotal: number;
+  isFirstOrder?: boolean;
+  /** When true, first-order-only coupons require `isFirstOrder`. */
+  checkFirstOrder?: boolean;
+};
+
+/** Coupons the customer can use right now given cart value and order history. */
+export function filterEligiblePublicCoupons(
+  coupons: PublicCoupon[],
+  { subtotal, isFirstOrder = false, checkFirstOrder = false }: EligibleCouponOptions
+): PublicCoupon[] {
+  return coupons.filter((coupon) => {
+    if (subtotal < coupon.min_subtotal_inr) return false;
+    if (coupon.first_order_only) {
+      if (!checkFirstOrder || !isFirstOrder) return false;
+    }
+    return true;
+  });
+}
+
 export function filterActivePublicCoupons(
   coupons: Pick<
     Coupon,

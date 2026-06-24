@@ -11,6 +11,7 @@ export type DeliverySession = {
   landmark: string;
   pincode: string;
   customerName: string;
+  email: string;
   /** @deprecated Use whatsappPhone — kept for older saved sessions */
   phone?: string;
   whatsappPhone: string;
@@ -27,6 +28,7 @@ export const EMPTY_DELIVERY_SESSION: DeliverySession = {
   landmark: "",
   pincode: "",
   customerName: "",
+  email: "",
   whatsappPhone: "",
   altPhone: "",
   phoneVerified: false,
@@ -40,6 +42,7 @@ function hydrateDeliverySession(
     ...EMPTY_DELIVERY_SESSION,
     ...parsed,
     whatsappPhone,
+    email: parsed.email ?? "",
     altPhone: parsed.altPhone ?? "",
   };
 }

@@ -8,6 +8,7 @@ export type CustomerCheckoutProfile = {
   found: boolean;
   is_first_order: boolean;
   customer_name: string;
+  email: string;
   alt_phone: string;
   house: string;
   street: string;
@@ -25,6 +26,7 @@ const EMPTY_PROFILE = (
   found: false,
   is_first_order,
   customer_name: "",
+  email: "",
   alt_phone: "",
   house: "",
   street: "",
@@ -48,7 +50,7 @@ export async function lookupCustomerCheckoutProfile(
   const [{ data: customer }, { data: lastOrder }] = await Promise.all([
     admin
       .from("customers")
-      .select("name")
+      .select("name, email")
       .eq("phone", normalized)
       .maybeSingle(),
     admin
@@ -72,6 +74,7 @@ export async function lookupCustomerCheckoutProfile(
     found: true,
     is_first_order: firstOrder,
     customer_name: customer?.name?.trim() || lastOrder?.customer_name?.trim() || "",
+    email: customer?.email?.trim() || "",
     alt_phone: lastOrder?.alt_phone?.trim() || "",
     house: lastOrder?.house?.trim() || "",
     street: lastOrder?.street?.trim() || "",

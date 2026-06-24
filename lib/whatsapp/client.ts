@@ -1,6 +1,14 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getWhatsAppConfig, isWhatsAppConfigured } from "@/lib/whatsapp/config";
 import { formatPhoneForWhatsApp } from "@/lib/whatsapp/phone";
+import {
+  alertOrderPlacedWhatsAppFailure,
+  classifyPlainWhatsAppError,
+} from "@/lib/whatsapp/admin-alerts";
+import {
+  formatWhatsAppErrorForAdmin,
+  parseWhatsAppApiError,
+} from "@/lib/whatsapp/errors";
 
 export type TemplateParameter = {
   type: "text";
@@ -20,18 +28,30 @@ type SendTemplateResult = {
   error: string | null;
 };
 
-function formatWhatsAppApiError(error?: {
-  message?: string;
-  code?: number;
-}): string {
-  if (!error?.message) return "WhatsApp API request failed";
-  if (
-    error.code === 131030 ||
-    error.message.includes("not in allowed list")
-  ) {
-    return "This WhatsApp number is not on the Meta test allow list. In Meta Developers → WhatsApp → API Setup, add it under “To”, verify the code, then place the order again.";
+async function maybeAlertOrderPlacedFailure(params: {
+  messageType: string;
+  orderId?: string | null;
+  phone: string;
+  errorDetail: string;
+  apiError?: { message?: string; code?: number };
+}) {
+  if (params.messageType !== "order_placed" || !params.orderId) return;
+
+  const parsed = params.apiError
+    ? parseWhatsAppApiError(params.apiError)
+    : classifyPlainWhatsAppError(params.errorDetail);
+
+  try {
+    await alertOrderPlacedWhatsAppFailure({
+      orderId: params.orderId,
+      errorDetail: params.errorDetail,
+      severity: parsed.severity,
+      isAuthError: parsed.isAuthError,
+      customerPhone: params.phone,
+    });
+  } catch (err) {
+    console.error("Admin alert for WhatsApp failure failed:", err);
   }
-  return error.message;
 }
 
 async function logMessage(params: {
@@ -42,6 +62,7 @@ async function logMessage(params: {
   status: "sent" | "failed" | "skipped";
   errorMessage?: string | null;
   whatsappMessageId?: string | null;
+  apiError?: { message?: string; code?: number };
 }) {
   try {
     const admin = createAdminClient();
@@ -56,6 +77,24 @@ async function logMessage(params: {
     });
   } catch (err) {
     console.error("WhatsApp log insert failed:", err);
+  }
+
+  if (
+    params.messageType === "order_placed" &&
+    params.orderId &&
+    (params.status === "failed" || params.status === "skipped")
+  ) {
+    const errorDetail =
+      params.errorMessage?.trim() ||
+      (params.status === "skipped" ? "WhatsApp not configured" : "Send failed");
+
+    await maybeAlertOrderPlacedFailure({
+      messageType: params.messageType,
+      orderId: params.orderId,
+      phone: params.phone,
+      errorDetail,
+      apiError: params.apiError,
+    });
   }
 }
 
@@ -82,15 +121,16 @@ export async function sendWhatsAppTemplate(params: {
   }
 
   if (!isWhatsAppConfigured()) {
+    const error = "WhatsApp not configured";
     await logMessage({
       phone: params.phone,
       messageType: params.messageType,
       templateName: params.templateName,
       orderId: params.orderId,
       status: "skipped",
-      errorMessage: "WhatsApp not configured",
+      errorMessage: error,
     });
-    return { ok: false, messageId: null, error: "WhatsApp not configured" };
+    return { ok: false, messageId: null, error };
   }
 
   const config = getWhatsAppConfig()!;
@@ -123,7 +163,9 @@ export async function sendWhatsAppTemplate(params: {
     };
 
     if (!res.ok) {
-      const error = formatWhatsAppApiError(data.error) || `WhatsApp API error (${res.status})`;
+      const error =
+        formatWhatsAppErrorForAdmin(data.error) ||
+        `WhatsApp API error (${res.status})`;
       console.error("WhatsApp send failed:", error, data);
       await logMessage({
         phone: params.phone,
@@ -132,6 +174,7 @@ export async function sendWhatsAppTemplate(params: {
         orderId: params.orderId,
         status: "failed",
         errorMessage: error,
+        apiError: data.error,
       });
       return { ok: false, messageId: null, error };
     }

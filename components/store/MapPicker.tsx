@@ -30,6 +30,8 @@ interface MapPickerProps {
   lat: number;
   lng: number;
   deliveryFence?: DeliveryFenceKm;
+  /** When "marker", center and zoom on the pin. Use "fence" for a first-time area overview. */
+  initialView?: "marker" | "fence";
   searchLabel?: string;
   showSearch?: boolean;
   showUseLocationButton?: boolean;
@@ -45,6 +47,7 @@ export function MapPicker({
   lat,
   lng,
   deliveryFence,
+  initialView = "marker",
   searchLabel,
   showSearch = true,
   showUseLocationButton = true,
@@ -104,14 +107,25 @@ export function MapPicker({
       onChange(newLat, newLng);
       applyLabel(label);
       map?.panTo({ lat: newLat, lng: newLng });
+      if (map && map.getZoom()! < PIN_ZOOM) {
+        map.setZoom(PIN_ZOOM);
+      }
     },
     [map, onChange, applyLabel]
+  );
+
+  const focusOnMarker = useCallback(
+    (m: google.maps.Map, targetLat: number, targetLng: number) => {
+      m.setCenter({ lat: targetLat, lng: targetLng });
+      m.setZoom(PIN_ZOOM);
+    },
+    []
   );
 
   const onLoad = useCallback(
     (m: google.maps.Map) => {
       setMap(m);
-      if (fenceBounds) {
+      if (initialView === "fence" && fenceBounds) {
         m.fitBounds(
           new google.maps.LatLngBounds(
             { lat: fenceBounds.south, lng: fenceBounds.west },
@@ -119,18 +133,17 @@ export function MapPicker({
           ),
           40
         );
-      } else {
-        m.setCenter({ lat, lng });
-        m.setZoom(PIN_ZOOM);
+        return;
       }
+      focusOnMarker(m, lat, lng);
     },
-    [fenceBounds, lat, lng]
+    [fenceBounds, focusOnMarker, initialView, lat, lng]
   );
 
   useEffect(() => {
-    if (!map || fenceBounds) return;
-    map.panTo({ lat, lng });
-  }, [lat, lng, map, fenceBounds]);
+    if (!map || initialView === "fence") return;
+    focusOnMarker(map, lat, lng);
+  }, [focusOnMarker, initialView, lat, lng, map]);
 
   useEffect(() => {
     if (editingSearch || searchLabel === undefined) return;

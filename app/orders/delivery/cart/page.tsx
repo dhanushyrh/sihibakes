@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getStorefrontStatus } from "@/lib/data";
 import { ShopStatusBanner } from "@/components/store/ShopStatusBanner";
 import { DeliveryCartClient } from "@/components/orders/DeliveryCartClient";
@@ -8,7 +9,9 @@ export default async function DeliveryCartPage() {
   return (
     <div className="min-h-screen bg-cream">
       <ShopStatusBanner />
-      <DeliveryCartClient storeOpen={storefront.isOpen} />
+      <Suspense fallback={<div className="p-8 text-center text-sm">Loading...</div>}>
+        <DeliveryCartClient storeOpen={storefront.isOpen} />
+      </Suspense>
     </div>
   );
 }

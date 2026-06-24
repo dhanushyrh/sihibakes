@@ -71,6 +71,9 @@ export function DeliveryLocationModal({
             lat={lat}
             lng={lng}
             deliveryFence={deliveryFence}
+            initialView={
+              lat === kitchenLat && lng === kitchenLng ? "fence" : "marker"
+            }
             searchLabel={searchLabel}
             onChange={onChange}
             onSearchLabelChange={onSearchLabelChange}

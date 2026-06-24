@@ -44,7 +44,6 @@ export async function POST(request: Request) {
       success: true,
       newly_paid: newlyPaid,
       whatsapp_sent: whatsapp?.ok ?? false,
-      whatsapp_error: whatsapp?.error ?? null,
     });
   } catch (err) {
     console.error("Payment verify error:", err);

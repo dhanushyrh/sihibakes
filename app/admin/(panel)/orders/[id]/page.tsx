@@ -6,6 +6,7 @@ import { useParams, useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/delivery";
 import { orderItemTitle } from "@/lib/order-roster";
 import type { Order, OrderItem, OrderStatus } from "@/lib/types";
+import type { AdminAlert } from "@/lib/alerts/notify-admin";
 import {
   OrderStatusBadge,
   PaymentStatusBadge,
@@ -47,6 +48,7 @@ export default function AdminOrderDetailPage() {
   const [statusModalTarget, setStatusModalTarget] = useState<OrderStatus | null>(
     null
   );
+  const [adminAlerts, setAdminAlerts] = useState<AdminAlert[]>([]);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -59,10 +61,15 @@ export default function AdminOrderDetailPage() {
       setError(data?.error ?? "Order not found");
       setOrder(null);
       setItems([]);
+      setAdminAlerts([]);
     } else {
-      const orderData = data as Order & { order_items?: OrderItem[] };
+      const orderData = data as Order & {
+        order_items?: OrderItem[];
+        admin_alerts?: AdminAlert[];
+      };
       setOrder(orderData);
       setItems(orderData.order_items ?? []);
+      setAdminAlerts(orderData.admin_alerts ?? []);
     }
 
     setLoading(false);
@@ -248,6 +255,24 @@ export default function AdminOrderDetailPage() {
         <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
+      )}
+
+      {adminAlerts.length > 0 && (
+        <div className="mt-4 space-y-2">
+          {adminAlerts.map((alert) => (
+            <div
+              key={alert.id}
+              className={`rounded-xl px-4 py-3 text-sm ring-1 ${
+                alert.severity === "critical"
+                  ? "bg-red-50 text-red-950 ring-red-200"
+                  : "bg-amber-50 text-amber-950 ring-amber-200"
+              }`}
+            >
+              <p className="font-medium">{alert.title}</p>
+              <p className="mt-1 whitespace-pre-wrap text-xs opacity-90">{alert.message}</p>
+            </div>
+          ))}
+        </div>
       )}
 
       {canConfirm && (

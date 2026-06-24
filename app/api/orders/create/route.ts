@@ -8,7 +8,7 @@ import {
   isFirstOrder,
   checkProductAvailability,
 } from "@/lib/data";
-import { isValidIndianPhone, isValidIndianPincode } from "@/lib/checkout-validation";
+import { isValidIndianPhone, isValidIndianPincode, isValidEmail, normalizeEmail } from "@/lib/checkout-validation";
 import { isPhoneVerified } from "@/lib/otp-store";
 import { haversineDistanceKm } from "@/lib/delivery";
 import {
@@ -30,6 +30,7 @@ export async function POST(request: Request) {
       items,
       customer_name,
       phone,
+      email,
       alt_phone,
       house,
       street,
@@ -49,8 +50,13 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!items?.length || !customer_name || !phone || !house || !street || !pincode) {
+    if (!items?.length || !customer_name || !phone || !email || !house || !street || !pincode) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
+    }
+
+    const normalizedEmail = normalizeEmail(String(email));
+    if (!isValidEmail(normalizedEmail)) {
+      return NextResponse.json({ error: "Enter a valid email address" }, { status: 400 });
     }
 
     const normalizedPhone = String(phone).replace(/\D/g, "").slice(-10);
@@ -211,7 +217,10 @@ export async function POST(request: Request) {
 
     const { data: customer } = await admin
       .from("customers")
-      .upsert({ name: customer_name, phone: normalizedPhone }, { onConflict: "phone" })
+      .upsert(
+        { name: customer_name, phone: normalizedPhone, email: normalizedEmail },
+        { onConflict: "phone" }
+      )
       .select("id")
       .single();
 

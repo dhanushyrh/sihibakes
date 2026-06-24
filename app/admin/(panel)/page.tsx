@@ -6,6 +6,8 @@ import { formatCurrency } from "@/lib/delivery";
 import { format, subDays } from "date-fns";
 import { isSupabaseConfigured } from "@/lib/mock-data";
 import { getTodayDate, getRemaining, LOW_STOCK_THRESHOLD } from "@/lib/inventory";
+import { getUnacknowledgedAlerts } from "@/lib/alerts/notify-admin";
+import { AdminAlertsBanner } from "@/components/admin/AdminAlertsBanner";
 import { InsightsPanel } from "@/components/admin/analytics/InsightsPanel";
 import type { Product } from "@/lib/types";
 
@@ -42,6 +44,7 @@ export default async function AdminDashboard() {
 
   const admin = createAdminClient();
   const today = getTodayDate();
+  const adminAlerts = await getUnacknowledgedAlerts(5);
 
   const [
     { data: todayOrders },
@@ -112,6 +115,8 @@ export default async function AdminDashboard() {
       <p className="mt-1 text-sm text-[#4B2C20]/60">
         {format(new Date(), "EEEE, d MMMM yyyy")}
       </p>
+
+      <AdminAlertsBanner alerts={adminAlerts} />
 
       <div className="mt-6 grid gap-4 sm:grid-cols-3">
         {[

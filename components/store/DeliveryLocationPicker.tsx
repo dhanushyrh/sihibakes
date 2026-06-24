@@ -269,13 +269,14 @@ export function DeliveryLocationPicker({
   const gateMapSection = showMap && (
     <div className="mt-4">
       {interactiveMap ? (
-        <MapPicker
-          kitchenLat={kitchenLat}
-          kitchenLng={kitchenLng}
-          lat={lat}
-          lng={lng}
-          deliveryFence={deliveryFence}
-          showSearch={false}
+          <MapPicker
+            kitchenLat={kitchenLat}
+            kitchenLng={kitchenLng}
+            lat={lat}
+            lng={lng}
+            deliveryFence={deliveryFence}
+            initialView="marker"
+            showSearch={false}
           showUseLocationButton={false}
           showHint={false}
           mapHeight={GATE_MAP_HEIGHT}

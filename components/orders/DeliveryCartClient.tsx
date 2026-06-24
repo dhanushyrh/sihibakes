@@ -1,13 +1,17 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import Image from "next/image";
 import { Minus, Plus, Trash2 } from "lucide-react";
+import { CheckoutAuthSheet } from "@/components/orders/CheckoutAuthSheet";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { useCart } from "@/components/store/CartProvider";
 import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
+import { isValidIndianPhone } from "@/lib/checkout-validation";
+import { resolveCheckoutPath } from "@/lib/checkout-routing";
+import { prefillCustomerFromLookup } from "@/lib/customer-prefill";
 import { formatCurrency } from "@/lib/delivery";
 import { getUnitPrice } from "@/lib/pricing";
 import { getMenuProductIds, isMenuProduct } from "@/lib/cart-products";
@@ -15,10 +19,26 @@ import type { Product } from "@/lib/types";
 
 export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
   const router = useRouter();
-  const { session, sessionReady } = useDeliverySession();
+  const searchParams = useSearchParams();
+  const {
+    session,
+    sessionReady,
+    setCustomer,
+    setAddress,
+    setLocation,
+    setPhoneVerified,
+  } = useDeliverySession();
   const { items, updateQuantity, removeItem, itemCount, pruneItems } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
   const [loading, setLoading] = useState(true);
+  const [authSheetOpen, setAuthSheetOpen] = useState(false);
+  const [continuing, setContinuing] = useState(false);
+
+  useEffect(() => {
+    if (searchParams.get("auth") === "1") {
+      setAuthSheetOpen(true);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     const ids = items.map((i) => i.productId);
@@ -61,6 +81,59 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
   const subtotal = cartLines.reduce((s, l) => s + l.lineTotal, 0);
   const deliveryFee = session.delivery?.delivery_fee_inr;
   const estimatedTotal = subtotal + (deliveryFee ?? 0);
+
+  const navigateAfterAuth = useCallback(
+    async (phone: string) => {
+      setCustomer({ whatsappPhone: phone });
+      setPhoneVerified(true);
+
+      const result = await prefillCustomerFromLookup(phone, {
+        sessionLat: session.lat,
+        sessionLng: session.lng,
+        setCustomer,
+        setAddress,
+        setLocation,
+      });
+
+      const path = resolveCheckoutPath(session, result.profile, {
+        prefilledLocationReachable: result.locationReachable,
+      });
+
+      setAuthSheetOpen(false);
+      router.push(path);
+    },
+    [
+      session,
+      setCustomer,
+      setPhoneVerified,
+      setAddress,
+      setLocation,
+      router,
+    ]
+  );
+
+  const handleContinueCheckout = async () => {
+    if (session.phoneVerified && isValidIndianPhone(session.whatsappPhone)) {
+      setContinuing(true);
+      try {
+        const result = await prefillCustomerFromLookup(session.whatsappPhone, {
+          sessionLat: session.lat,
+          sessionLng: session.lng,
+          setCustomer,
+          setAddress,
+          setLocation,
+        });
+        const path = resolveCheckoutPath(session, result.profile, {
+          prefilledLocationReachable: result.locationReachable,
+        });
+        router.push(path);
+      } finally {
+        setContinuing(false);
+      }
+      return;
+    }
+    setAuthSheetOpen(true);
+  };
 
   if (!sessionReady) return null;
 
@@ -176,15 +249,22 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
 
             <button
               type="button"
-              disabled={!storeOpen}
-              onClick={() => router.push("/orders/delivery/checkout")}
+              disabled={!storeOpen || continuing}
+              onClick={() => void handleContinueCheckout()}
               className="mt-5 w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
             >
-              Continue to checkout
+              {continuing ? "Loading..." : "Continue to checkout"}
             </button>
           </>
         )}
       </main>
+
+      <CheckoutAuthSheet
+        open={authSheetOpen}
+        onClose={() => setAuthSheetOpen(false)}
+        onVerified={navigateAfterAuth}
+        initialPhone={session.whatsappPhone}
+      />
     </div>
   );
 }

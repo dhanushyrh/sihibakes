@@ -20,6 +20,7 @@ import {
   resolveDeliveryVendorName,
 } from "@/lib/delivery-vendors";
 import { getShopSettings } from "@/lib/data";
+import { getOrderAdminAlerts } from "@/lib/alerts/notify-admin";
 import { isBorzoConfigured } from "@/lib/borzo/config";
 import { dispatchBorzoDelivery, isBorzoVendorName } from "@/lib/borzo/delivery";
 import { BorzoApiError } from "@/lib/borzo/client";
@@ -47,7 +48,9 @@ export async function GET(
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
 
-  return NextResponse.json(data);
+  const adminAlerts = await getOrderAdminAlerts(id);
+
+  return NextResponse.json({ ...data, admin_alerts: adminAlerts });
 }
 
 export async function PATCH(

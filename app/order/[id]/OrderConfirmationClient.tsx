@@ -8,16 +8,20 @@ import { CheckCircle, MessageCircle } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { formatCurrency } from "@/lib/delivery";
 import { orderItemTitle } from "@/lib/order-roster";
-import { formatDisplayPhone, whatsappHref } from "@/lib/storefront";
+import { whatsappHref } from "@/lib/storefront";
+import {
+  CUSTOMER_WHATSAPP_PENDING_MESSAGE,
+  CUSTOMER_WHATSAPP_SENT_DEV_HINT,
+  CUSTOMER_WHATSAPP_SENT_MESSAGE,
+  type CustomerWhatsAppStatus,
+} from "@/lib/whatsapp/customer-messages";
 import type { Order, OrderItem } from "@/lib/types";
 
 type OrderResponse = Order & {
   order_items?: OrderItem[];
   shop_phone?: string | null;
   whatsapp_notification?: {
-    status: "sent" | "failed" | "skipped";
-    error_message: string | null;
-    sent_at: string;
+    status: CustomerWhatsAppStatus;
   } | null;
 };
 
@@ -53,7 +57,7 @@ export default function OrderConfirmationClient({
 
   return (
     <div className="flex min-h-screen flex-col bg-cream">
-      <OrderFlowHeader title="Order received" />
+      <OrderFlowHeader title="Order received" backHref="/orders" />
 
       <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-8">
         <div className="text-center">
@@ -69,21 +73,17 @@ export default function OrderConfirmationClient({
           </p>
           {order && !("error" in order) && order.whatsapp_notification?.status === "sent" && (
             <p className="mt-3 rounded-xl bg-green-50 px-3 py-2 text-sm text-green-900 ring-1 ring-green-200">
-              Order confirmation sent to WhatsApp{" "}
-              {formatDisplayPhone(order.phone)}. Check chats from the business
-              test number if you do not see it immediately.
+              {CUSTOMER_WHATSAPP_SENT_MESSAGE}
+              {process.env.NODE_ENV === "development" && (
+                <span className="mt-1 block text-green-800/80">
+                  {CUSTOMER_WHATSAPP_SENT_DEV_HINT}
+                </span>
+              )}
             </p>
           )}
-          {order && !("error" in order) && order.whatsapp_notification?.status === "failed" && (
-            <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-amber-200">
-              {order.whatsapp_notification.error_message ||
-                "Could not send WhatsApp confirmation."}
-            </p>
-          )}
-          {order && !("error" in order) && order.whatsapp_notification?.status === "skipped" && (
-            <p className="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-950 ring-1 ring-amber-200">
-              WhatsApp is not configured on this server, so no confirmation
-              message was sent.
+          {order && !("error" in order) && order.whatsapp_notification?.status === "pending" && (
+            <p className="mt-3 rounded-xl bg-white px-3 py-2 text-sm text-chocolate/70 ring-1 ring-chocolate/10">
+              {CUSTOMER_WHATSAPP_PENDING_MESSAGE}
             </p>
           )}
           {orderNumber && (

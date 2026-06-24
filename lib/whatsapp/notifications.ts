@@ -1,7 +1,7 @@
 import { BRAND } from "@/lib/constants";
 import { statusChangeLabel } from "@/lib/order-status-update";
 import type { Order, OrderStatus } from "@/lib/types";
-import { getWhatsAppConfig, isWhatsAppConfigured } from "@/lib/whatsapp/config";
+import { getWhatsAppConfig } from "@/lib/whatsapp/config";
 import {
   hasSentMessage,
   sendWhatsAppTemplate,
@@ -78,11 +78,6 @@ export async function sendCheckoutOtp(phone: string, code: string) {
 
 /** Meta sample utility template: customer name, order id, expected delivery. */
 export async function sendOrderPlacedNotification(order: Order) {
-  if (!isWhatsAppConfigured()) {
-    console.warn("WhatsApp not configured — skipping order placed notification");
-    return { ok: false, messageId: null, error: "WhatsApp not configured" };
-  }
-
   if (await hasSentMessage(order.id, "order_placed")) {
     return { ok: true, messageId: null, error: null };
   }

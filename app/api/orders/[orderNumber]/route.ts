@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { normalizePhone } from "@/lib/storefront";
+import { getCustomerWhatsAppStatus } from "@/lib/whatsapp/customer-messages";
 
 export async function GET(
   request: Request,
@@ -33,22 +34,20 @@ export async function GET(
 
   const { data: whatsappLog } = await admin
     .from("whatsapp_message_log")
-    .select("status, error_message, created_at")
+    .select("status")
     .eq("order_id", order.id)
     .eq("message_type", "order_placed")
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
 
+  const customerWhatsAppStatus = getCustomerWhatsAppStatus(whatsappLog);
+
   return NextResponse.json({
     ...order,
     shop_phone: settings?.phone ?? null,
-    whatsapp_notification: whatsappLog
-      ? {
-          status: whatsappLog.status,
-          error_message: whatsappLog.error_message,
-          sent_at: whatsappLog.created_at,
-        }
+    whatsapp_notification: customerWhatsAppStatus
+      ? { status: customerWhatsAppStatus }
       : null,
   });
 }

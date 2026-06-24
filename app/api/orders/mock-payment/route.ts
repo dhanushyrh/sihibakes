@@ -42,7 +42,6 @@ export async function POST(request: Request) {
         ok: true,
         already_paid: true,
         whatsapp_sent: whatsapp.ok,
-        whatsapp_error: whatsapp.error,
       });
     }
 
@@ -58,7 +57,6 @@ export async function POST(request: Request) {
       ok: true,
       newly_paid: true,
       whatsapp_sent: whatsapp?.ok ?? false,
-      whatsapp_error: whatsapp?.error ?? null,
     });
   } catch {
     return NextResponse.json({ error: "Payment failed" }, { status: 500 });
