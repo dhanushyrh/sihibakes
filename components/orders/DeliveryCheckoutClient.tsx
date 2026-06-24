@@ -91,6 +91,7 @@ export function DeliveryCheckoutClient({
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
   const [razorpayReady, setRazorpayReady] = useState(false);
   const [placingOrder, setPlacingOrder] = useState(false);
+  const [completingOrder, setCompletingOrder] = useState(false);
   const [error, setError] = useState("");
   const completingOrderRef = useRef(false);
 
@@ -101,12 +102,21 @@ export function DeliveryCheckoutClient({
     useCustomerPrefill(session.whatsappPhone, phoneVerified);
 
   useEffect(() => {
-    if (!sessionReady || completingOrderRef.current || placingOrder) return;
+    if (
+      !sessionReady ||
+      completingOrderRef.current ||
+      completingOrder ||
+      placingOrder
+    ) {
+      return;
+    }
     if (itemCount === 0) router.replace("/orders/delivery/cart");
-  }, [sessionReady, itemCount, placingOrder, router]);
+  }, [sessionReady, itemCount, placingOrder, completingOrder, router]);
 
   useEffect(() => {
-    if (!sessionReady) return;
+    if (!sessionReady || completingOrder || completingOrderRef.current || placingOrder) {
+      return;
+    }
     if (!phoneVerified) {
       router.replace("/orders/delivery/cart?auth=1");
       return;
@@ -114,7 +124,7 @@ export function DeliveryCheckoutClient({
     if (!isLocationReady) {
       router.replace(CHECKOUT_LOCATION_PATH);
     }
-  }, [sessionReady, phoneVerified, isLocationReady, router]);
+  }, [sessionReady, phoneVerified, isLocationReady, placingOrder, completingOrder, router]);
 
   useEffect(() => {
     setAppliedCoupon(readAppliedCoupon());
@@ -377,7 +387,12 @@ export function DeliveryCheckoutClient({
     });
     const data = await res.json();
     if (!res.ok) {
-      throw new Error(data.error || "Order failed");
+      const message = data.error || "Order failed";
+      if (message.toLowerCase().includes("verify your phone")) {
+        setPhoneVerified(false);
+        router.replace("/orders/delivery/cart?auth=1");
+      }
+      throw new Error(message);
     }
     return {
       order_id: data.order_id as string,
@@ -415,7 +430,8 @@ export function DeliveryCheckoutClient({
 
   const finishOrder = (orderNumber: string, phone: string) => {
     completingOrderRef.current = true;
-    router.push(`/order/${orderNumber}?phone=${encodeURIComponent(phone)}`);
+    setCompletingOrder(true);
+    router.replace(`/order/${orderNumber}?phone=${encodeURIComponent(phone)}`);
     clearCart();
     clearSession();
     writeAppliedCoupon(null);
@@ -525,9 +541,17 @@ export function DeliveryCheckoutClient({
     }
   };
 
+  if (completingOrder || completingOrderRef.current) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center bg-cream px-6 text-center">
+        <p className="text-sm text-chocolate/60">Completing your order…</p>
+      </div>
+    );
+  }
+
   if (
     !sessionReady ||
-    (!completingOrderRef.current && itemCount === 0) ||
+    itemCount === 0 ||
     !phoneVerified ||
     !isLocationReady
   ) {

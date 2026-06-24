@@ -30,6 +30,7 @@ type DeliverySessionContextValue = {
     >
   ) => void;
   setPhoneVerified: (verified: boolean) => void;
+  setVerifiedPhone: (phone: string) => void;
   clearSession: () => void;
 };
 
@@ -116,6 +117,14 @@ export function DeliverySessionProvider({
     setSession((prev) => ({ ...prev, phoneVerified: verified }));
   }, []);
 
+  const setVerifiedPhone = useCallback((phone: string) => {
+    setSession((prev) => ({
+      ...prev,
+      whatsappPhone: phone,
+      phoneVerified: true,
+    }));
+  }, []);
+
   const clearSession = useCallback(() => {
     clearStoredSession();
     setSession(EMPTY_DELIVERY_SESSION);
@@ -136,6 +145,7 @@ export function DeliverySessionProvider({
         setAddress,
         setCustomer,
         setPhoneVerified,
+        setVerifiedPhone,
         clearSession,
       }}
     >

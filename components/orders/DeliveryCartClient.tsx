@@ -26,7 +26,7 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
     setCustomer,
     setAddress,
     setLocation,
-    setPhoneVerified,
+    setVerifiedPhone,
   } = useDeliverySession();
   const { items, updateQuantity, removeItem, itemCount, pruneItems } = useCart();
   const [products, setProducts] = useState<Product[]>([]);
@@ -84,8 +84,7 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
 
   const navigateAfterAuth = useCallback(
     async (phone: string) => {
-      setCustomer({ whatsappPhone: phone });
-      setPhoneVerified(true);
+      setVerifiedPhone(phone);
 
       const result = await prefillCustomerFromLookup(phone, {
         sessionLat: session.lat,
@@ -104,8 +103,8 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
     },
     [
       session,
+      setVerifiedPhone,
       setCustomer,
-      setPhoneVerified,
       setAddress,
       setLocation,
       router,
