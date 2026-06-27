@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { DeliveryLocationPicker } from "@/components/store/DeliveryLocationPicker";
 import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
 import { isValidIndianPhone } from "@/lib/checkout-validation";
+import { trackActivity } from "@/lib/activity-tracker";
 import { CHECKOUT_DETAILS_PATH } from "@/lib/checkout-routing";
 import type { DeliveryFenceKm } from "@/lib/types";
 
@@ -23,6 +24,27 @@ export function DeliveryCheckoutLocationClient({
   const router = useRouter();
   const { session, sessionReady, isLocationReady, setLocation } =
     useDeliverySession();
+  const locationTrackedRef = useRef(false);
+
+  useEffect(() => {
+    if (!isLocationReady || locationTrackedRef.current) return;
+    if (session.lat == null || session.lng == null || !session.delivery) return;
+
+    locationTrackedRef.current = true;
+    trackActivity("location_marked", "location", {
+      lat: session.lat,
+      lng: session.lng,
+      deliveryDistanceKm: session.delivery.distance_km,
+      deliveryFeeInr: session.delivery.delivery_fee_inr,
+      phone: session.whatsappPhone,
+    });
+  }, [
+    isLocationReady,
+    session.lat,
+    session.lng,
+    session.delivery,
+    session.whatsappPhone,
+  ]);
 
   useEffect(() => {
     if (!sessionReady) return;

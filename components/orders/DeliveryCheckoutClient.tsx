@@ -44,7 +44,11 @@ import {
   formatRazorpayPaymentError,
   formatRazorpayVerifyError,
 } from "@/lib/razorpay-errors";
-import "@/lib/razorpay-checkout";
+import {
+  getActivitySessionIdForOrder,
+  trackActivity,
+  clearActivitySessionId,
+} from "@/lib/activity-tracker";
 
 type PlacedOrder = {
   order_id: string;
@@ -100,6 +104,7 @@ export function DeliveryCheckoutClient({
   const [completingOrder, setCompletingOrder] = useState(false);
   const [error, setError] = useState("");
   const completingOrderRef = useRef(false);
+  const checkoutTrackedRef = useRef(false);
   const lastDeliveryQuoteKeyRef = useRef<string | null>(null);
 
   const phoneVerified =
@@ -320,6 +325,53 @@ export function DeliveryCheckoutClient({
   const couponDiscount = appliedCoupon?.discount_inr ?? 0;
   const total = Math.max(0, subtotal - couponDiscount + deliveryFee);
 
+  useEffect(() => {
+    if (
+      checkoutTrackedRef.current ||
+      !sessionReady ||
+      !phoneVerified ||
+      !isLocationReady ||
+      itemCount === 0 ||
+      session.lat == null ||
+      session.lng == null
+    ) {
+      return;
+    }
+
+    checkoutTrackedRef.current = true;
+    trackActivity("checkout_started", "checkout", {
+      phone: session.whatsappPhone,
+      fullName: session.customerName.trim(),
+      email: normalizeEmail(session.email),
+      lat: session.lat,
+      lng: session.lng,
+      deliveryDistanceKm: session.delivery?.distance_km,
+      deliveryFeeInr: session.delivery?.delivery_fee_inr,
+      cartValueInr: total,
+      itemCount,
+      cartItems: cartLines.map((line) => ({
+        productId: line.productId,
+        quantity: line.quantity,
+        title: line.product.title,
+        unitPriceInr: line.unitPrice,
+        lineTotalInr: line.lineTotal,
+      })),
+    });
+  }, [
+    sessionReady,
+    phoneVerified,
+    isLocationReady,
+    itemCount,
+    session.lat,
+    session.lng,
+    session.delivery,
+    session.whatsappPhone,
+    session.customerName,
+    session.email,
+    total,
+    cartLines,
+  ]);
+
   const validateDetails = (): Record<string, string> => {
     const errors: Record<string, string> = {};
     if (session.customerName.trim().length < 2) {
@@ -440,6 +492,7 @@ export function DeliveryCheckoutClient({
         delivery_lng: session.lng,
         delivery_slot_id: selectedSlotId,
         coupon_code: appliedCoupon?.code || undefined,
+        activity_session_id: getActivitySessionIdForOrder(),
       }),
     });
     const data = await res.json();
@@ -488,6 +541,7 @@ export function DeliveryCheckoutClient({
   const finishOrder = (orderNumber: string, phone: string) => {
     completingOrderRef.current = true;
     setCompletingOrder(true);
+    clearActivitySessionId();
     router.replace(`/order/${orderNumber}?phone=${encodeURIComponent(phone)}`);
     clearCart();
     clearSession();

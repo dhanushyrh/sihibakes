@@ -13,6 +13,7 @@ import {
   Menu,
   X,
   BarChart3,
+  TrendingUp,
   Users,
   Banknote,
   MessageSquare,
@@ -25,6 +26,7 @@ import { useState } from "react";
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+  { href: "/admin/market-analysis", label: "Market Analysis", icon: TrendingUp },
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag },
   { href: "/admin/enquiries", label: "Enquiries", icon: MessageSquare },

@@ -1,7 +1,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ENQUIRIES_PAGE_SIZE } from "@/lib/constants";
 import { isValidIndianPhone, normalizeIndianPhone } from "@/lib/checkout-validation";
-import { isPhoneVerified } from "@/lib/otp-store";
+import { requireVerifiedPhoneWithConsent } from "@/lib/legal-consent";
 import type { ContactEnquiry, EnquiryStatus, EnquiryType } from "@/lib/types";
 
 export type EnquirySubmitBody = {
@@ -62,9 +62,9 @@ export async function createEnquiry(
   const message = String(body.message ?? "").trim();
   const type = body.type;
 
-  const requiresOtp = type === "landing";
-  if (requiresOtp && !(await isPhoneVerified(phone))) {
-    return { error: "Phone number not verified", status: 403 };
+  const phoneGuard = await requireVerifiedPhoneWithConsent(phone);
+  if (!phoneGuard.ok) {
+    return { error: phoneGuard.error, status: phoneGuard.status };
   }
 
   let productRows: { product_id: string; product_name: string; quantity: number }[] = [];
@@ -110,7 +110,7 @@ export async function createEnquiry(
       status: "new",
       event_date: type === "kitty_party" ? body.event_date : null,
       event_time: type === "kitty_party" ? body.event_time : null,
-      phone_verified_at: requiresOtp ? new Date().toISOString() : null,
+      phone_verified_at: new Date().toISOString(),
     })
     .select("id")
     .single();

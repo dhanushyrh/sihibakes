@@ -9,6 +9,7 @@ import { EnquirySuccess } from "@/components/orders/EnquirySuccess";
 import { KittyPartyEnquiryClient } from "@/components/orders/KittyPartyEnquiryClient";
 import { HeartDivider } from "@/components/landing/HeartDivider";
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
+import { PhoneOtpVerification } from "@/components/store/PhoneOtpVerification";
 import { isValidIndianPhone } from "@/lib/checkout-validation";
 import type { Product } from "@/lib/types";
 import type { StorefrontDetails } from "@/lib/storefront";
@@ -128,19 +129,17 @@ function GeneralEnquiryForm({ store }: { store: StorefrontDetails }) {
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [message, setMessage] = useState("");
+  const [step, setStep] = useState<"form" | "verify">("form");
+  const [otpVerified, setOtpVerified] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
 
   const meta = TYPE_LABELS.general;
 
-  const submitEnquiry = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (
-      name.trim().length < 2 ||
-      !isValidIndianPhone(phone) ||
-      message.trim().length < 10
-    ) {
+  const submitEnquiry = async () => {
+    if (!otpVerified) {
+      setError("Verify your phone number first");
       return;
     }
 
@@ -178,6 +177,62 @@ function GeneralEnquiryForm({ store }: { store: StorefrontDetails }) {
     );
   }
 
+  if (step === "verify") {
+    return (
+      <div className="flex min-h-screen flex-col pb-8">
+        <OrderFlowHeader title={meta.title} backHref="/orders/enquiry" />
+
+        <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">
+          <HeartDivider className="mb-5" />
+          <h2 className="font-display text-lg font-semibold text-chocolate">
+            Verify your number
+          </h2>
+          <p className="mt-1 text-sm text-chocolate/60">
+            Confirm +91 {phone} to submit your enquiry.
+          </p>
+
+          <div className="mt-4 rounded-xl bg-cream/50 p-4 text-sm text-chocolate/70">
+            <p className="font-medium text-chocolate">{name}</p>
+            <p className="mt-2">{message}</p>
+          </div>
+
+          <div className="mt-6">
+            <PhoneOtpVerification
+              phone={phone}
+              source="general_enquiry"
+              onVerified={() => setOtpVerified(true)}
+              onError={setError}
+            />
+          </div>
+
+          {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+
+          <div className="mt-6 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setStep("form");
+                setOtpVerified(false);
+                setError("");
+              }}
+              className="flex-1 rounded-full border border-chocolate/20 py-3.5 text-sm"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              disabled={!otpVerified || submitting}
+              onClick={() => void submitEnquiry()}
+              className="flex-1 rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-50"
+            >
+              {submitting ? "Sending..." : "Submit enquiry"}
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
     <div className="flex min-h-screen flex-col pb-8">
       <OrderFlowHeader title={meta.title} backHref="/orders/enquiry" />
@@ -186,7 +241,19 @@ function GeneralEnquiryForm({ store }: { store: StorefrontDetails }) {
         <HeartDivider className="mb-5" />
         <p className="text-sm text-chocolate/60">{meta.description}</p>
 
-        <form onSubmit={(e) => void submitEnquiry(e)} className="mt-6 space-y-4">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (
+              name.trim().length >= 2 &&
+              isValidIndianPhone(phone) &&
+              message.trim().length >= 10
+            ) {
+              setStep("verify");
+            }
+          }}
+          className="mt-6 space-y-4"
+        >
           <div>
             <label className="text-xs text-chocolate/55">Your name</label>
             <input
@@ -221,14 +288,13 @@ function GeneralEnquiryForm({ store }: { store: StorefrontDetails }) {
           <button
             type="submit"
             disabled={
-              submitting ||
               name.trim().length < 2 ||
               !isValidIndianPhone(phone) ||
               message.trim().length < 10
             }
             className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
           >
-            {submitting ? "Sending..." : "Submit enquiry"}
+            Continue
           </button>
         </form>
       </main>

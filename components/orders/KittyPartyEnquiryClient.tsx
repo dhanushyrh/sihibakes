@@ -5,6 +5,7 @@ import { ChevronDown } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { EnquirySuccess } from "@/components/orders/EnquirySuccess";
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
+import { PhoneOtpVerification } from "@/components/store/PhoneOtpVerification";
 import { DatePicker } from "@/components/store/DatePicker";
 import { HeartDivider } from "@/components/landing/HeartDivider";
 import { isMenuProduct } from "@/lib/cart-products";
@@ -128,6 +129,8 @@ export function KittyPartyEnquiryClient({
   const [eventDate, setEventDate] = useState("");
   const [guestCount, setGuestCount] = useState("");
   const [notes, setNotes] = useState("");
+  const [step, setStep] = useState<"form" | "verify">("form");
+  const [otpVerified, setOtpVerified] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
   const [submitted, setSubmitted] = useState(false);
@@ -146,7 +149,7 @@ export function KittyPartyEnquiryClient({
     Boolean(eventDate);
 
   const submitEnquiry = async () => {
-    if (!canSubmit) return;
+    if (!canSubmit || !otpVerified) return;
     setSubmitting(true);
     setError("");
     try {
@@ -177,6 +180,10 @@ export function KittyPartyEnquiryClient({
     }
   };
 
+  const selectedProductLabels = menuProducts
+    .filter((p) => selectedProductIds.includes(p.id))
+    .map((p) => p.title);
+
   if (submitted) {
     return (
       <EnquirySuccess
@@ -184,6 +191,72 @@ export function KittyPartyEnquiryClient({
         title="Kitty party enquiry sent"
         description="Thanks for submitting. Our team will get back to you over WhatsApp."
       />
+    );
+  }
+
+  if (step === "verify") {
+    return (
+      <div className="flex min-h-screen flex-col pb-8">
+        <OrderFlowHeader title="Kitty Party enquiry" backHref="/orders/enquiry" />
+
+        <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">
+          <HeartDivider className="mb-5" />
+          <h2 className="font-display text-lg font-semibold text-chocolate">
+            Verify your number
+          </h2>
+          <p className="mt-1 text-sm text-chocolate/60">
+            Confirm +91 {phone} to submit your kitty party enquiry.
+          </p>
+
+          <div className="mt-4 space-y-2 rounded-xl bg-cream/50 p-4 text-sm text-chocolate/70">
+            <p className="font-medium text-chocolate">{name}</p>
+            {selectedProductLabels.length > 0 && (
+              <p>{selectedProductLabels.join(", ")}</p>
+            )}
+            {eventDate && (
+              <p>
+                Event date:{" "}
+                {format(new Date(`${eventDate}T12:00:00`), "d MMM yyyy")}
+              </p>
+            )}
+            {guestCount.trim() && <p>Guests: {guestCount.trim()}</p>}
+            {notes.trim() && <p>{notes.trim()}</p>}
+          </div>
+
+          <div className="mt-6">
+            <PhoneOtpVerification
+              phone={phone}
+              source="kitty_party_enquiry"
+              onVerified={() => setOtpVerified(true)}
+              onError={setError}
+            />
+          </div>
+
+          {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+
+          <div className="mt-6 flex gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setStep("form");
+                setOtpVerified(false);
+                setError("");
+              }}
+              className="flex-1 rounded-full border border-chocolate/20 py-3.5 text-sm"
+            >
+              Back
+            </button>
+            <button
+              type="button"
+              disabled={!otpVerified || submitting}
+              onClick={() => void submitEnquiry()}
+              className="flex-1 rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-50"
+            >
+              {submitting ? "Submitting..." : "Submit enquiry"}
+            </button>
+          </div>
+        </main>
+      </div>
     );
   }
 
@@ -201,7 +274,9 @@ export function KittyPartyEnquiryClient({
         <form
           onSubmit={(e) => {
             e.preventDefault();
-            void submitEnquiry();
+            if (canSubmit) {
+              setStep("verify");
+            }
           }}
           className="mt-6 space-y-4"
         >
@@ -266,10 +341,10 @@ export function KittyPartyEnquiryClient({
 
           <button
             type="submit"
-            disabled={!canSubmit || submitting}
+            disabled={!canSubmit}
             className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
           >
-            {submitting ? "Submitting..." : "Submit enquiry"}
+            Continue
           </button>
         </form>
       </main>

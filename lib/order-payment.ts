@@ -1,6 +1,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { incrementProductCountsForOrder } from "@/lib/inventory-server";
 import { notifyOrderPlaced } from "@/lib/whatsapp/notifications";
+import { markActivityOrderCompleted } from "@/lib/customer-activity";
 import type { OrderStatus } from "@/lib/types";
 
 export type MarkOrderPaidResult = {
@@ -36,6 +37,8 @@ export async function markOrderPaid(
         razorpay_payment_id: paymentId,
       })
       .eq("id", orderId);
+
+    void markActivityOrderCompleted(orderId);
   }
 
   let whatsapp: MarkOrderPaidResult["whatsapp"] = null;

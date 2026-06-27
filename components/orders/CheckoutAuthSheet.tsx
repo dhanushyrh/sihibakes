@@ -160,6 +160,7 @@ export function CheckoutAuthSheet({
 
               <PhoneOtpVerification
                 phone={phone}
+                source="checkout"
                 onVerified={() => void handleVerified()}
                 autoSendOnMount
                 error={error}

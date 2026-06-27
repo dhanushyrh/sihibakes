@@ -10,6 +10,8 @@ import {
 } from "react";
 import type { CartItem } from "@/lib/types";
 
+import { trackActivity } from "@/lib/activity-tracker";
+
 const CART_KEY = "sihi-cart";
 
 interface CartContextValue {
@@ -47,14 +49,19 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   const addItem = useCallback((productId: string) => {
     setItems((prev) => {
       const existing = prev.find((i) => i.productId === productId);
-      if (existing) {
-        return prev.map((i) =>
-          i.productId === productId
-            ? { ...i, quantity: i.quantity + 1 }
-            : i
-        );
-      }
-      return [...prev, { productId, quantity: 1 }];
+      const next = existing
+        ? prev.map((i) =>
+            i.productId === productId
+              ? { ...i, quantity: i.quantity + 1 }
+              : i
+          )
+        : [...prev, { productId, quantity: 1 }];
+      const itemCount = next.reduce((sum, i) => sum + i.quantity, 0);
+      trackActivity("cart_item_added", "cart", {
+        productId,
+        itemCount,
+      });
+      return next;
     });
   }, []);
 

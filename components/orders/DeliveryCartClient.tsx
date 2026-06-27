@@ -16,6 +16,7 @@ import { formatCurrency } from "@/lib/delivery";
 import { getUnitPrice } from "@/lib/pricing";
 import { getMenuProductIds, isMenuProduct } from "@/lib/cart-products";
 import { formatDeliveryModeSummary } from "@/lib/delivery-mode-availability";
+import { trackActivity } from "@/lib/activity-tracker";
 import type { Product } from "@/lib/types";
 
 export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
@@ -46,16 +47,19 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
 
   useEffect(() => {
     if (searchParams.get("auth") === "1") {
-      setAuthSheetOpen(true);
+      const timer = window.setTimeout(() => setAuthSheetOpen(true), 0);
+      return () => window.clearTimeout(timer);
     }
   }, [searchParams]);
 
   useEffect(() => {
     const ids = items.map((i) => i.productId);
     if (!ids.length) {
-      setProducts([]);
-      setLoading(false);
-      return;
+      const timer = window.setTimeout(() => {
+        setProducts([]);
+        setLoading(false);
+      }, 0);
+      return () => window.clearTimeout(timer);
     }
     if (!session.deliveryDate) return;
 
@@ -109,6 +113,7 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
   const navigateAfterAuth = useCallback(
     async (phone: string) => {
       setVerifiedPhone(phone);
+      trackActivity("phone_verified", "phone_verified", { phone });
 
       const result = await prefillCustomerFromLookup(phone, {
         sessionLat: session.lat,
@@ -139,17 +144,27 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
     if (session.phoneVerified && isValidIndianPhone(session.whatsappPhone)) {
       setContinuing(true);
       try {
-        const result = await prefillCustomerFromLookup(session.whatsappPhone, {
-          sessionLat: session.lat,
-          sessionLng: session.lng,
-          setCustomer,
-          setAddress,
-          setLocation,
-        });
-        const path = resolveCheckoutPath(session, result.profile, {
-          prefilledLocationReachable: result.locationReachable,
-        });
-        router.push(path);
+        const statusRes = await fetch(
+          `/api/otp/status?phone=${encodeURIComponent(session.whatsappPhone)}`
+        );
+        const status = await statusRes.json();
+
+        if (statusRes.ok && status.ready) {
+          const result = await prefillCustomerFromLookup(session.whatsappPhone, {
+            sessionLat: session.lat,
+            sessionLng: session.lng,
+            setCustomer,
+            setAddress,
+            setLocation,
+          });
+          const path = resolveCheckoutPath(session, result.profile, {
+            prefilledLocationReachable: result.locationReachable,
+          });
+          router.push(path);
+          return;
+        }
+
+        setAuthSheetOpen(true);
       } finally {
         setContinuing(false);
       }

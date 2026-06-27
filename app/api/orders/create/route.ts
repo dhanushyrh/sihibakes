@@ -9,7 +9,7 @@ import {
   checkProductAvailability,
 } from "@/lib/data";
 import { isValidIndianPhone, isValidIndianPincode, isValidEmail, normalizeEmail } from "@/lib/checkout-validation";
-import { isPhoneVerified } from "@/lib/otp-store";
+import { requireVerifiedPhoneWithConsent } from "@/lib/legal-consent";
 import { haversineDistanceKm } from "@/lib/delivery";
 import {
   applyCoupon,
@@ -21,6 +21,10 @@ import {
 import { createRazorpayOrder, getRazorpayPublicKey } from "@/lib/razorpay";
 import { isSlotBookableWithLeadTime, isWithinOrderBookingWindow } from "@/lib/customer-delivery-slots";
 import { getDeliveryFence, isWithinDeliveryFence } from "@/lib/delivery-fence";
+import {
+  markActivityOrderCreated,
+} from "@/lib/customer-activity";
+import { parseRequestClientInfo } from "@/lib/request-client-info";
 import type { Coupon, DeliverySlot } from "@/lib/types";
 
 export async function POST(request: Request) {
@@ -40,6 +44,7 @@ export async function POST(request: Request) {
       delivery_lng,
       delivery_slot_id,
       coupon_code,
+      activity_session_id,
     } = body;
 
     const settings = await getShopSettings();
@@ -85,11 +90,9 @@ export async function POST(request: Request) {
     if (!isValidIndianPincode(String(pincode))) {
       return NextResponse.json({ error: "Enter a valid 6-digit pincode" }, { status: 400 });
     }
-    if (!(await isPhoneVerified(normalizedPhone))) {
-      return NextResponse.json(
-        { error: "Please verify your phone number with OTP before paying" },
-        { status: 400 }
-      );
+    const phoneGuard = await requireVerifiedPhoneWithConsent(normalizedPhone);
+    if (!phoneGuard.ok) {
+      return NextResponse.json({ error: phoneGuard.error }, { status: phoneGuard.status });
     }
 
     const productIds = items.map((i: { productId: string }) => i.productId);
@@ -258,6 +261,31 @@ export async function POST(request: Request) {
     if (orderError || !order) {
       return NextResponse.json({ error: "Failed to create order" }, { status: 500 });
     }
+
+    const activityCartItems = cartItems.map(({ product, quantity }) => ({
+      productId: product.id,
+      quantity,
+      title: product.title,
+      unitPriceInr: Math.round(getUnitPrice(product)),
+      lineTotalInr: Math.round(getUnitPrice(product) * quantity),
+    }));
+
+    void markActivityOrderCreated({
+      activitySessionId:
+        typeof activity_session_id === "string" ? activity_session_id : null,
+      orderId: order.id,
+      phone: normalizedPhone,
+      fullName: customer_name,
+      email: normalizedEmail,
+      customerId: customer?.id ?? null,
+      lat: delivery_lat,
+      lng: delivery_lng,
+      deliveryDistanceKm: distance,
+      deliveryFeeInr: pricing.delivery_fee_inr,
+      totalInr: pricing.total_inr,
+      cartItems: activityCartItems,
+      clientInfo: parseRequestClientInfo(request),
+    });
 
     const orderItems = cartItems.map(({ product, quantity }) => ({
       order_id: order.id,
