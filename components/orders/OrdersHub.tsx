@@ -2,12 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import {
-  Truck,
-  PartyPopper,
-  MessageCircle,
-  ChevronRight,
-} from "lucide-react";
+import { Truck, MessageCircle, ChevronRight } from "lucide-react";
 import { HeartDivider } from "@/components/landing/HeartDivider";
 import { OrdersLegalFooter } from "@/components/orders/OrdersLegalFooter";
 import { InstagramIcon } from "@/components/landing/InstagramIcon";
@@ -30,20 +25,12 @@ const OPTIONS = [
     style: "bg-chocolate text-cream",
   },
   {
-    id: "kitty-party",
-    title: "Kitty Party",
-    subtitle: "Bulk orders for gatherings",
-    icon: PartyPopper,
-    href: "/orders/enquiry?type=kitty-party",
-    style: "bg-gold text-chocolate",
-  },
-  {
     id: "enquiry",
     title: "Enquiry",
-    subtitle: "Ask us anything",
+    subtitle: "General questions or bulk orders",
     icon: MessageCircle,
-    href: "/orders/enquiry?type=general",
-    style: "bg-white text-chocolate ring-1 ring-chocolate/15",
+    href: "/orders/enquiry",
+    style: "bg-gold text-chocolate",
   },
 ] as const;
 

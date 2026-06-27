@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { MessageCircle, PartyPopper, type LucideIcon } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { EnquirySuccess } from "@/components/orders/EnquirySuccess";
 import { KittyPartyEnquiryClient } from "@/components/orders/KittyPartyEnquiryClient";
@@ -24,6 +26,103 @@ const TYPE_LABELS: Record<string, { title: string; description: string }> = {
 
 const GENERAL_ENQUIRY_SUCCESS_MESSAGE =
   "Thanks for submitting — our team will get back to you over WhatsApp.";
+
+const ENQUIRY_TYPE_OPTIONS = [
+  {
+    id: "kitty-party",
+    title: "Kitty Party / Bulk Order",
+    subtitle: "Desserts for gatherings, parties, and larger orders",
+    icon: PartyPopper,
+    href: "/orders/enquiry?type=kitty-party",
+    accent: "gold" as const,
+    cta: "Plan a bulk order",
+  },
+  {
+    id: "general",
+    title: "General Enquiry",
+    subtitle: "Questions, custom requests, delivery help",
+    icon: MessageCircle,
+    href: "/orders/enquiry?type=general",
+    accent: "white" as const,
+    cta: "Ask a question",
+  },
+] as const;
+
+function EnquiryTypeCard({
+  title,
+  subtitle,
+  icon: Icon,
+  accent,
+  href,
+  cta,
+}: {
+  title: string;
+  subtitle: string;
+  icon: LucideIcon;
+  accent: "white" | "gold";
+  href: string;
+  cta: string;
+}) {
+  const accentStyles =
+    accent === "gold"
+      ? "bg-gold text-chocolate ring-gold/30"
+      : "bg-white text-chocolate ring-chocolate/15";
+
+  return (
+    <Link
+      href={href}
+      className={`group block w-full rounded-2xl p-4 text-left transition active:scale-[0.99] ${accentStyles} shadow-sm ring-1 hover:shadow-md`}
+    >
+      <div className="flex items-start gap-3.5">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-black/10">
+          <Icon size={22} strokeWidth={1.5} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-lg font-semibold leading-tight">{title}</p>
+          <p className="mt-1 text-xs opacity-80">{subtitle}</p>
+          <span className="mt-4 inline-flex items-center gap-1 text-xs font-semibold uppercase tracking-[0.15em] opacity-90">
+            {cta}
+            <span className="transition group-hover:translate-x-0.5">→</span>
+          </span>
+        </div>
+      </div>
+    </Link>
+  );
+}
+
+function EnquiryTypeChooser() {
+  return (
+    <div className="flex min-h-screen flex-col pb-[env(safe-area-inset-bottom)]">
+      <OrderFlowHeader title="Enquiry" backHref="/orders" />
+
+      <main className="mx-auto flex w-full max-w-lg flex-1 flex-col px-4 py-6">
+        <div className="text-center">
+          <HeartDivider className="mb-4" />
+          <h1 className="font-display text-[clamp(1.35rem,4.5vw,1.75rem)] font-semibold leading-snug text-chocolate">
+            What would you like to enquire about?
+          </h1>
+          <p className="mt-2 text-sm text-chocolate/55">
+            Choose the enquiry type so we can ask the right details.
+          </p>
+        </div>
+
+        <div className="mt-8 flex flex-1 flex-col gap-3">
+          {ENQUIRY_TYPE_OPTIONS.map((option) => (
+            <EnquiryTypeCard
+              key={option.id}
+              title={option.title}
+              subtitle={option.subtitle}
+              icon={option.icon}
+              accent={option.accent}
+              href={option.href}
+              cta={option.cta}
+            />
+          ))}
+        </div>
+      </main>
+    </div>
+  );
+}
 
 function GeneralEnquiryForm({ store }: { store: StorefrontDetails }) {
   const [name, setName] = useState("");
@@ -81,7 +180,7 @@ function GeneralEnquiryForm({ store }: { store: StorefrontDetails }) {
 
   return (
     <div className="flex min-h-screen flex-col pb-8">
-      <OrderFlowHeader title={meta.title} backHref="/orders" />
+      <OrderFlowHeader title={meta.title} backHref="/orders/enquiry" />
 
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">
         <HeartDivider className="mb-5" />
@@ -145,15 +244,19 @@ export function EnquiryClient({
   products: Product[];
 }) {
   const searchParams = useSearchParams();
-  const type = searchParams.get("type") || "general";
+  const type = searchParams.get("type");
+
+  if (!type) {
+    return <EnquiryTypeChooser />;
+  }
 
   if (type === "kitty-party") {
     return <KittyPartyEnquiryClient store={store} products={products} />;
   }
 
-  if (type === "pre-order") {
+  if (type === "general" || type === "pre-order") {
     return <GeneralEnquiryForm store={store} />;
   }
 
-  return <GeneralEnquiryForm store={store} />;
+  return <EnquiryTypeChooser />;
 }

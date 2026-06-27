@@ -189,7 +189,7 @@ export function KittyPartyEnquiryClient({
 
   return (
     <div className="flex min-h-screen flex-col pb-8">
-      <OrderFlowHeader title="Kitty Party enquiry" backHref="/orders" />
+      <OrderFlowHeader title="Kitty Party enquiry" backHref="/orders/enquiry" />
 
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">
         <HeartDivider className="mb-5" />
