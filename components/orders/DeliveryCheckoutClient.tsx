@@ -31,7 +31,11 @@ import { BRAND } from "@/lib/constants";
 import { formatCurrency, formatDistance } from "@/lib/delivery";
 import { normalizePhone } from "@/lib/storefront";
 import { getUnitPrice } from "@/lib/pricing";
-import { resolveDeliverySelection } from "@/lib/customer-delivery-slots";
+import {
+  filterSlotsForDeliveryMode,
+  resolveDeliverySelection,
+  type DeliveryMode,
+} from "@/lib/customer-delivery-slots";
 import type { DeliveryCalculation, DeliveryFenceKm, DeliverySlot, Product } from "@/lib/types";
 import type { PublicCoupon } from "@/lib/public-coupons";
 import { filterEligiblePublicCoupons } from "@/lib/public-coupons";
@@ -72,10 +76,12 @@ export function DeliveryCheckoutClient({
     session,
     sessionReady,
     isLocationReady,
+    isDeliveryModeReady,
     setAddress,
     setCustomer,
     setPhoneVerified,
     setLocation,
+    setDeliverySchedule,
     clearSession,
   } = useDeliverySession();
 
@@ -118,6 +124,10 @@ export function DeliveryCheckoutClient({
     if (!sessionReady || completingOrder || completingOrderRef.current || placingOrder) {
       return;
     }
+    if (!isDeliveryModeReady) {
+      router.replace("/orders/delivery");
+      return;
+    }
     if (!phoneVerified) {
       router.replace("/orders/delivery/cart?auth=1");
       return;
@@ -125,7 +135,22 @@ export function DeliveryCheckoutClient({
     if (!isLocationReady) {
       router.replace(CHECKOUT_LOCATION_PATH);
     }
-  }, [sessionReady, phoneVerified, isLocationReady, placingOrder, completingOrder, router]);
+  }, [
+    sessionReady,
+    isDeliveryModeReady,
+    phoneVerified,
+    isLocationReady,
+    placingOrder,
+    completingOrder,
+    router,
+  ]);
+
+  const deliveryMode = session.deliveryMode as DeliveryMode | null;
+
+  const modeSlots = useMemo(() => {
+    if (!deliveryMode) return bookableSlots;
+    return filterSlotsForDeliveryMode(bookableSlots, deliveryMode);
+  }, [bookableSlots, deliveryMode]);
 
   useEffect(() => {
     setAppliedCoupon(readAppliedCoupon());
@@ -142,14 +167,26 @@ export function DeliveryCheckoutClient({
 
   useEffect(() => {
     const ids = items.map((i) => i.productId);
-    if (!ids.length) return;
-    fetch(`/api/products?ids=${ids.join(",")}`)
+    const inventoryDate = selectedDate || session.deliveryDate;
+    if (!ids.length || !inventoryDate) return;
+    const params = new URLSearchParams({
+      ids: ids.join(","),
+      delivery_date: inventoryDate,
+    });
+    fetch(`/api/products?${params}`)
       .then((r) => r.json())
       .then((data: Product[]) => {
         setProducts(data);
         pruneItems(data.filter(isMenuProduct).map((p) => p.id));
       });
-  }, [items, pruneItems]);
+  }, [items, selectedDate, session.deliveryDate, pruneItems]);
+
+  const handleDateChange = (date: string) => {
+    setSelectedDate(date);
+    if (deliveryMode) {
+      setDeliverySchedule(deliveryMode, date);
+    }
+  };
 
   useEffect(() => {
     fetch("/api/delivery/slots")
@@ -159,18 +196,25 @@ export function DeliveryCheckoutClient({
   }, [initialSlots]);
 
   useEffect(() => {
-    if (!bookableSlots.length) return;
-    const next = resolveDeliverySelection(bookableSlots, {
+    if (!modeSlots.length) return;
+    const next = resolveDeliverySelection(modeSlots, {
       date: selectedDate,
       slotId: selectedSlotId,
     });
     if (next.date !== selectedDate) setSelectedDate(next.date);
     if (next.slotId !== selectedSlotId) setSelectedSlotId(next.slotId);
-  }, [bookableSlots, selectedDate, selectedSlotId]);
+  }, [modeSlots, selectedDate, selectedSlotId]);
+
+  useEffect(() => {
+    if (!deliveryMode || !selectedDate) return;
+    if (session.deliveryDate !== selectedDate) {
+      setDeliverySchedule(deliveryMode, selectedDate);
+    }
+  }, [deliveryMode, selectedDate, session.deliveryDate, setDeliverySchedule]);
 
   const selectedSlot = useMemo(
-    () => bookableSlots.find((slot) => slot.id === selectedSlotId) ?? null,
-    [bookableSlots, selectedSlotId]
+    () => modeSlots.find((slot) => slot.id === selectedSlotId) ?? null,
+    [modeSlots, selectedSlotId]
   );
 
   useEffect(() => {
@@ -564,6 +608,7 @@ export function DeliveryCheckoutClient({
 
   if (
     !sessionReady ||
+    !isDeliveryModeReady ||
     itemCount === 0 ||
     !phoneVerified ||
     !isLocationReady
@@ -770,11 +815,12 @@ export function DeliveryCheckoutClient({
           </section>
 
           <DeliverySlotSelects
-            slots={bookableSlots}
+            slots={modeSlots}
             selectedDate={selectedDate}
             selectedSlotId={selectedSlotId}
-            onDateChange={setSelectedDate}
+            onDateChange={handleDateChange}
             onSlotChange={setSelectedSlotId}
+            deliveryMode={deliveryMode}
             slotError={fieldErrors.slot}
           />
 

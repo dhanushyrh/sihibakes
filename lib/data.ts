@@ -20,6 +20,7 @@ import {
 import { normalizeClosedDates, normalizeDateKey } from "@/lib/shop-closed-days";
 import { ORDER_BOOKING_WINDOW_DAYS } from "@/lib/constants";
 import { filterCustomerDeliverySlots } from "@/lib/customer-delivery-slots";
+import { computeDeliveryModeAvailability } from "@/lib/delivery-mode-availability";
 import { shopDateKey, shopDatePlusDays } from "@/lib/shop-timezone";
 
 async function getEffectiveClosedDates(): Promise<string[]> {
@@ -186,15 +187,18 @@ export async function getDeliveryFeeSlabs(): Promise<DeliveryFeeSlab[]> {
   return (data?.length ? data : MOCK_SLABS) as DeliveryFeeSlab[];
 }
 
-export async function getProducts(includeInactive = false): Promise<Product[]> {
+export async function getProducts(
+  includeInactive = false,
+  deliveryDate?: string
+): Promise<Product[]> {
   if (!isSupabaseConfigured()) {
-    return enrichProductsWithInventory(MOCK_PRODUCTS);
+    return enrichProductsWithInventory(MOCK_PRODUCTS, deliveryDate);
   }
   const supabase = await createClient();
   const query = supabase.from("products").select("*").order("created_at", { ascending: false });
   const { data: products } = await query;
   if (!products?.length) return [];
-  return enrichProductsWithInventory(products as Product[]);
+  return enrichProductsWithInventory(products as Product[], deliveryDate);
 }
 
 export async function getProductById(id: string): Promise<Product | null> {
@@ -250,6 +254,23 @@ export async function getAvailableDeliverySlots(): Promise<DeliverySlot[]> {
     .order("window_start");
 
   return filterCustomerDeliverySlots((data ?? []) as DeliverySlot[], closedDates);
+}
+
+export async function getDeliveryModeAvailability() {
+  const settings = await getShopSettings();
+  const today = shopDateKey();
+  const [slots, todayClosed, productsForToday] = await Promise.all([
+    getAvailableDeliverySlots(),
+    isDeliveryDayClosed(today),
+    getProducts(false, today),
+  ]);
+
+  return computeDeliveryModeAvailability({
+    ordersAccepting: settings?.orders_accepting ?? false,
+    todayClosed,
+    slots,
+    productsForToday,
+  });
 }
 
 export async function isFirstOrder(phone: string): Promise<boolean> {

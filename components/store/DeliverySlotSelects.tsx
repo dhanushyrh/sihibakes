@@ -3,11 +3,11 @@
 import { useEffect, useMemo, useRef } from "react";
 import { format, parseISO } from "date-fns";
 import { CalendarClock, Check, Clock3 } from "lucide-react";
-import { ORDER_BOOKING_WINDOW_DAYS } from "@/lib/constants";
 import {
   getBookableDates,
   getDateStripEntries,
   getSlotsForBookableDate,
+  type DeliveryMode,
 } from "@/lib/customer-delivery-slots";
 import { isShopToday, isShopTomorrow } from "@/lib/shop-timezone";
 import type { DeliverySlot } from "@/lib/types";
@@ -18,6 +18,7 @@ type DeliverySlotSelectsProps = {
   selectedSlotId: string;
   onDateChange: (date: string) => void;
   onSlotChange: (slotId: string) => void;
+  deliveryMode?: DeliveryMode | null;
   dateError?: string;
   slotError?: string;
   emptyDatesMessage?: string;
@@ -75,6 +76,7 @@ export function DeliverySlotSelects({
   selectedSlotId,
   onDateChange,
   onSlotChange,
+  deliveryMode = null,
   dateError,
   slotError,
   emptyDatesMessage = "No delivery dates available right now.",
@@ -83,7 +85,12 @@ export function DeliverySlotSelects({
   const selectedDateRef = useRef<HTMLButtonElement>(null);
 
   const availableDates = useMemo(() => getBookableDates(slots), [slots]);
-  const dateStripEntries = useMemo(() => getDateStripEntries(slots), [slots]);
+  const dateStripEntries = useMemo(() => {
+    if (deliveryMode === "same_day") return [];
+    const entries = getDateStripEntries(slots);
+    const bookable = new Set(availableDates);
+    return entries.filter((entry) => bookable.has(entry.date));
+  }, [slots, deliveryMode, availableDates]);
   const slotsForDate = useMemo(
     () => getSlotsForBookableDate(slots, selectedDate),
     [slots, selectedDate]
@@ -118,6 +125,11 @@ export function DeliverySlotSelects({
   }
 
   const error = slotError || dateError;
+  const isSameDay = deliveryMode === "same_day";
+  const headerEyebrow = isSameDay ? "Today's delivery window" : "Pre-order schedule";
+  const headerHint = isSameDay
+    ? "Pick a time slot for today"
+    : "Choose your pre-order date and time";
 
   return (
     <section
@@ -131,21 +143,20 @@ export function DeliverySlotSelects({
           </div>
           <div className="min-w-0 flex-1">
             <p className="text-[11px] font-medium uppercase tracking-[0.2em] text-chocolate/45">
-              Delivery window
+              {headerEyebrow}
             </p>
             <p className="font-display text-lg font-semibold leading-snug text-chocolate">
               {selectionSummary(selectedDate, selectedSlot)}
             </p>
-            <p className="mt-1 text-xs text-chocolate/50">
-              Choose a slot in the next {ORDER_BOOKING_WINDOW_DAYS} days
-            </p>
+            <p className="mt-1 text-xs text-chocolate/50">{headerHint}</p>
           </div>
         </div>
       </div>
 
       <div className="space-y-5 p-4">
+        {!isSameDay && (
         <div>
-          <p className="mb-2.5 text-xs font-medium text-chocolate/55">Pick a day</p>
+          <p className="mb-2.5 text-xs font-medium text-chocolate/55">Choose your pre-order date</p>
           <div
             ref={dateStripRef}
             className="-mx-1 flex gap-1 overflow-x-auto px-1 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
@@ -156,26 +167,7 @@ export function DeliverySlotSelects({
               const meta = dateChipMeta(date);
               const selected = selectedDate === date;
 
-              if (!bookable) {
-                return (
-                  <div key={date} className="shrink-0 snap-center py-1.5">
-                    <div
-                      aria-disabled
-                      className="flex min-w-[4.75rem] flex-col items-center rounded-2xl bg-chocolate/5 px-3.5 py-3 ring-1 ring-chocolate/8"
-                    >
-                      <span className="text-[10px] font-semibold uppercase tracking-wide text-chocolate/35">
-                        Closed
-                      </span>
-                      <span className="font-display text-[1.65rem] font-semibold leading-none text-chocolate/30">
-                        {meta.day}
-                      </span>
-                      <span className="mt-0.5 text-[11px] text-chocolate/30">
-                        {meta.month}
-                      </span>
-                    </div>
-                  </div>
-                );
-              }
+              if (!bookable) return null;
 
               return (
                 <div key={date} className="shrink-0 snap-center py-1.5">
@@ -217,6 +209,18 @@ export function DeliverySlotSelects({
             })}
           </div>
         </div>
+        )}
+
+        {isSameDay && selectedDate && (
+          <div className="rounded-xl bg-parchment/60 px-4 py-3 ring-1 ring-chocolate/8">
+            <p className="text-xs font-medium uppercase tracking-wide text-chocolate/45">
+              Delivery date
+            </p>
+            <p className="mt-1 font-display text-base font-semibold text-chocolate">
+              Today · {format(parseISO(selectedDate), "EEEE, d MMMM")}
+            </p>
+          </div>
+        )}
 
         <div>
           <div className="mb-2.5 flex items-center justify-between gap-2">

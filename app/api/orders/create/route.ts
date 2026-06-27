@@ -93,7 +93,45 @@ export async function POST(request: Request) {
     }
 
     const productIds = items.map((i: { productId: string }) => i.productId);
-    const products = await getProductsByIds(productIds);
+
+    const admin = createAdminClient();
+
+    const { data: slot } = await admin
+      .from("delivery_slots")
+      .select("*")
+      .eq("id", delivery_slot_id)
+      .eq("is_active", true)
+      .single();
+
+    if (!slot) {
+      return NextResponse.json({ error: "Invalid delivery slot" }, { status: 400 });
+    }
+
+    if (await isDeliveryDayClosed(slot.slot_date)) {
+      return NextResponse.json(
+        { error: "Store closed — deliveries are not available on the selected date" },
+        { status: 400 }
+      );
+    }
+
+    if (!isSlotBookableWithLeadTime(slot as DeliverySlot)) {
+      return NextResponse.json(
+        {
+          error:
+            "This delivery slot is no longer available — please choose a later time",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!isWithinOrderBookingWindow(slot.slot_date)) {
+      return NextResponse.json(
+        { error: "Delivery is only available for the next 4 days" },
+        { status: 400 }
+      );
+    }
+
+    const products = await getProductsByIds(productIds, slot.slot_date);
     const cartItems = items
       .map((i: { productId: string; quantity: number }) => {
         const product = products.find((p) => p.id === i.productId);
@@ -129,43 +167,6 @@ export async function POST(request: Request) {
     ) {
       return NextResponse.json(
         { error: "Delivery location is out of range" },
-        { status: 400 }
-      );
-    }
-
-    const admin = createAdminClient();
-
-    const { data: slot } = await admin
-      .from("delivery_slots")
-      .select("*")
-      .eq("id", delivery_slot_id)
-      .eq("is_active", true)
-      .single();
-
-    if (!slot) {
-      return NextResponse.json({ error: "Invalid delivery slot" }, { status: 400 });
-    }
-
-    if (await isDeliveryDayClosed(slot.slot_date)) {
-      return NextResponse.json(
-        { error: "Store closed — deliveries are not available on the selected date" },
-        { status: 400 }
-      );
-    }
-
-    if (!isSlotBookableWithLeadTime(slot as DeliverySlot)) {
-      return NextResponse.json(
-        {
-          error:
-            "This delivery slot is no longer available — please choose a later time",
-        },
-        { status: 400 }
-      );
-    }
-
-    if (!isWithinOrderBookingWindow(slot.slot_date)) {
-      return NextResponse.json(
-        { error: "Delivery is only available for the next 3 days" },
         { status: 400 }
       );
     }

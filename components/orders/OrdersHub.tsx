@@ -9,6 +9,7 @@ import {
   ChevronRight,
 } from "lucide-react";
 import { HeartDivider } from "@/components/landing/HeartDivider";
+import { OrdersLegalFooter } from "@/components/orders/OrdersLegalFooter";
 import { InstagramIcon } from "@/components/landing/InstagramIcon";
 import { HorizontalMarquee } from "@/components/store/HorizontalMarquee";
 import { formatDisplayPhone, instagramHref, telHref, whatsappHref } from "@/lib/storefront";
@@ -25,7 +26,7 @@ const OPTIONS = [
     title: "Delivery",
     subtitle: "To your doorstep",
     icon: Truck,
-    href: "/orders/delivery/menu",
+    href: "/orders/delivery",
     style: "bg-chocolate text-cream",
   },
   {
@@ -72,7 +73,7 @@ function ProductMarqueeCard({
 
   return (
     <Link
-      href="/orders/delivery/menu"
+      href="/orders/delivery"
       className="flex w-[132px] shrink-0 flex-col overflow-hidden rounded-2xl bg-white shadow-sm ring-1 ring-chocolate/8 transition active:scale-[0.98]"
     >
       <div className="relative aspect-square overflow-hidden bg-parchment">
@@ -231,6 +232,8 @@ export function OrdersHub({
           </a>
         </p>
       </div>
+
+      <OrdersLegalFooter store={store} />
     </main>
   );
 }

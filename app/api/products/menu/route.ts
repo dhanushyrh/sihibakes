@@ -1,11 +1,9 @@
 import { NextResponse } from "next/server";
-import { getProductsByIds } from "@/lib/data";
+import { getProducts } from "@/lib/data";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
-  const ids = searchParams.get("ids")?.split(",").filter(Boolean) ?? [];
   const deliveryDate = searchParams.get("delivery_date") ?? undefined;
-  if (!ids.length) return NextResponse.json([]);
-  const products = await getProductsByIds(ids, deliveryDate);
+  const products = await getProducts(false, deliveryDate);
   return NextResponse.json(products);
 }

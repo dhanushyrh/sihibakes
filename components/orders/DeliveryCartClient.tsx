@@ -15,6 +15,7 @@ import { prefillCustomerFromLookup } from "@/lib/customer-prefill";
 import { formatCurrency } from "@/lib/delivery";
 import { getUnitPrice } from "@/lib/pricing";
 import { getMenuProductIds, isMenuProduct } from "@/lib/cart-products";
+import { formatDeliveryModeSummary } from "@/lib/delivery-mode-availability";
 import type { Product } from "@/lib/types";
 
 export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
@@ -23,6 +24,7 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
   const {
     session,
     sessionReady,
+    isDeliveryModeReady,
     setCustomer,
     setAddress,
     setLocation,
@@ -33,6 +35,14 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
   const [loading, setLoading] = useState(true);
   const [authSheetOpen, setAuthSheetOpen] = useState(false);
   const [continuing, setContinuing] = useState(false);
+  const [unavailableNotice, setUnavailableNotice] = useState("");
+
+  useEffect(() => {
+    if (!sessionReady) return;
+    if (!isDeliveryModeReady) {
+      router.replace("/orders/delivery");
+    }
+  }, [sessionReady, isDeliveryModeReady, router]);
 
   useEffect(() => {
     if (searchParams.get("auth") === "1") {
@@ -47,14 +57,28 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
       setLoading(false);
       return;
     }
-    fetch(`/api/products?ids=${ids.join(",")}`)
+    if (!session.deliveryDate) return;
+
+    const params = new URLSearchParams({
+      ids: ids.join(","),
+      delivery_date: session.deliveryDate,
+    });
+    fetch(`/api/products?${params}`)
       .then((r) => r.json())
-      .then((data) => {
+      .then((data: Product[]) => {
         setProducts(data);
+        const validIds = new Set(getMenuProductIds(data));
+        const removedCount = items.filter((i) => !validIds.has(i.productId)).length;
+        pruneItems([...validIds]);
+        if (removedCount > 0) {
+          setUnavailableNotice(
+            "Some items are unavailable for your selected delivery date and were removed."
+          );
+        }
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [items]);
+  }, [items, session.deliveryDate, pruneItems]);
 
   useEffect(() => {
     if (loading || products.length === 0) return;
@@ -134,13 +158,36 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
     setAuthSheetOpen(true);
   };
 
-  if (!sessionReady) return null;
+  if (!sessionReady || !isDeliveryModeReady) return null;
+
+  const scheduleSummary =
+    session.deliveryMode && session.deliveryDate
+      ? formatDeliveryModeSummary(session.deliveryMode, session.deliveryDate)
+      : null;
 
   return (
     <div className="flex min-h-screen flex-col pb-[env(safe-area-inset-bottom)]">
       <OrderFlowHeader title="Your cart" backHref="/orders/delivery/menu" />
 
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">
+        {scheduleSummary && (
+          <div className="mb-4 flex items-center justify-between gap-3 rounded-2xl bg-white px-4 py-3 ring-1 ring-chocolate/10">
+            <p className="text-sm font-medium text-chocolate">{scheduleSummary}</p>
+            <Link
+              href="/orders/delivery"
+              className="shrink-0 text-xs font-medium text-chocolate/60 underline"
+            >
+              Edit
+            </Link>
+          </div>
+        )}
+
+        {unavailableNotice && (
+          <p className="mb-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
+            {unavailableNotice}
+          </p>
+        )}
+
         {!storeOpen && (
           <p className="mb-4 rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-800 ring-1 ring-red-200">
             Store is closed — ordering is unavailable right now.

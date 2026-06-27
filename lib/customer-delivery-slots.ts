@@ -1,5 +1,5 @@
 import { addDays, format, parseISO } from "date-fns";
-import { ORDER_BOOKING_WINDOW_DAYS } from "./constants";
+import { ORDER_BOOKING_WINDOW_DAYS, PRE_ORDER_MAX_DATES } from "./constants";
 import type { DeliverySlot } from "./types";
 import { normalizeClosedDates, normalizeDateKey } from "./shop-closed-days";
 import {
@@ -147,4 +147,60 @@ export function resolveDeliverySelection(
     return current;
   }
   return getDefaultDeliverySelection(slots);
+}
+
+export type DeliveryMode = "same_day" | "pre_order";
+
+/** Bookable slots for today only. */
+export function getSameDaySlots(
+  slots: DeliverySlot[],
+  now = new Date()
+): DeliverySlot[] {
+  const today = shopDateKey(now);
+  return getSlotsForBookableDate(slots, today);
+}
+
+/** Up to {@link PRE_ORDER_MAX_DATES} future bookable dates (excludes today). */
+export function getPreOrderDates(
+  slots: DeliverySlot[],
+  now = new Date()
+): string[] {
+  const today = shopDateKey(now);
+  return getBookableDates(slots)
+    .filter((date) => date > today)
+    .slice(0, PRE_ORDER_MAX_DATES);
+}
+
+/** Slots limited to a delivery mode. */
+export function filterSlotsForDeliveryMode(
+  slots: DeliverySlot[],
+  mode: DeliveryMode,
+  now = new Date()
+): DeliverySlot[] {
+  if (mode === "same_day") {
+    const today = shopDateKey(now);
+    return slots.filter((s) => normalizeDateKey(s.slot_date) === today);
+  }
+  const preOrderDates = new Set(getPreOrderDates(slots, now));
+  return slots.filter((s) => preOrderDates.has(normalizeDateKey(s.slot_date)));
+}
+
+export function getDefaultSelectionForMode(
+  slots: DeliverySlot[],
+  mode: DeliveryMode,
+  now = new Date()
+): { date: string; slotId: string } {
+  const modeSlots = filterSlotsForDeliveryMode(slots, mode, now);
+  return getDefaultDeliverySelection(modeSlots);
+}
+
+export function isDeliveryModeSelectionValid(
+  slots: DeliverySlot[],
+  mode: DeliveryMode,
+  date: string,
+  slotId: string,
+  now = new Date()
+): boolean {
+  const modeSlots = filterSlotsForDeliveryMode(slots, mode, now);
+  return isDeliverySelectionValid(modeSlots, date, slotId);
 }

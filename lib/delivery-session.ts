@@ -1,3 +1,4 @@
+import type { DeliveryMode } from "@/lib/customer-delivery-slots";
 import type { DeliveryCalculation } from "@/lib/types";
 
 export const DELIVERY_SESSION_KEY = "sihi-delivery-session";
@@ -6,6 +7,8 @@ export type DeliverySession = {
   lat: number | null;
   lng: number | null;
   delivery: DeliveryCalculation | null;
+  deliveryMode: DeliveryMode | null;
+  deliveryDate: string;
   house: string;
   street: string;
   landmark: string;
@@ -23,6 +26,8 @@ export const EMPTY_DELIVERY_SESSION: DeliverySession = {
   lat: null,
   lng: null,
   delivery: null,
+  deliveryMode: null,
+  deliveryDate: "",
   house: "",
   street: "",
   landmark: "",
@@ -34,6 +39,10 @@ export const EMPTY_DELIVERY_SESSION: DeliverySession = {
   phoneVerified: false,
 };
 
+export function isDeliveryModeReady(session: DeliverySession): boolean {
+  return session.deliveryMode != null && Boolean(session.deliveryDate);
+}
+
 function hydrateDeliverySession(
   parsed: Partial<DeliverySession>
 ): DeliverySession {
@@ -44,6 +53,8 @@ function hydrateDeliverySession(
     whatsappPhone,
     email: parsed.email ?? "",
     altPhone: parsed.altPhone ?? "",
+    deliveryMode: parsed.deliveryMode ?? null,
+    deliveryDate: parsed.deliveryDate ?? "",
   };
 }
 

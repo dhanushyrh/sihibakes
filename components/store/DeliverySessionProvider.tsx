@@ -16,13 +16,17 @@ import {
   clearDeliverySession as clearStoredSession,
   type DeliverySession,
   isDeliveryLocationReady,
+  isDeliveryModeReady,
 } from "@/lib/delivery-session";
+import type { DeliveryMode } from "@/lib/customer-delivery-slots";
 
 type DeliverySessionContextValue = {
   session: DeliverySession;
   sessionReady: boolean;
   isLocationReady: boolean;
+  isDeliveryModeReady: boolean;
   setLocation: (lat: number, lng: number, delivery: DeliveryCalculation | null) => void;
+  setDeliverySchedule: (mode: DeliveryMode, date: string) => void;
   setAddress: (fields: Partial<Pick<DeliverySession, "house" | "street" | "landmark" | "pincode">>) => void;
   setCustomer: (
     fields: Partial<
@@ -61,6 +65,21 @@ export function DeliverySessionProvider({
     },
     []
   );
+
+  const setDeliverySchedule = useCallback((mode: DeliveryMode, date: string) => {
+    setSession((prev) => {
+      if (prev.deliveryMode === mode && prev.deliveryDate === date) {
+        return prev;
+      }
+      // Keep lat/lng/delivery so the location stays "ready"; the checkout
+      // slot effect re-quotes the date-sensitive delivery fee on change.
+      return {
+        ...prev,
+        deliveryMode: mode,
+        deliveryDate: date,
+      };
+    });
+  }, []);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -135,13 +154,20 @@ export function DeliverySessionProvider({
     [session]
   );
 
+  const deliveryModeReady = useMemo(
+    () => isDeliveryModeReady(session),
+    [session]
+  );
+
   return (
     <DeliverySessionContext.Provider
       value={{
         session,
         sessionReady: hydrated,
         isLocationReady,
+        isDeliveryModeReady: deliveryModeReady,
         setLocation,
+        setDeliverySchedule,
         setAddress,
         setCustomer,
         setPhoneVerified,

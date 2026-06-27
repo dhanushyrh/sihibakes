@@ -1,5 +1,14 @@
-import { redirect } from "next/navigation";
+import { ShopStatusBanner } from "@/components/store/ShopStatusBanner";
+import { DeliveryModeChoiceClient } from "@/components/orders/DeliveryModeChoiceClient";
+import { getDeliveryModeAvailability } from "@/lib/data";
 
-export default function DeliveryLocationPage() {
-  redirect("/orders/delivery/menu");
+export default async function DeliveryModePage() {
+  const availability = await getDeliveryModeAvailability();
+
+  return (
+    <div className="min-h-screen bg-cream">
+      <ShopStatusBanner />
+      <DeliveryModeChoiceClient availability={availability} />
+    </div>
+  );
 }
