@@ -2,6 +2,9 @@ export type WhatsAppConfig = {
   accessToken: string;
   phoneNumberId: string;
   apiVersion: string;
+  verifyToken: string | null;
+  appSecret: string | null;
+  businessAccountId: string | null;
   templates: {
     otp: string;
     orderPlaced: string;
@@ -21,6 +24,14 @@ export function isWhatsAppConfigured(): boolean {
   );
 }
 
+export function isWhatsAppWebhookConfigured(): boolean {
+  return Boolean(
+    isWhatsAppConfigured() &&
+      process.env.WHATSAPP_VERIFY_TOKEN?.trim() &&
+      process.env.WHATSAPP_APP_SECRET?.trim()
+  );
+}
+
 /** True when checkout shows the OTP on-screen instead of sending via WhatsApp. */
 export function isPhoneOtpDemoMode(): boolean {
   return !isWhatsAppConfigured();
@@ -35,7 +46,13 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
     accessToken,
     phoneNumberId,
     apiVersion: process.env.WHATSAPP_API_VERSION?.trim() || "v21.0",
-    languageCode: process.env.WHATSAPP_LANGUAGE_CODE?.trim() || "en",
+    verifyToken: process.env.WHATSAPP_VERIFY_TOKEN?.trim() || null,
+    appSecret: process.env.WHATSAPP_APP_SECRET?.trim() || null,
+    businessAccountId:
+      process.env.WHATSAPP_WABA_ID?.trim() ||
+      process.env.WHATSAPP_BUSINESS_ACCOUNT_ID?.trim() ||
+      null,
+    languageCode: process.env.WHATSAPP_LANGUAGE_CODE?.trim() || "en_US",
     templates: {
       otp: process.env.WHATSAPP_TEMPLATE_OTP?.trim() || "checkout_otp",
       orderPlaced:
@@ -46,7 +63,8 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
       orderStatus:
         process.env.WHATSAPP_TEMPLATE_ORDER_STATUS?.trim() || "order_status_update",
       orderDispatch:
-        process.env.WHATSAPP_TEMPLATE_ORDER_DISPATCH?.trim() || "order_out_for_delivery",
+        process.env.WHATSAPP_TEMPLATE_ORDER_DISPATCH?.trim() ||
+        "order_out_for_delivery_v2",
       orderCancelled:
         process.env.WHATSAPP_TEMPLATE_ORDER_CANCELLED?.trim() || "order_cancelled",
     },

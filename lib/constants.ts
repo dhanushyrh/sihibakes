@@ -49,6 +49,19 @@ export const PAYMENT_STATUS_OPTIONS = [
 export const ORDERS_PAGE_SIZE = 15;
 export const CUSTOMERS_PAGE_SIZE = 15;
 export const ENQUIRIES_PAGE_SIZE = 15;
+export const WHATSAPP_CONVERSATIONS_PAGE_SIZE = 20;
+export const WHATSAPP_MESSAGES_PAGE_SIZE = 50;
+
+/** Meta WhatsApp customer service window for free-form replies. */
+export const WHATSAPP_SERVICE_WINDOW_HOURS = 24;
+
+export const WHATSAPP_ADMIN_TEMPLATE_OPTIONS = [
+  { key: "order_confirmed", label: "Order confirmed" },
+  { key: "order_status_update", label: "Order status update" },
+  { key: "order_out_for_delivery_v2", label: "Out for delivery" },
+  { key: "order_cancelled", label: "Order cancelled" },
+  { key: "jaspers_market_order_confirmation_v1", label: "Order placed" },
+] as const;
 
 /** Inclusive calendar days customers can book delivery (today + next days). */
 export const ORDER_BOOKING_WINDOW_DAYS = 4;

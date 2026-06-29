@@ -242,6 +242,52 @@ export interface EnquiryItem {
   created_at?: string;
 }
 
+export type WhatsAppMessageDirection = "inbound" | "outbound";
+
+export type WhatsAppMessageStatus =
+  | "received"
+  | "sent"
+  | "delivered"
+  | "read"
+  | "failed";
+
+export type WhatsAppConversationStatus = "open" | "closed";
+
+export interface WhatsAppConversation {
+  id: string;
+  wa_id: string;
+  phone: string;
+  customer_id: string | null;
+  display_name: string | null;
+  last_customer_message_at: string | null;
+  last_message_at: string | null;
+  last_message_preview: string | null;
+  unread_count: number;
+  status: WhatsAppConversationStatus;
+  created_at: string;
+  updated_at: string;
+  customer?: Customer | null;
+}
+
+export interface WhatsAppMessage {
+  id: string;
+  conversation_id: string;
+  direction: WhatsAppMessageDirection;
+  wa_message_id: string | null;
+  message_type: string;
+  body: string | null;
+  template_name: string | null;
+  payload: Record<string, unknown> | null;
+  status: WhatsAppMessageStatus;
+  error_message: string | null;
+  order_id: string | null;
+  sent_at: string | null;
+  delivered_at: string | null;
+  read_at: string | null;
+  failed_at: string | null;
+  created_at: string;
+}
+
 export interface ContactEnquiry {
   id: string;
   name: string;
