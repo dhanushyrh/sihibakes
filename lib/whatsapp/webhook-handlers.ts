@@ -1,9 +1,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { sendWelcomeAutoReply } from "@/lib/whatsapp/auto-reply";
 import {
   insertWhatsAppMessage,
   previewForMessage,
   updateMessageStatus,
   upsertConversation,
+  waIdToPhone,
 } from "@/lib/whatsapp/conversations";
 import type { WhatsAppMessageStatus } from "@/lib/types";
 
@@ -95,6 +97,22 @@ async function handleInboundMessage(
   const preview = previewForMessage(message.type, body);
   const messageAt = new Date(Number(message.timestamp) * 1000).toISOString();
 
+  const { data: existingInbound } = await admin
+    .from("whatsapp_messages")
+    .select("id")
+    .eq("wa_message_id", message.id)
+    .maybeSingle();
+  if (existingInbound) return;
+
+  const { data: existingConversation } = await admin
+    .from("whatsapp_conversations")
+    .select("id, last_customer_message_at, phone")
+    .eq("wa_id", waId)
+    .maybeSingle();
+
+  const previousLastCustomerMessageAt =
+    existingConversation?.last_customer_message_at ?? null;
+
   const conversation = await upsertConversation(admin, {
     waId,
     displayName: contact?.profile?.name ?? null,
@@ -115,6 +133,12 @@ async function handleInboundMessage(
     payload: message as unknown as Record<string, unknown>,
     status: "received",
     createdAt: messageAt,
+  });
+
+  await sendWelcomeAutoReply(admin, {
+    conversationId: conversation.id,
+    phone: existingConversation?.phone ?? waIdToPhone(waId),
+    previousLastCustomerMessageAt,
   });
 }
 

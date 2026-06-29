@@ -74,6 +74,11 @@ function MessageBubble({ message }: { message: WhatsAppMessage }) {
             Template: {message.template_name}
           </p>
         )}
+        {message.message_type === "auto_reply" && (
+          <p className={`mb-1 text-[10px] font-medium uppercase tracking-wide ${outbound ? "text-white/70" : "text-[#4B2C20]/50"}`}>
+            Auto-reply
+          </p>
+        )}
         <p className="whitespace-pre-wrap break-words">
           {message.body?.trim() ||
             (message.message_type === "template"

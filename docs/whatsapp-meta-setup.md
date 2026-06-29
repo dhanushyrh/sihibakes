@@ -45,6 +45,7 @@ Also useful later:
 - **Customer replies**: arrive via webhook → stored in `whatsapp_conversations` / `whatsapp_messages` → visible in Admin → WhatsApp.
 - **Free-form replies**: allowed only within 24 hours of the customer's last message.
 - **Business-initiated messages**: must use approved templates when outside the 24-hour window.
+- **Welcome auto-reply**: when a customer message opens (or re-opens) the 24-hour window, the app sends a one-time plain-text reply with your store link. Follow-up messages within the same window do not trigger another auto-reply. This is Meta-compliant because the customer just messaged you. Toggle with `WHATSAPP_AUTO_REPLY_ENABLED` (default `true`). Optional store URL override: `WHATSAPP_AUTO_REPLY_STORE_URL` (defaults to `https://sihibakes.in/orders`).
 
 ## 5. Approved templates
 
