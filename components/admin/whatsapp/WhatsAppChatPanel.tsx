@@ -12,7 +12,27 @@ import {
   Send,
 } from "lucide-react";
 import { WHATSAPP_ADMIN_TEMPLATE_OPTIONS, WHATSAPP_CONVERSATIONS_PAGE_SIZE } from "@/lib/constants";
+import { createClient } from "@/lib/supabase/client";
 import type { WhatsAppConversation, WhatsAppMessage } from "@/lib/types";
+
+const FALLBACK_REFRESH_MS = 60_000;
+
+function sortConversations(rows: WhatsAppConversation[]): WhatsAppConversation[] {
+  return [...rows].sort((a, b) => {
+    const aTime = a.last_message_at ? new Date(a.last_message_at).getTime() : 0;
+    const bTime = b.last_message_at ? new Date(b.last_message_at).getTime() : 0;
+    return bTime - aTime;
+  });
+}
+
+function mergeConversation(
+  prev: WhatsAppConversation[],
+  row: WhatsAppConversation
+): WhatsAppConversation[] {
+  const existing = prev.find((c) => c.id === row.id);
+  const merged = { ...existing, ...row, customer: existing?.customer ?? row.customer };
+  return sortConversations([merged, ...prev.filter((c) => c.id !== row.id)]);
+}
 
 type ConversationWithWindow = WhatsAppConversation & {
   serviceWindowOpen?: boolean;
@@ -92,70 +112,201 @@ export function WhatsAppChatPanel() {
   const [error, setError] = useState<string | null>(null);
   const [totalUnread, setTotalUnread] = useState(0);
   const threadEndRef = useRef<HTMLDivElement>(null);
+  const realtimeOkRef = useRef(false);
+  const selectedIdRef = useRef<string | null>(null);
+  selectedIdRef.current = selectedId;
 
   useEffect(() => {
     const timer = setTimeout(() => setSearchQuery(searchInput.trim()), 300);
     return () => clearTimeout(timer);
   }, [searchInput]);
 
-  const loadConversations = useCallback(async () => {
-    setLoadingList(true);
-    setError(null);
-    const params = new URLSearchParams();
-    params.set("pageSize", String(WHATSAPP_CONVERSATIONS_PAGE_SIZE));
-    if (searchQuery) params.set("q", searchQuery);
+  const loadConversations = useCallback(
+    async (options?: { silent?: boolean }) => {
+      if (!options?.silent) setLoadingList(true);
+      setError(null);
+      const params = new URLSearchParams();
+      params.set("pageSize", String(WHATSAPP_CONVERSATIONS_PAGE_SIZE));
+      if (searchQuery) params.set("q", searchQuery);
 
-    const res = await fetch(`/api/admin/whatsapp/conversations?${params}`);
-    const data = await res.json();
+      const res = await fetch(`/api/admin/whatsapp/conversations?${params}`);
+      const data = await res.json();
 
-    if (!res.ok) {
-      setError(data.error ?? "Failed to load conversations");
-      setConversations([]);
-    } else {
-      const rows = (data.conversations ?? []) as WhatsAppConversation[];
-      setConversations(rows);
-      setTotalUnread(rows.reduce((sum, c) => sum + (c.unread_count ?? 0), 0));
-      if (!selectedId && rows[0]) setSelectedId(rows[0].id);
-    }
-    setLoadingList(false);
-  }, [searchQuery, selectedId]);
+      if (!res.ok) {
+        setError(data.error ?? "Failed to load conversations");
+        setConversations([]);
+      } else {
+        const rows = (data.conversations ?? []) as WhatsAppConversation[];
+        setConversations(rows);
+        if (!selectedIdRef.current && rows[0]) setSelectedId(rows[0].id);
+      }
+      if (!options?.silent) setLoadingList(false);
+    },
+    [searchQuery]
+  );
 
-  const loadThread = useCallback(async (conversationId: string) => {
-    setLoadingThread(true);
-    setError(null);
-    const res = await fetch(
-      `/api/admin/whatsapp/conversations/${conversationId}/messages`
-    );
-    const data = await res.json();
-
-    if (!res.ok) {
-      setError(data.error ?? "Failed to load messages");
-      setMessages([]);
-      setActiveConversation(null);
-    } else {
-      setActiveConversation(data.conversation as ConversationWithWindow);
-      setMessages((data.messages ?? []) as WhatsAppMessage[]);
-      setConversations((prev) =>
-        prev.map((c) =>
-          c.id === conversationId ? { ...c, unread_count: 0 } : c
-        )
+  const loadThread = useCallback(
+    async (
+      conversationId: string,
+      options?: { markRead?: boolean; silent?: boolean }
+    ) => {
+      const markRead = options?.markRead !== false;
+      if (!options?.silent) setLoadingThread(true);
+      setError(null);
+      const query = markRead ? "" : "?markRead=0";
+      const res = await fetch(
+        `/api/admin/whatsapp/conversations/${conversationId}/messages${query}`
       );
-    }
-    setLoadingThread(false);
-  }, []);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error ?? "Failed to load messages");
+        setMessages([]);
+        setActiveConversation(null);
+      } else {
+        setActiveConversation(data.conversation as ConversationWithWindow);
+        setMessages((data.messages ?? []) as WhatsAppMessage[]);
+        if (markRead) {
+          setConversations((prev) =>
+            prev.map((c) =>
+              c.id === conversationId ? { ...c, unread_count: 0 } : c
+            )
+          );
+        }
+      }
+      if (!options?.silent) setLoadingThread(false);
+    },
+    []
+  );
+
+  useEffect(() => {
+    setTotalUnread(
+      conversations.reduce((sum, c) => sum + (c.unread_count ?? 0), 0)
+    );
+  }, [conversations]);
 
   useEffect(() => {
     void loadConversations();
-    const interval = setInterval(() => void loadConversations(), 15000);
-    return () => clearInterval(interval);
   }, [loadConversations]);
 
   useEffect(() => {
     if (!selectedId) return;
-    void loadThread(selectedId);
-    const interval = setInterval(() => void loadThread(selectedId), 10000);
-    return () => clearInterval(interval);
+    void loadThread(selectedId, { markRead: true });
   }, [selectedId, loadThread]);
+
+  useEffect(() => {
+    const supabase = createClient();
+
+    const convChannel = supabase
+      .channel("whatsapp-chat-conversations")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "whatsapp_conversations" },
+        (payload) => {
+          if (payload.eventType === "DELETE" && payload.old) {
+            const old = payload.old as WhatsAppConversation;
+            setConversations((prev) => prev.filter((c) => c.id !== old.id));
+            return;
+          }
+          if (payload.new) {
+            const row = payload.new as WhatsAppConversation;
+            setConversations((prev) => mergeConversation(prev, row));
+            if (row.id === selectedIdRef.current) {
+              setActiveConversation((prev) =>
+                prev ? { ...prev, ...row } : prev
+              );
+            }
+          }
+        }
+      )
+      .subscribe((status) => {
+        realtimeOkRef.current = status === "SUBSCRIBED";
+      });
+
+    const fallback = setInterval(() => {
+      if (!realtimeOkRef.current) {
+        void loadConversations({ silent: true });
+        if (selectedIdRef.current) {
+          void loadThread(selectedIdRef.current, {
+            markRead: false,
+            silent: true,
+          });
+        }
+      }
+    }, FALLBACK_REFRESH_MS);
+
+    return () => {
+      clearInterval(fallback);
+      void supabase.removeChannel(convChannel);
+    };
+  }, [loadConversations, loadThread]);
+
+  useEffect(() => {
+    if (!selectedId) return;
+
+    const supabase = createClient();
+
+    const markReadIfViewing = async () => {
+      await fetch(`/api/admin/whatsapp/conversations/${selectedId}/read`, {
+        method: "POST",
+      });
+    };
+
+    const msgChannel = supabase
+      .channel(`whatsapp-chat-messages-${selectedId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "whatsapp_messages",
+          filter: `conversation_id=eq.${selectedId}`,
+        },
+        async (payload) => {
+          const msg = payload.new as WhatsAppMessage;
+          setMessages((prev) => {
+            if (
+              prev.some(
+                (m) =>
+                  m.id === msg.id ||
+                  (msg.wa_message_id && m.wa_message_id === msg.wa_message_id)
+              )
+            ) {
+              return prev;
+            }
+            return [...prev, msg];
+          });
+          if (msg.direction === "inbound") {
+            await markReadIfViewing();
+            setConversations((prev) =>
+              prev.map((c) =>
+                c.id === selectedId ? { ...c, unread_count: 0 } : c
+              )
+            );
+          }
+        }
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "whatsapp_messages",
+          filter: `conversation_id=eq.${selectedId}`,
+        },
+        (payload) => {
+          const msg = payload.new as WhatsAppMessage;
+          setMessages((prev) =>
+            prev.map((m) => (m.id === msg.id ? { ...m, ...msg } : m))
+          );
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(msgChannel);
+    };
+  }, [selectedId]);
 
   useEffect(() => {
     threadEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -182,8 +333,7 @@ export function WhatsAppChatPanel() {
     }
 
     setDraft("");
-    await loadThread(selectedId);
-    await loadConversations();
+    await loadThread(selectedId, { markRead: false, silent: true });
   };
 
   const sendTemplate = async () => {
@@ -206,8 +356,7 @@ export function WhatsAppChatPanel() {
       return;
     }
 
-    await loadThread(selectedId);
-    await loadConversations();
+    await loadThread(selectedId, { markRead: false, silent: true });
   };
 
   const serviceWindowOpen = activeConversation?.serviceWindowOpen ?? false;
@@ -241,7 +390,9 @@ export function WhatsAppChatPanel() {
           type="button"
           onClick={() => {
             void loadConversations();
-            if (selectedId) void loadThread(selectedId);
+            if (selectedId) {
+              void loadThread(selectedId, { markRead: false });
+            }
           }}
           className="flex items-center gap-1.5 rounded-xl bg-white px-3 py-2 text-sm text-[#4B2C20] ring-1 ring-[#4B2C20]/10 hover:bg-[#F5E6D3]/40"
         >

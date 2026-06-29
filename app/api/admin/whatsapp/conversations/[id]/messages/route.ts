@@ -36,9 +36,12 @@ export async function GET(request: Request, context: RouteContext) {
         WHATSAPP_MESSAGES_PAGE_SIZE
     )
   );
+  const markRead = url.searchParams.get("markRead") !== "0";
 
   const messages = await getConversationMessages(admin, id, limit);
-  await markConversationRead(admin, id);
+  if (markRead) {
+    await markConversationRead(admin, id);
+  }
 
   return NextResponse.json({
     conversation: {

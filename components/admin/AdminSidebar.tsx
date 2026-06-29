@@ -23,6 +23,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { useWhatsAppUnreadCount } from "@/lib/hooks/useWhatsAppUnreadCount";
 
 const NAV = [
   { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
@@ -44,6 +45,7 @@ export function AdminSidebar() {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  const { unreadCount: whatsappUnread } = useWhatsAppUnreadCount();
 
   const logout = async () => {
     const supabase = createClient();
@@ -74,7 +76,12 @@ export function AdminSidebar() {
               }`}
             >
               <Icon size={18} />
-              {label}
+              <span className="flex-1">{label}</span>
+              {href === "/admin/whatsapp" && whatsappUnread > 0 && (
+                <span className="rounded-full bg-green-500 px-2 py-0.5 text-[10px] font-semibold text-white">
+                  {whatsappUnread > 99 ? "99+" : whatsappUnread}
+                </span>
+              )}
             </Link>
           );
         })}
