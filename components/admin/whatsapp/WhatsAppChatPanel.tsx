@@ -12,6 +12,8 @@ import {
   Send,
 } from "lucide-react";
 import { WHATSAPP_ADMIN_TEMPLATE_OPTIONS, WHATSAPP_CONVERSATIONS_PAGE_SIZE } from "@/lib/constants";
+import { Skeleton } from "@/components/admin/ui/Skeleton";
+import { Spinner } from "@/components/admin/ui/Spinner";
 import { createClient } from "@/lib/supabase/client";
 import type { WhatsAppConversation, WhatsAppMessage } from "@/lib/types";
 
@@ -93,6 +95,36 @@ function MessageBubble({ message }: { message: WhatsAppMessage }) {
           <span>{format(new Date(message.created_at), "MMM d, h:mm a")}</span>
           {outbound && <span>{message.status}</span>}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ConversationListSkeleton() {
+  return (
+    <div className="space-y-0 p-2" aria-busy aria-label="Loading conversations">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="border-b border-[#4B2C20]/5 px-2 py-3">
+          <Skeleton className="h-4 w-32" />
+          <Skeleton className="mt-2 h-3 w-24" />
+          <Skeleton className="mt-2 h-3 w-full" />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function MessageThreadSkeleton() {
+  return (
+    <div className="space-y-3 p-2" aria-busy aria-label="Loading messages">
+      <div className="flex justify-start">
+        <Skeleton className="h-16 w-48 rounded-2xl" />
+      </div>
+      <div className="flex justify-end">
+        <Skeleton className="h-12 w-56 rounded-2xl" />
+      </div>
+      <div className="flex justify-start">
+        <Skeleton className="h-10 w-40 rounded-2xl" />
       </div>
     </div>
   );
@@ -429,7 +461,7 @@ export function WhatsAppChatPanel() {
           </div>
           <div className="max-h-[70vh] overflow-y-auto">
             {loadingList ? (
-              <p className="p-6 text-center text-sm text-[#4B2C20]/50">Loading...</p>
+              <ConversationListSkeleton />
             ) : conversations.length === 0 ? (
               <p className="p-6 text-center text-sm text-[#4B2C20]/50">
                 No conversations yet. Messages appear here when customers reply on WhatsApp.
@@ -514,13 +546,13 @@ export function WhatsAppChatPanel() {
                     </div>
                   </div>
                 ) : (
-                  <p className="text-sm text-[#4B2C20]/50">Loading conversation...</p>
+                  <Skeleton className="h-10 w-48" />
                 )}
               </div>
 
               <div className="flex-1 space-y-3 overflow-y-auto p-4">
                 {loadingThread ? (
-                  <p className="text-center text-sm text-[#4B2C20]/50">Loading messages...</p>
+                  <MessageThreadSkeleton />
                 ) : messages.length === 0 ? (
                   <p className="text-center text-sm text-[#4B2C20]/50">
                     No messages in this thread yet.
@@ -555,7 +587,7 @@ export function WhatsAppChatPanel() {
                       disabled={sending || !draft.trim()}
                       className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#4B2C20] text-white disabled:opacity-50"
                     >
-                      <Send size={18} />
+                      {sending ? <Spinner size="sm" className="!text-white" /> : <Send size={18} />}
                     </button>
                   </div>
                 ) : (
@@ -579,9 +611,10 @@ export function WhatsAppChatPanel() {
                         type="button"
                         onClick={() => void sendTemplate()}
                         disabled={sendingTemplate}
-                        className="rounded-xl bg-[#4B2C20] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl bg-[#4B2C20] px-4 py-2.5 text-sm font-medium text-white disabled:opacity-50"
                       >
-                        {sendingTemplate ? "Sending..." : "Send template"}
+                        {sendingTemplate && <Spinner size="sm" className="!text-white" />}
+                        {sendingTemplate ? "Sending…" : "Send template"}
                       </button>
                     </div>
                   </div>

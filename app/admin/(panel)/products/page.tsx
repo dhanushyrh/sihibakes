@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Product } from "@/lib/types";
 import { formatCurrency } from "@/lib/delivery";
 import { AvailabilitySwitch } from "@/components/admin/AvailabilitySwitch";
+import { ProductGridSkeleton } from "@/components/admin/ui/AdminPageSkeleton";
 import { Plus, Pencil, Trash2, Package } from "lucide-react";
 
 type ActiveFilter = "all" | "active" | "inactive";
@@ -100,7 +101,9 @@ export default function AdminProductsPage() {
       </div>
 
       {loading ? (
-        <p className="mt-12 text-center text-sm text-[#4B2C20]/50">Loading...</p>
+        <div className="mt-6">
+          <ProductGridSkeleton count={6} />
+        </div>
       ) : products.length === 0 ? (
         <div className="mt-12 rounded-2xl bg-white p-12 text-center ring-1 ring-[#4B2C20]/10">
           <Package className="mx-auto text-[#4B2C20]/30" size={40} />

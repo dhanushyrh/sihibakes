@@ -6,6 +6,7 @@ import { ENQUIRIES_PAGE_SIZE, ENQUIRY_STATUS_OPTIONS, ENQUIRY_TYPE_OPTIONS } fro
 import type { ContactEnquiry, EnquiryStatus, EnquiryType } from "@/lib/types";
 import { EnquiriesTable } from "@/components/admin/enquiries/EnquiriesTable";
 import { Pagination } from "@/components/admin/orders/Pagination";
+import { TableSkeleton } from "@/components/admin/ui/TableSkeleton";
 import { ArrowLeft, MessageSquare, Search } from "lucide-react";
 
 type TypeFilter = EnquiryType | "all";
@@ -191,8 +192,8 @@ export default function AdminEnquiriesPage() {
       )}
 
       {loading ? (
-        <div className="mt-6 rounded-2xl bg-white p-12 text-center ring-1 ring-[#4B2C20]/10">
-          <p className="text-sm text-[#4B2C20]/50">Loading enquiries...</p>
+        <div className="mt-6">
+          <TableSkeleton rows={8} columns={5} />
         </div>
       ) : (
         <EnquiriesTable enquiries={enquiries} />

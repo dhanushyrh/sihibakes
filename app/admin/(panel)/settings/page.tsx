@@ -6,6 +6,8 @@ import type { ShopSettings, DeliveryFeeSlab, DeliveryVendor } from "@/lib/types"
 import { normalizeClosedDates } from "@/lib/shop-closed-days";
 import { format } from "date-fns";
 import { Eye, Pencil, Save } from "lucide-react";
+import { AdminPageSkeleton } from "@/components/admin/ui/AdminPageSkeleton";
+import { Spinner } from "@/components/admin/ui/Spinner";
 import { KitchenLocationMap } from "@/components/admin/settings/KitchenLocationMap";
 import {
   DEFAULT_DELIVERY_FENCE,
@@ -102,8 +104,8 @@ function SectionActions({
           onClick={onSave}
           className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#4B2C20] py-2.5 text-sm font-medium text-white disabled:opacity-50"
         >
-          <Save size={15} />
-          {saving ? "Saving..." : "Save"}
+          {saving ? <Spinner size="sm" /> : <Save size={15} />}
+          {saving ? "Saving…" : "Save"}
         </button>
       </div>
     </div>
@@ -344,7 +346,7 @@ export default function AdminSettingsPage() {
   };
 
   if (!settings) {
-    return <p className="text-sm text-[#4B2C20]/50">Loading settings...</p>;
+    return <AdminPageSkeleton variant="form" />;
   }
 
   const editingStore = editingSection === "store";

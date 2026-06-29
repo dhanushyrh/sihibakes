@@ -4,6 +4,7 @@ import type { Coupon } from "@/lib/types";
 import { COUPON_TYPE_OPTIONS } from "@/lib/constants";
 import { format, parseISO, isAfter, isBefore } from "date-fns";
 import { Pencil, Ticket, Trash2 } from "lucide-react";
+import { Spinner } from "@/components/admin/ui/Spinner";
 
 function typeLabel(type: Coupon["type"]) {
   return COUPON_TYPE_OPTIONS.find((t) => t.key === type)?.label ?? type;
@@ -28,11 +29,12 @@ function validityStatus(coupon: Coupon) {
 
 type CouponCardProps = {
   coupon: Coupon;
+  deleting?: boolean;
   onEdit: () => void;
   onDelete: () => void;
 };
 
-export function CouponCard({ coupon, onEdit, onDelete }: CouponCardProps) {
+export function CouponCard({ coupon, deleting = false, onEdit, onDelete }: CouponCardProps) {
   const validity = validityStatus(coupon);
 
   return (
@@ -122,9 +124,10 @@ export function CouponCard({ coupon, onEdit, onDelete }: CouponCardProps) {
           <button
             type="button"
             onClick={onDelete}
-            className="flex items-center justify-center rounded-full px-3 py-2 text-red-500 hover:bg-red-50"
+            disabled={deleting}
+            className="flex items-center justify-center rounded-full px-3 py-2 text-red-500 hover:bg-red-50 disabled:opacity-50"
           >
-            <Trash2 size={14} />
+            {deleting ? <Spinner size="sm" /> : <Trash2 size={14} />}
           </button>
         </div>
       </div>

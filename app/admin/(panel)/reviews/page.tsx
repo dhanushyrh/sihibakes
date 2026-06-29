@@ -6,6 +6,7 @@ import { createClient } from "@/lib/supabase/client";
 import { getTodayDate } from "@/lib/inventory";
 import { reviewImageSrc } from "@/lib/reviews";
 import type { CustomerReview } from "@/lib/types";
+import { ListSkeleton } from "@/components/admin/ui/AdminPageSkeleton";
 import { ImagePlus, Loader2, Plus, Star, X } from "lucide-react";
 
 const emptyReview = (sortOrder: number): Partial<CustomerReview> => ({
@@ -181,7 +182,9 @@ export default function AdminReviewsPage() {
       </div>
 
       {loading ? (
-        <p className="mt-8 text-sm text-[#4B2C20]/50">Loading reviews…</p>
+        <div className="mt-6">
+          <ListSkeleton count={5} />
+        </div>
       ) : reviews.length === 0 ? (
         <p className="mt-8 text-sm text-[#4B2C20]/50">
           No reviews yet. Add your first customer story.

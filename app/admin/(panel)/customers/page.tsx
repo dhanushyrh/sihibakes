@@ -5,6 +5,7 @@ import { CUSTOMERS_PAGE_SIZE } from "@/lib/constants";
 import type { CustomerWithStats } from "@/lib/admin-customers-query";
 import { CustomersTable } from "@/components/admin/customers/CustomersTable";
 import { CustomerOrdersModal } from "@/components/admin/customers/CustomerOrdersModal";
+import { TableSkeleton } from "@/components/admin/ui/TableSkeleton";
 import { Pagination } from "@/components/admin/orders/Pagination";
 import { Search, Users } from "lucide-react";
 
@@ -95,7 +96,9 @@ export default function AdminCustomersPage() {
       )}
 
       {loading ? (
-        <p className="mt-12 text-center text-sm text-[#4B2C20]/50">Loading…</p>
+        <div className="mt-6">
+          <TableSkeleton rows={8} columns={5} />
+        </div>
       ) : customers.length === 0 ? (
         <div className="mt-12 rounded-2xl bg-white p-12 text-center ring-1 ring-[#4B2C20]/10">
           <Users className="mx-auto text-[#4B2C20]/30" size={40} />

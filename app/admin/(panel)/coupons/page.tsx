@@ -5,6 +5,8 @@ import { createClient } from "@/lib/supabase/client";
 import type { Coupon, CouponType } from "@/lib/types";
 import { COUPON_TYPE_OPTIONS } from "@/lib/constants";
 import { CouponCard } from "@/components/admin/coupons/CouponCard";
+import { CardGridSkeleton } from "@/components/admin/ui/AdminPageSkeleton";
+import { Spinner } from "@/components/admin/ui/Spinner";
 import { Plus, Ticket } from "lucide-react";
 
 type ActiveFilter = "all" | "active" | "inactive";
@@ -15,6 +17,8 @@ export default function AdminCouponsPage() {
   const [filter, setFilter] = useState<ActiveFilter>("all");
   const [editing, setEditing] = useState<Partial<Coupon> | null>(null);
   const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const supabase = createClient();
 
   const load = async () => {
@@ -39,7 +43,8 @@ export default function AdminCouponsPage() {
   }, [coupons, filter]);
 
   const save = async () => {
-    if (!editing?.code) return;
+    if (!editing?.code || saving) return;
+    setSaving(true);
     const payload = {
       code: editing.code.toUpperCase(),
       type: editing.type ?? "fixed_subtotal",
@@ -57,13 +62,16 @@ export default function AdminCouponsPage() {
     }
     setShowForm(false);
     setEditing(null);
-    load();
+    await load();
+    setSaving(false);
   };
 
   const remove = async (id: string) => {
-    if (!confirm("Delete coupon?")) return;
+    if (!confirm("Delete coupon?") || deletingId) return;
+    setDeletingId(id);
     await supabase.from("coupons").delete().eq("id", id);
-    load();
+    await load();
+    setDeletingId(null);
   };
 
   const filters: { key: ActiveFilter; label: string }[] = [
@@ -115,7 +123,9 @@ export default function AdminCouponsPage() {
       </div>
 
       {loading ? (
-        <p className="mt-12 text-center text-sm text-[#4B2C20]/50">Loading…</p>
+        <div className="mt-6">
+          <CardGridSkeleton count={6} />
+        </div>
       ) : coupons.length === 0 ? (
         <div className="mt-12 rounded-2xl bg-white p-12 text-center ring-1 ring-[#4B2C20]/10">
           <Ticket className="mx-auto text-[#4B2C20]/30" size={40} />
@@ -144,6 +154,7 @@ export default function AdminCouponsPage() {
             <CouponCard
               key={coupon.id}
               coupon={coupon}
+              deleting={deletingId === coupon.id}
               onEdit={() => {
                 setEditing(coupon);
                 setShowForm(true);
@@ -244,9 +255,11 @@ export default function AdminCouponsPage() {
               <button
                 type="button"
                 onClick={save}
-                className="flex-1 rounded-full bg-[#4B2C20] py-2.5 text-sm text-white"
+                disabled={saving}
+                className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#4B2C20] py-2.5 text-sm text-white disabled:opacity-50"
               >
-                Save
+                {saving && <Spinner size="sm" />}
+                {saving ? "Saving…" : "Save"}
               </button>
             </div>
           </div>

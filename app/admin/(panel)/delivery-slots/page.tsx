@@ -14,6 +14,7 @@ import {
 } from "@/lib/calendar-week";
 import { StockCalendar } from "@/components/admin/calendar/StockCalendar";
 import { DayViewDrawer } from "@/components/admin/calendar/DayViewDrawer";
+import { Skeleton } from "@/components/admin/ui/Skeleton";
 import { Calendar, CalendarPlus } from "lucide-react";
 
 export default function AdminDeliverySlotsPage() {
@@ -24,6 +25,7 @@ export default function AdminDeliverySlotsPage() {
   const [orderCounts, setOrderCounts] = useState<Record<string, number>>({});
   const [settings, setSettings] = useState<ShopSettings | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [generating, setGenerating] = useState(false);
   const [saving, setSaving] = useState(false);
   const [togglingSlotId, setTogglingSlotId] = useState<string | null>(null);
@@ -35,6 +37,7 @@ export default function AdminDeliverySlotsPage() {
   const rangeEnd = weekDates[weekDates.length - 1];
 
   const load = useCallback(async () => {
+    setLoading(true);
     const [{ data: slotData }, { data: productData }, { data: availData }, { data: countData }, { data: settingsData }] =
       await Promise.all([
         supabase
@@ -89,6 +92,7 @@ export default function AdminDeliverySlotsPage() {
       }
       return next;
     });
+    setLoading(false);
   }, [rangeStart, rangeEnd, supabase, weekDates]);
 
   useEffect(() => {
@@ -367,18 +371,22 @@ export default function AdminDeliverySlotsPage() {
         </div>
       </div>
 
-      <StockCalendar
-        weekOffset={weekOffset}
-        maxWeekOffset={MAX_WEEK_OFFSET}
-        onWeekChange={setWeekOffset}
-        slots={slots}
-        products={products}
-        quantities={quantities}
-        orderCounts={orderCounts}
-        closedDates={settings?.closed_dates ?? []}
-        selectedDate={selectedDate}
-        onSelectDate={setSelectedDate}
-      />
+      {loading ? (
+        <Skeleton className="h-[420px] w-full rounded-2xl" />
+      ) : (
+        <StockCalendar
+          weekOffset={weekOffset}
+          maxWeekOffset={MAX_WEEK_OFFSET}
+          onWeekChange={setWeekOffset}
+          slots={slots}
+          products={products}
+          quantities={quantities}
+          orderCounts={orderCounts}
+          closedDates={settings?.closed_dates ?? []}
+          selectedDate={selectedDate}
+          onSelectDate={setSelectedDate}
+        />
+      )}
 
       <DayViewDrawer
         date={selectedDate}

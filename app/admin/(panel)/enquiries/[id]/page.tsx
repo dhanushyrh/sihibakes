@@ -9,6 +9,8 @@ import { enquiryShortId } from "@/lib/enquiries";
 import { ENQUIRY_STATUS_OPTIONS } from "@/lib/constants";
 import type { ContactEnquiry, EnquiryStatus } from "@/lib/types";
 import { whatsappHref } from "@/lib/storefront";
+import { AdminPageSkeleton } from "@/components/admin/ui/AdminPageSkeleton";
+import { Spinner } from "@/components/admin/ui/Spinner";
 
 export default function AdminEnquiryDetailPage() {
   const params = useParams();
@@ -77,8 +79,8 @@ export default function AdminEnquiryDetailPage() {
 
   if (loading) {
     return (
-      <div className="p-8">
-        <p className="text-sm text-[#4B2C20]/50">Loading enquiry...</p>
+      <div className="p-4 md:p-8">
+        <AdminPageSkeleton variant="form" />
       </div>
     );
   }
@@ -213,9 +215,10 @@ export default function AdminEnquiryDetailPage() {
               type="button"
               disabled={saving}
               onClick={() => void save({ admin_notes: adminNotes })}
-              className="mt-3 w-full rounded-full bg-[#4B2C20] py-2.5 text-sm font-medium text-white disabled:opacity-50"
+              className="mt-3 flex w-full items-center justify-center gap-2 rounded-full bg-[#4B2C20] py-2.5 text-sm font-medium text-white disabled:opacity-50"
             >
-              {saving ? "Saving..." : "Save notes"}
+              {saving && <Spinner size="sm" className="text-white" />}
+              {saving ? "Saving…" : "Save notes"}
             </button>
           </section>
 

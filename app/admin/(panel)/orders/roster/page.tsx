@@ -8,6 +8,7 @@ import { formatDeliveryWindow } from "@/lib/order-roster";
 import type { RosterGroupMode } from "@/lib/order-roster";
 import { addDays, format, parseISO } from "date-fns";
 import { ArrowLeft, ClipboardList, Download, Loader2 } from "lucide-react";
+import { ListSkeleton } from "@/components/admin/ui/AdminPageSkeleton";
 
 type SlotSummary = {
   window: string;
@@ -283,7 +284,9 @@ export default function OrderRosterPage() {
         </div>
 
         {loading ? (
-          <p className="mt-4 text-sm text-[#4B2C20]/50">Loading preview…</p>
+          <div className="mt-4">
+            <ListSkeleton count={4} />
+          </div>
         ) : orderCount === 0 ? (
           <p className="mt-4 text-sm text-[#4B2C20]/50">
             No paid orders scheduled for this{" "}
