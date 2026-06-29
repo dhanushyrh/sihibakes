@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { DeliverySlot, Product, ShopSettings } from "@/lib/types";
 import { DEFAULT_DAILY_QUANTITY } from "@/lib/inventory";
@@ -30,9 +30,9 @@ export default function AdminDeliverySlotsPage() {
   const [saving, setSaving] = useState(false);
   const [togglingSlotId, setTogglingSlotId] = useState<string | null>(null);
   const [closingDay, setClosingDay] = useState(false);
-  const supabase = createClient();
+  const [supabase] = useState(() => createClient());
 
-  const weekDates = getWeekDates(weekOffset);
+  const weekDates = useMemo(() => getWeekDates(weekOffset), [weekOffset]);
   const rangeStart = weekDates[0];
   const rangeEnd = weekDates[weekDates.length - 1];
 
