@@ -12,6 +12,7 @@ import {
   Send,
 } from "lucide-react";
 import { WHATSAPP_ADMIN_TEMPLATE_OPTIONS, WHATSAPP_CONVERSATIONS_PAGE_SIZE } from "@/lib/constants";
+import { setViewingWhatsAppConversationId } from "@/lib/admin-notifications";
 import { Skeleton } from "@/components/admin/ui/Skeleton";
 import { Spinner } from "@/components/admin/ui/Spinner";
 import { createClient } from "@/lib/supabase/client";
@@ -175,7 +176,6 @@ export function WhatsAppChatPanel() {
       } else {
         const rows = (data.conversations ?? []) as WhatsAppConversation[];
         setConversations(rows);
-        if (!selectedIdRef.current && rows[0]) setSelectedId(rows[0].id);
       }
       if (!options?.silent) setLoadingList(false);
     },
@@ -227,9 +227,17 @@ export function WhatsAppChatPanel() {
   }, [loadConversations]);
 
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId) {
+      setViewingWhatsAppConversationId(null);
+      return;
+    }
+    setViewingWhatsAppConversationId(selectedId);
     void loadThread(selectedId, { markRead: true });
   }, [selectedId, loadThread]);
+
+  useEffect(() => {
+    return () => setViewingWhatsAppConversationId(null);
+  }, []);
 
   useEffect(() => {
     const supabase = createClient();
@@ -314,12 +322,18 @@ export function WhatsAppChatPanel() {
             return [...prev, msg];
           });
           if (msg.direction === "inbound") {
-            await markReadIfViewing();
-            setConversations((prev) =>
-              prev.map((c) =>
-                c.id === selectedId ? { ...c, unread_count: 0 } : c
-              )
-            );
+            const shouldMarkRead =
+              document.visibilityState === "visible" &&
+              document.hasFocus() &&
+              selectedIdRef.current === selectedId;
+            if (shouldMarkRead) {
+              await markReadIfViewing();
+              setConversations((prev) =>
+                prev.map((c) =>
+                  c.id === selectedId ? { ...c, unread_count: 0 } : c
+                )
+              );
+            }
           }
         }
       )

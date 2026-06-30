@@ -5,7 +5,7 @@ import "./globals.css";
 import { CartProvider } from "@/components/store/CartProvider";
 import { DeliverySessionProvider } from "@/components/store/DeliverySessionProvider";
 import { ScrollToTop } from "@/components/store/ScrollToTop";
-import { BRAND } from "@/lib/constants";
+import { siteMetadata } from "@/lib/site-metadata";
 
 export const dynamic = "force-dynamic";
 export const dynamicParams = true;
@@ -30,12 +30,7 @@ const script = Great_Vibes({
   weight: ["400"],
 });
 
-export const metadata: Metadata = {
-  title: `${BRAND.name} — ${BRAND.tagline}`,
-  description:
-    "Handcrafted desserts and bakes delivered to your door. Order our signature Classic Tiramisu and more.",
-  icons: { icon: "/logo.png", apple: "/logo.png" },
-};
+export const metadata: Metadata = siteMetadata;
 
 export default function RootLayout({
   children,

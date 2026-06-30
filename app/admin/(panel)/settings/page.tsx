@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { ShopSettings, DeliveryFeeSlab, DeliveryVendor } from "@/lib/types";
 import { normalizeClosedDates } from "@/lib/shop-closed-days";
 import { format } from "date-fns";
-import { Eye, Pencil, Save } from "lucide-react";
+import { Eye, EyeOff, Pencil, Save } from "lucide-react";
 import { AdminPageSkeleton } from "@/components/admin/ui/AdminPageSkeleton";
 import { Spinner } from "@/components/admin/ui/Spinner";
 import { KitchenLocationMap } from "@/components/admin/settings/KitchenLocationMap";
@@ -18,7 +18,7 @@ import {
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
 import { formatDisplayPhone, normalizePhone } from "@/lib/storefront";
 
-type SettingsSectionId = "store" | "shop" | "closed" | "slabs";
+type SettingsSectionId = "store" | "shop" | "closed" | "slabs" | "account";
 
 function ViewField({
   label,
@@ -137,6 +137,16 @@ export default function AdminSettingsPage() {
   );
   const [closedDateBusy, setClosedDateBusy] = useState(false);
   const [sectionError, setSectionError] = useState<string | null>(null);
+  const [accountEmail, setAccountEmail] = useState("");
+  const [passwordDraft, setPasswordDraft] = useState({
+    current: "",
+    next: "",
+    confirm: "",
+  });
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const supabase = createClient();
 
   const load = useCallback(async () => {
@@ -176,6 +186,12 @@ export default function AdminSettingsPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    void supabase.auth.getUser().then(({ data }) => {
+      setAccountEmail(data.user?.email ?? "");
+    });
+  }, [supabase]);
 
   const cancelSection = () => {
     setEditingSection(null);
@@ -217,6 +233,68 @@ export default function AdminSettingsPage() {
     setSectionError(null);
     setSlabsDraft(slabs.map((s) => ({ ...s })));
     setEditingSection("slabs");
+  };
+
+  const startAccountEdit = () => {
+    setSectionError(null);
+    setPasswordSuccess(null);
+    setPasswordDraft({ current: "", next: "", confirm: "" });
+    setShowCurrentPassword(false);
+    setShowNewPassword(false);
+    setShowConfirmPassword(false);
+    setEditingSection("account");
+  };
+
+  const savePassword = async () => {
+    setSavingSection("account");
+    setSectionError(null);
+    setPasswordSuccess(null);
+
+    const { current, next, confirm } = passwordDraft;
+
+    if (next.length < 8) {
+      setSectionError("New password must be at least 8 characters.");
+      setSavingSection(null);
+      return;
+    }
+
+    if (next !== confirm) {
+      setSectionError("New password and confirmation do not match.");
+      setSavingSection(null);
+      return;
+    }
+
+    const { data: userData, error: userError } = await supabase.auth.getUser();
+    const email = userData.user?.email;
+    if (userError || !email) {
+      setSectionError(userError?.message ?? "Could not verify your account.");
+      setSavingSection(null);
+      return;
+    }
+
+    const { error: verifyError } = await supabase.auth.signInWithPassword({
+      email,
+      password: current,
+    });
+    if (verifyError) {
+      setSectionError("Current password is incorrect.");
+      setSavingSection(null);
+      return;
+    }
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: next,
+    });
+    setSavingSection(null);
+
+    if (updateError) {
+      setSectionError(updateError.message);
+      return;
+    }
+
+    setPasswordDraft({ current: "", next: "", confirm: "" });
+    setPasswordSuccess("Password updated successfully.");
+    setEditingSection(null);
   };
 
   const saveStoreDetails = async () => {
@@ -353,6 +431,7 @@ export default function AdminSettingsPage() {
   const editingShop = editingSection === "shop";
   const editingClosed = editingSection === "closed";
   const editingSlabs = editingSection === "slabs";
+  const editingAccount = editingSection === "account";
 
   return (
     <div>
@@ -362,6 +441,125 @@ export default function AdminSettingsPage() {
       <p className="mt-1 text-sm text-[#4B2C20]/60">
         Tap the pencil on a section to edit it.
       </p>
+
+      {/* Account */}
+      <section className="mt-6 rounded-2xl bg-white p-5 ring-1 ring-[#4B2C20]/10">
+        <SectionHeader
+          title="Account"
+          description="Change your admin login password."
+          isEditing={editingAccount}
+          onEdit={startAccountEdit}
+          onCancelEdit={cancelSection}
+        />
+        {passwordSuccess && !editingAccount && (
+          <p className="mt-3 rounded-lg bg-green-50 px-3 py-2 text-xs text-green-700 ring-1 ring-green-200">
+            {passwordSuccess}
+          </p>
+        )}
+        {editingAccount ? (
+          <>
+            <div className="mt-4 grid gap-3">
+              <ViewField label="Email" value={accountEmail} />
+              <div>
+                <label className="text-xs text-[#4B2C20]/60">Current password</label>
+                <div className="relative mt-1">
+                  <input
+                    type={showCurrentPassword ? "text" : "password"}
+                    value={passwordDraft.current}
+                    onChange={(e) =>
+                      setPasswordDraft({
+                        ...passwordDraft,
+                        current: e.target.value,
+                      })
+                    }
+                    className="w-full rounded-xl border px-3 py-2.5 pr-10 text-sm"
+                    autoComplete="current-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCurrentPassword((prev) => !prev)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#4B2C20]/45 hover:bg-[#F5E6D3]/60 hover:text-[#4B2C20]"
+                    aria-label={
+                      showCurrentPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showCurrentPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+              <div>
+                <label className="text-xs text-[#4B2C20]/60">New password</label>
+                <div className="relative mt-1">
+                  <input
+                    type={showNewPassword ? "text" : "password"}
+                    value={passwordDraft.next}
+                    onChange={(e) =>
+                      setPasswordDraft({
+                        ...passwordDraft,
+                        next: e.target.value,
+                      })
+                    }
+                    className="w-full rounded-xl border px-3 py-2.5 pr-10 text-sm"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowNewPassword((prev) => !prev)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#4B2C20]/45 hover:bg-[#F5E6D3]/60 hover:text-[#4B2C20]"
+                    aria-label={
+                      showNewPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showNewPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+                <p className="mt-1 text-[10px] text-[#4B2C20]/45">
+                  At least 8 characters.
+                </p>
+              </div>
+              <div>
+                <label className="text-xs text-[#4B2C20]/60">
+                  Confirm new password
+                </label>
+                <div className="relative mt-1">
+                  <input
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={passwordDraft.confirm}
+                    onChange={(e) =>
+                      setPasswordDraft({
+                        ...passwordDraft,
+                        confirm: e.target.value,
+                      })
+                    }
+                    className="w-full rounded-xl border px-3 py-2.5 pr-10 text-sm"
+                    autoComplete="new-password"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword((prev) => !prev)}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded-lg p-1.5 text-[#4B2C20]/45 hover:bg-[#F5E6D3]/60 hover:text-[#4B2C20]"
+                    aria-label={
+                      showConfirmPassword ? "Hide password" : "Show password"
+                    }
+                  >
+                    {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                  </button>
+                </div>
+              </div>
+            </div>
+            <SectionActions
+              saving={savingSection === "account"}
+              error={editingAccount ? sectionError : null}
+              onCancel={cancelSection}
+              onSave={savePassword}
+            />
+          </>
+        ) : (
+          <div className="mt-4">
+            <ViewField label="Email" value={accountEmail} />
+          </div>
+        )}
+      </section>
 
       {/* Store details */}
       <section className="mt-6 rounded-2xl bg-white p-5 ring-1 ring-[#4B2C20]/10">
