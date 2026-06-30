@@ -8,6 +8,7 @@ type IndianPhoneInputProps = {
   onChange: (value: string) => void;
   placeholder?: string;
   autoComplete?: string;
+  invalid?: boolean;
 };
 
 export function IndianPhoneInput({
@@ -16,9 +17,14 @@ export function IndianPhoneInput({
   onChange,
   placeholder = "9876543210",
   autoComplete = "tel-national",
+  invalid = false,
 }: IndianPhoneInputProps) {
   return (
-    <div className="mt-1 flex overflow-hidden rounded-xl border border-chocolate/10 bg-white focus-within:border-chocolate/30">
+    <div
+      className={`mt-1 flex overflow-hidden rounded-xl border bg-white focus-within:border-chocolate/30 ${
+        invalid ? "border-red-300" : "border-chocolate/10"
+      }`}
+    >
       <span className="flex items-center bg-cream px-3 text-sm font-medium text-chocolate/70">
         +91
       </span>
@@ -31,6 +37,7 @@ export function IndianPhoneInput({
         value={value}
         onChange={(e) => onChange(formatIndianPhoneInput(e.target.value))}
         placeholder={placeholder}
+        aria-invalid={invalid}
         className="min-w-0 flex-1 px-3 py-3 text-base outline-none"
       />
     </div>

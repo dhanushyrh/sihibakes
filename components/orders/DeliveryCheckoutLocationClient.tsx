@@ -9,6 +9,7 @@ import { isValidIndianPhone } from "@/lib/checkout-validation";
 import { trackActivity } from "@/lib/activity-tracker";
 import { CHECKOUT_DETAILS_PATH } from "@/lib/checkout-routing";
 import type { DeliveryFenceKm } from "@/lib/types";
+import { OrderFlowLoading } from "@/components/store/OrderFlowLoading";
 
 export function DeliveryCheckoutLocationClient({
   storeOpen,
@@ -53,7 +54,9 @@ export function DeliveryCheckoutLocationClient({
     }
   }, [sessionReady, session.phoneVerified, session.whatsappPhone, router]);
 
-  if (!sessionReady) return null;
+  if (!sessionReady) {
+    return <OrderFlowLoading />;
+  }
 
   if (!storeOpen) {
     return (

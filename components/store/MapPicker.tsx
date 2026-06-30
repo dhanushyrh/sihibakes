@@ -21,6 +21,7 @@ import {
   locationLabelForCoords,
 } from "@/lib/map-location-label";
 import type { DeliveryFenceKm } from "@/lib/types";
+import { Spinner } from "@/components/ui/Spinner";
 
 const PIN_ZOOM = 16;
 
@@ -193,7 +194,7 @@ export function MapPicker({
         className="flex items-center justify-center rounded-2xl bg-[#F5E6D3]"
         style={{ height: mapHeight }}
       >
-        <p className="text-sm text-[#4B2C20]/50">Loading map...</p>
+        <Spinner size="md" label="Loading map" />
       </div>
     );
   }

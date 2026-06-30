@@ -18,6 +18,9 @@ import { getMenuProductIds, isMenuProduct } from "@/lib/cart-products";
 import { formatDeliveryModeSummary } from "@/lib/delivery-mode-availability";
 import { trackActivity } from "@/lib/activity-tracker";
 import type { Product } from "@/lib/types";
+import { OrderFlowLoading } from "@/components/store/OrderFlowLoading";
+import { CartLinesSkeleton } from "@/components/store/StorePageSkeleton";
+import { Spinner } from "@/components/ui/Spinner";
 
 export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
   const router = useRouter();
@@ -173,7 +176,9 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
     setAuthSheetOpen(true);
   };
 
-  if (!sessionReady || !isDeliveryModeReady) return null;
+  if (!sessionReady || !isDeliveryModeReady) {
+    return <OrderFlowLoading />;
+  }
 
   const scheduleSummary =
     session.deliveryMode && session.deliveryDate
@@ -210,7 +215,7 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
         )}
 
         {loading && itemCount > 0 ? (
-          <p className="mt-8 text-center text-sm text-chocolate/50">Loading...</p>
+          <CartLinesSkeleton />
         ) : cartLines.length === 0 ? (
           <div className="mt-16 text-center">
             <p className="text-sm text-chocolate/60">Your cart is empty</p>
@@ -312,9 +317,16 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
               type="button"
               disabled={!storeOpen || continuing}
               onClick={() => void handleContinueCheckout()}
-              className="mt-5 w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
+              className="mt-5 flex w-full items-center justify-center gap-2 rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
             >
-              {continuing ? "Loading..." : "Continue to checkout"}
+              {continuing ? (
+                <>
+                  <Spinner size="sm" className="!text-cream/80" label="Continuing to checkout" />
+                  <span>Continuing…</span>
+                </>
+              ) : (
+                "Continue to checkout"
+              )}
             </button>
           </>
         )}

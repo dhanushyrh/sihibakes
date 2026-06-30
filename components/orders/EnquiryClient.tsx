@@ -13,6 +13,7 @@ import { PhoneOtpVerification } from "@/components/store/PhoneOtpVerification";
 import { isValidIndianPhone } from "@/lib/checkout-validation";
 import type { Product } from "@/lib/types";
 import type { StorefrontDetails } from "@/lib/storefront";
+import { Spinner } from "@/components/ui/Spinner";
 
 const TYPE_LABELS: Record<string, { title: string; description: string }> = {
   "kitty-party": {
@@ -223,9 +224,16 @@ function GeneralEnquiryForm({ store }: { store: StorefrontDetails }) {
               type="button"
               disabled={!otpVerified || submitting}
               onClick={() => void submitEnquiry()}
-              className="flex-1 rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-50"
+              className="flex flex-1 items-center justify-center gap-2 rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-50"
             >
-              {submitting ? "Sending..." : "Submit enquiry"}
+              {submitting ? (
+                <>
+                  <Spinner size="sm" className="!text-cream/80" label="Submitting enquiry" />
+                  <span>Sending…</span>
+                </>
+              ) : (
+                "Submit enquiry"
+              )}
             </button>
           </div>
         </main>

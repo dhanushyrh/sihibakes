@@ -11,6 +11,7 @@ import { formatCurrency } from "@/lib/delivery";
 import { getUnitPrice } from "@/lib/pricing";
 import type { Product } from "@/lib/types";
 import type { StoreContactDetails } from "@/components/store/StoreFooter";
+import { CartLinesSkeleton } from "@/components/store/StorePageSkeleton";
 
 interface CartClientProps {
   storeOpen: boolean;
@@ -75,7 +76,9 @@ export default function CartClient({
         )}
 
         {loading && itemCount > 0 ? (
-          <p className="mt-8 text-center text-sm text-[#4B2C20]/50">Loading...</p>
+          <div className="mt-6">
+            <CartLinesSkeleton />
+          </div>
         ) : itemCount === 0 ? (
           <div className="mt-12 text-center">
             <p className="text-sm text-[#4B2C20]/60">Your cart is empty</p>

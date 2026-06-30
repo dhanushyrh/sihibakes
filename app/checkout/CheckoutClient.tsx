@@ -22,6 +22,7 @@ import {
 import { DEFAULT_KITCHEN } from "@/lib/constants";
 import { format, parseISO } from "date-fns";
 import "@/lib/razorpay-checkout";
+import { Spinner, SpinnerCentered } from "@/components/ui/Spinner";
 
 interface CheckoutPageProps {
   slots: DeliverySlot[];
@@ -320,7 +321,10 @@ export default function CheckoutPage({
               }}
             />
             {loadingDelivery ? (
-              <p className="text-center text-xs text-[#4B2C20]/50">Calculating...</p>
+              <div className="flex items-center justify-center gap-2 text-center text-xs text-[#4B2C20]/50">
+                <Spinner size="sm" label="Calculating delivery" />
+                <span>Calculating…</span>
+              </div>
             ) : delivery ? (
               <div
                 className={`rounded-xl p-3 text-sm ${
@@ -399,9 +403,7 @@ export default function CheckoutPage({
           <div className="mt-6 space-y-4">
             <h2 className="text-sm font-medium text-[#4B2C20]">Delivery Date & Time</h2>
             {loadingSlots ? (
-              <p className="text-center text-xs text-[#4B2C20]/50">
-                Loading available slots...
-              </p>
+              <SpinnerCentered size="md" label="Loading available slots" />
             ) : (
               <DeliverySlotSelects
                 slots={bookableSlots}
@@ -515,9 +517,16 @@ export default function CheckoutPage({
                 type="button"
                 disabled={submitting}
                 onClick={placeOrder}
-                className="flex-1 rounded-full bg-[#4B2C20] py-3 text-sm font-medium text-white disabled:opacity-50"
+                className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#4B2C20] py-3 text-sm font-medium text-white disabled:opacity-50"
               >
-                {submitting ? "Processing..." : `Pay ${formatCurrency(total)}`}
+                {submitting ? (
+                  <>
+                    <Spinner size="sm" className="!text-white/80" label="Processing payment" />
+                    <span>Processing…</span>
+                  </>
+                ) : (
+                  `Pay ${formatCurrency(total)}`
+                )}
               </button>
             </div>
           </div>

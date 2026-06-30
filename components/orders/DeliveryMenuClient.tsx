@@ -14,6 +14,8 @@ import type { Product, ProductTag } from "@/lib/types";
 import { TAG_OPTIONS } from "@/lib/constants";
 import type { PublicCoupon } from "@/lib/public-coupons";
 import { MenuCouponsShowcase } from "@/components/orders/MenuCouponsShowcase";
+import { OrderFlowLoading } from "@/components/store/OrderFlowLoading";
+import { Spinner } from "@/components/ui/Spinner";
 
 export function DeliveryMenuClient({
   products: initialProducts,
@@ -29,6 +31,7 @@ export function DeliveryMenuClient({
   const [selected, setSelected] = useState<Product | null>(null);
   const [tagFilter, setTagFilter] = useState<ProductTag | "all">("all");
   const [unavailableNotice, setUnavailableNotice] = useState("");
+  const [refetching, setRefetching] = useState(false);
 
   useEffect(() => {
     if (!sessionReady) return;
@@ -40,6 +43,7 @@ export function DeliveryMenuClient({
   useEffect(() => {
     if (!sessionReady || !session.deliveryDate) return;
 
+    setRefetching(true);
     fetch(`/api/products/menu?delivery_date=${encodeURIComponent(session.deliveryDate)}`)
       .then((r) => r.json())
       .then((data: Product[]) => {
@@ -53,7 +57,8 @@ export function DeliveryMenuClient({
           );
         }
       })
-      .catch(() => setProducts(initialProducts));
+      .catch(() => setProducts(initialProducts))
+      .finally(() => setRefetching(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch when delivery date changes
   }, [sessionReady, session.deliveryDate, items, pruneItems]);
 
@@ -75,7 +80,9 @@ export function DeliveryMenuClient({
       ? formatDeliveryModeSummary(session.deliveryMode, session.deliveryDate)
       : null;
 
-  if (!sessionReady || !isDeliveryModeReady) return null;
+  if (!sessionReady || !isDeliveryModeReady) {
+    return <OrderFlowLoading />;
+  }
 
   return (
     <div className="flex min-h-screen flex-col pb-24">
@@ -102,6 +109,13 @@ export function DeliveryMenuClient({
           <p className="mb-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
             {unavailableNotice}
           </p>
+        )}
+
+        {refetching && (
+          <div className="mb-4 flex items-center justify-center gap-2 rounded-2xl bg-white px-4 py-2 ring-1 ring-chocolate/10">
+            <Spinner size="sm" label="Updating menu" />
+            <span className="text-xs text-chocolate/50">Updating menu…</span>
+          </div>
         )}
 
         <MenuCouponsShowcase coupons={coupons} />

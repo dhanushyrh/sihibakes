@@ -7,6 +7,7 @@ import { AdvancedMapMarker } from "@/components/store/AdvancedMapMarker";
 import { getFenceBounds } from "@/lib/delivery-fence";
 import type { DeliveryFenceKm } from "@/lib/types";
 import { getGoogleMapsApiKey, GOOGLE_MAPS_LOADER_OPTIONS, withGoogleMapId } from "@/lib/google-maps-config";
+import { Spinner } from "@/components/ui/Spinner";
 
 const DEFAULT_MAP_HEIGHT = 200;
 
@@ -118,7 +119,7 @@ export function SelectedLocationMap({
         className={`flex items-center justify-center bg-cream ${placeholderHeightClass ?? ""}`}
         style={placeholderStyle}
       >
-        <p className="text-sm text-chocolate/50">Loading map...</p>
+        <Spinner size="md" label="Loading map" />
       </div>
     );
   }

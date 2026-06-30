@@ -11,6 +11,7 @@ import {
 } from "@/components/store/LocationUnreachableBanner";
 import { SelectedLocationMap } from "@/components/store/SelectedLocationMap";
 import { formatCurrency, formatDistance } from "@/lib/delivery";
+import { Spinner } from "@/components/ui/Spinner";
 import {
   geolocationErrorMessage,
   requestCurrentPosition,
@@ -370,9 +371,10 @@ export function DeliveryLocationPicker({
 
         <div className="mt-4">
           {loading ? (
-            <p className="rounded-2xl bg-white/60 px-4 py-4 text-center text-sm text-chocolate/50 ring-1 ring-chocolate/10">
-              Checking delivery distance...
-            </p>
+            <div className="flex items-center justify-center gap-2 rounded-2xl bg-white/60 px-4 py-4 text-center text-sm text-chocolate/50 ring-1 ring-chocolate/10">
+              <Spinner size="sm" label="Checking delivery distance" />
+              <span>Checking delivery distance…</span>
+            </div>
           ) : isConfirmed && delivery?.reachable ? (
             <div className="rounded-2xl bg-white px-4 py-4 text-sm ring-1 ring-chocolate/10">
               <div className="flex items-start gap-3">
@@ -462,9 +464,10 @@ export function DeliveryLocationPicker({
 
       <div className="mt-4">
         {loading ? (
-          <p className="rounded-2xl bg-white/60 px-4 py-4 text-center text-sm text-chocolate/50 ring-1 ring-chocolate/10">
-            Checking delivery distance...
-          </p>
+          <div className="flex items-center justify-center gap-2 rounded-2xl bg-white/60 px-4 py-4 text-center text-sm text-chocolate/50 ring-1 ring-chocolate/10">
+            <Spinner size="sm" label="Checking delivery distance" />
+            <span>Checking delivery distance…</span>
+          </div>
         ) : isConfirmed && delivery?.reachable ? (
           <div className="rounded-2xl bg-white px-4 py-4 text-sm ring-1 ring-chocolate/10">
             <div className="flex items-start gap-3">

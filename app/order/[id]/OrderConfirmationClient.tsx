@@ -16,6 +16,8 @@ import {
   type CustomerWhatsAppStatus,
 } from "@/lib/whatsapp/customer-messages";
 import type { Order, OrderItem } from "@/lib/types";
+import { Skeleton } from "@/components/ui/Skeleton";
+import { Spinner } from "@/components/ui/Spinner";
 
 type OrderResponse = Order & {
   order_items?: OrderItem[];
@@ -117,6 +119,20 @@ export default function OrderConfirmationClient({
             </div>
           </div>
         </div>
+
+        {phone && order === null && (
+          <div className="mt-6 rounded-2xl bg-white p-4 ring-1 ring-chocolate/10" aria-busy aria-label="Loading order details">
+            <div className="flex items-center justify-center gap-2 py-4">
+              <Spinner size="sm" label="Loading order details" />
+              <span className="text-sm text-chocolate/50">Loading order details…</span>
+            </div>
+            <div className="space-y-2 border-t border-chocolate/10 pt-3">
+              <Skeleton className="h-4 w-full" />
+              <Skeleton className="h-4 w-5/6" />
+              <Skeleton className="h-4 w-2/3" />
+            </div>
+          </div>
+        )}
 
         {order && "error" in order && (
           <p className="mt-4 rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700 ring-1 ring-red-200">

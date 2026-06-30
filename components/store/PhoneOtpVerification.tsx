@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react";
 import { isValidIndianPhone } from "@/lib/checkout-validation";
 import type { LegalConsentSource } from "@/lib/legal-consent";
 import { LegalConsentCheckbox } from "@/components/store/LegalConsentCheckbox";
+import { Spinner } from "@/components/ui/Spinner";
 
 type PhoneOtpVerificationProps = {
   phone: string;
@@ -197,9 +198,16 @@ export function PhoneOtpVerification({
             type="button"
             disabled={sendingOtp}
             onClick={() => void sendOtp()}
-            className="text-sm text-chocolate/70 underline"
+            className="inline-flex items-center gap-2 text-sm text-chocolate/70 underline"
           >
-            {sendingOtp ? "Sending..." : "Resend code"}
+            {sendingOtp ? (
+              <>
+                <Spinner size="sm" label="Sending code" />
+                <span>Sending…</span>
+              </>
+            ) : (
+              "Resend code"
+            )}
           </button>
         </>
       )}
@@ -216,13 +224,18 @@ export function PhoneOtpVerification({
         type="button"
         disabled={!canSubmit}
         onClick={() => void confirmVerification()}
-        className="w-full rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
+        className="flex w-full items-center justify-center gap-2 rounded-full bg-chocolate py-4 text-sm font-medium text-cream disabled:opacity-40"
       >
-        {verifyingOtp
-          ? "Verifying..."
-          : alreadyVerified
-            ? "Confirm & continue"
-            : submitLabel}
+        {verifyingOtp ? (
+          <>
+            <Spinner size="sm" className="!text-cream/80" label="Verifying" />
+            <span>Verifying…</span>
+          </>
+        ) : alreadyVerified ? (
+          "Confirm & continue"
+        ) : (
+          submitLabel
+        )}
       </button>
     </div>
   );

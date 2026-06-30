@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { StorePageSkeleton } from "@/components/store/StorePageSkeleton";
 import OrderConfirmationClient from "./OrderConfirmationClient";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export default function OrderConfirmationPage({
   params: Promise<{ id: string }>;
 }) {
   return (
-    <Suspense fallback={<div className="p-8 text-center text-sm">Loading...</div>}>
+    <Suspense fallback={<StorePageSkeleton variant="order" />}>
       <OrderConfirmationClient params={params} />
     </Suspense>
   );

@@ -27,6 +27,7 @@ import {
 } from "@/lib/checkout-validation";
 import { isMenuProduct } from "@/lib/cart-products";
 import { CHECKOUT_LOCATION_PATH } from "@/lib/checkout-routing";
+import { scrollToFirstCheckoutError } from "@/lib/scroll";
 import { BRAND } from "@/lib/constants";
 import { formatCurrency, formatDistance } from "@/lib/delivery";
 import { normalizePhone } from "@/lib/storefront";
@@ -49,6 +50,8 @@ import {
   trackActivity,
   clearActivitySessionId,
 } from "@/lib/activity-tracker";
+import { OrderFlowLoading } from "@/components/store/OrderFlowLoading";
+import { Spinner } from "@/components/ui/Spinner";
 
 type PlacedOrder = {
   order_id: string;
@@ -109,6 +112,11 @@ export function DeliveryCheckoutClient({
 
   const phoneVerified =
     session.phoneVerified && isValidIndianPhone(session.whatsappPhone);
+
+  const fieldInputClass = (hasError: boolean) =>
+    `mt-1 w-full rounded-xl border bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30 ${
+      hasError ? "border-red-300" : "border-chocolate/10"
+    }`;
 
   const { isFirstOrder, prefillNote, ready: customerLookupReady } =
     useCustomerPrefill(session.whatsappPhone, phoneVerified);
@@ -621,7 +629,9 @@ export function DeliveryCheckoutClient({
     if (Object.keys(errors).length > 0) {
       if (errors.location) {
         router.push(CHECKOUT_LOCATION_PATH);
+        return;
       }
+      requestAnimationFrame(() => scrollToFirstCheckoutError(errors));
       return;
     }
     if (!phoneVerified) {
@@ -655,7 +665,8 @@ export function DeliveryCheckoutClient({
   if (completingOrder || completingOrderRef.current) {
     return (
       <div className="flex min-h-screen flex-col items-center justify-center bg-cream px-6 text-center">
-        <p className="text-sm text-chocolate/60">Completing your order…</p>
+        <Spinner size="lg" label="Completing your order" />
+        <p className="mt-3 text-sm text-chocolate/60">Completing your order…</p>
       </div>
     );
   }
@@ -667,7 +678,7 @@ export function DeliveryCheckoutClient({
     !phoneVerified ||
     !isLocationReady
   ) {
-    return null;
+    return <OrderFlowLoading />;
   }
 
   if (!storeOpen) {
@@ -727,19 +738,23 @@ export function DeliveryCheckoutClient({
           <section className="rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
             <h3 className="text-sm font-medium text-chocolate">Your details</h3>
             <div className="mt-3 space-y-3">
-              <div>
+              <div
+                className="scroll-mt-24"
+                data-checkout-field="customerName"
+              >
                 <label className="text-xs text-chocolate/55">Full name</label>
                 <input
                   value={session.customerName}
                   onChange={(e) => setCustomer({ customerName: e.target.value })}
-                  className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
+                  aria-invalid={!!fieldErrors.customerName}
+                  className={fieldInputClass(!!fieldErrors.customerName)}
                 />
                 {fieldErrors.customerName && (
                   <p className="mt-1 text-xs text-red-600">{fieldErrors.customerName}</p>
                 )}
               </div>
 
-              <div>
+              <div className="scroll-mt-24" data-checkout-field="email">
                 <label className="text-xs text-chocolate/55">Email address</label>
                 <input
                   type="email"
@@ -748,7 +763,8 @@ export function DeliveryCheckoutClient({
                   value={session.email}
                   onChange={(e) => setCustomer({ email: e.target.value })}
                   placeholder="you@example.com"
-                  className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
+                  aria-invalid={!!fieldErrors.email}
+                  className={fieldInputClass(!!fieldErrors.email)}
                 />
                 <p className="mt-1 text-xs text-chocolate/50">
                   Order confirmation and receipts
@@ -758,7 +774,7 @@ export function DeliveryCheckoutClient({
                 )}
               </div>
 
-              <div>
+              <div className="scroll-mt-24" data-checkout-field="altPhone">
                 <label className="text-xs text-chocolate/55">
                   Alternate contact number
                 </label>
@@ -767,6 +783,7 @@ export function DeliveryCheckoutClient({
                   onChange={(value) => setCustomer({ altPhone: value })}
                   autoComplete="tel"
                   placeholder="Optional backup number"
+                  invalid={!!fieldErrors.altPhone}
                 />
                 <p className="mt-1 text-xs text-chocolate/50">
                   Optional — someone else we can call if needed
@@ -778,7 +795,10 @@ export function DeliveryCheckoutClient({
             </div>
           </section>
 
-          <section className="overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
+          <section
+            className="scroll-mt-24 overflow-hidden rounded-2xl bg-white p-4 ring-1 ring-chocolate/10"
+            data-checkout-field="location"
+          >
             <div className="mb-3 flex items-center justify-between gap-2">
               <h3 className="text-sm font-medium text-chocolate">Delivery</h3>
               <button
@@ -815,24 +835,26 @@ export function DeliveryCheckoutClient({
             </p>
 
             <div className="mt-3 space-y-3">
-              <div>
+              <div className="scroll-mt-24" data-checkout-field="house">
                 <label className="text-xs text-chocolate/55">House / Flat no.</label>
                 <input
                   value={session.house}
                   onChange={(e) => setAddress({ house: e.target.value })}
-                  className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
+                  aria-invalid={!!fieldErrors.house}
+                  className={fieldInputClass(!!fieldErrors.house)}
                 />
                 {fieldErrors.house && (
                   <p className="mt-1 text-xs text-red-600">{fieldErrors.house}</p>
                 )}
               </div>
 
-              <div>
+              <div className="scroll-mt-24" data-checkout-field="street">
                 <label className="text-xs text-chocolate/55">Street / Area</label>
                 <input
                   value={session.street}
                   onChange={(e) => setAddress({ street: e.target.value })}
-                  className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
+                  aria-invalid={!!fieldErrors.street}
+                  className={fieldInputClass(!!fieldErrors.street)}
                 />
                 {fieldErrors.street && (
                   <p className="mt-1 text-xs text-red-600">{fieldErrors.street}</p>
@@ -848,7 +870,7 @@ export function DeliveryCheckoutClient({
                 />
               </div>
 
-              <div>
+              <div className="scroll-mt-24" data-checkout-field="pincode">
                 <label className="text-xs text-chocolate/55">Pincode</label>
                 <input
                   type="tel"
@@ -859,7 +881,8 @@ export function DeliveryCheckoutClient({
                     setAddress({ pincode: formatPincodeInput(e.target.value) })
                   }
                   placeholder="560001"
-                  className="mt-1 w-full rounded-xl border border-chocolate/10 bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30"
+                  aria-invalid={!!fieldErrors.pincode}
+                  className={fieldInputClass(!!fieldErrors.pincode)}
                 />
                 {fieldErrors.pincode && (
                   <p className="mt-1 text-xs text-red-600">{fieldErrors.pincode}</p>
@@ -868,15 +891,17 @@ export function DeliveryCheckoutClient({
             </div>
           </section>
 
-          <DeliverySlotSelects
-            slots={modeSlots}
-            selectedDate={selectedDate}
-            selectedSlotId={selectedSlotId}
-            onDateChange={handleDateChange}
-            onSlotChange={setSelectedSlotId}
-            deliveryMode={deliveryMode}
-            slotError={fieldErrors.slot}
-          />
+          <div className="scroll-mt-24" data-checkout-field="slot">
+            <DeliverySlotSelects
+              slots={modeSlots}
+              selectedDate={selectedDate}
+              selectedSlotId={selectedSlotId}
+              onDateChange={handleDateChange}
+              onSlotChange={setSelectedSlotId}
+              deliveryMode={deliveryMode}
+              slotError={fieldErrors.slot}
+            />
+          </div>
 
           <section className="rounded-2xl bg-white p-4 ring-1 ring-chocolate/10">
             <div className="flex items-center gap-2">
@@ -915,9 +940,16 @@ export function DeliveryCheckoutClient({
                   type="button"
                   onClick={() => applyCoupon()}
                   disabled={applyingCoupon || !couponCode.trim()}
-                  className="shrink-0 rounded-xl bg-chocolate px-4 py-2.5 text-sm font-medium text-cream disabled:opacity-40"
+                  className="flex shrink-0 items-center justify-center gap-1.5 rounded-xl bg-chocolate px-4 py-2.5 text-sm font-medium text-cream disabled:opacity-40"
                 >
-                  {applyingCoupon ? "..." : "Apply"}
+                  {applyingCoupon ? (
+                    <>
+                      <Spinner size="sm" className="!text-cream/80" label="Applying coupon" />
+                      <span>Applying…</span>
+                    </>
+                  ) : (
+                    "Apply"
+                  )}
                 </button>
               </div>
             )}
@@ -986,7 +1018,10 @@ export function DeliveryCheckoutClient({
           {error && <p className="text-sm text-red-600">{error}</p>}
 
           {!razorpayTestMode && !razorpayReady && (
-            <p className="text-xs text-chocolate/50">Loading secure payment...</p>
+            <div className="flex items-center gap-2 text-xs text-chocolate/50">
+              <Spinner size="sm" label="Loading secure payment" />
+              <span>Loading secure payment…</span>
+            </div>
           )}
         </div>
       </main>
@@ -999,13 +1034,18 @@ export function DeliveryCheckoutClient({
               placingOrder || (!razorpayTestMode && !razorpayReady)
             }
             onClick={() => void payWithRazorpay()}
-            className="w-full rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-40"
+            className="flex w-full items-center justify-center gap-2 rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-40"
           >
-            {placingOrder
-              ? "Processing..."
-              : razorpayTestMode
-                ? `Place order (skip payment) · ${formatCurrency(total)}`
-                : `Pay ${formatCurrency(total)}`}
+            {placingOrder ? (
+              <>
+                <Spinner size="sm" className="!text-cream/80" label="Processing payment" />
+                <span>Processing…</span>
+              </>
+            ) : razorpayTestMode ? (
+              `Place order (skip payment) · ${formatCurrency(total)}`
+            ) : (
+              `Pay ${formatCurrency(total)}`
+            )}
           </button>
         </div>
       </div>

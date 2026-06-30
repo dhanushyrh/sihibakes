@@ -6,6 +6,7 @@ import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
 import { PhoneOtpVerification } from "@/components/store/PhoneOtpVerification";
 import { isValidIndianPhone } from "@/lib/checkout-validation";
 import { useScrollToTopOnChange } from "@/components/store/ScrollToTop";
+import { Spinner } from "@/components/ui/Spinner";
 
 export function ContactForm() {
   const [name, setName] = useState("");
@@ -115,9 +116,16 @@ export function ContactForm() {
             type="button"
             disabled={!otpVerified || submitting}
             onClick={() => void submitEnquiry()}
-            className="flex-1 rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-50"
+            className="flex flex-1 items-center justify-center gap-2 rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-50"
           >
-            {submitting ? "Sending..." : "Send message"}
+            {submitting ? (
+              <>
+                <Spinner size="sm" className="!text-cream/80" label="Sending message" />
+                <span>Sending…</span>
+              </>
+            ) : (
+              "Send message"
+            )}
           </button>
         </div>
       </div>
