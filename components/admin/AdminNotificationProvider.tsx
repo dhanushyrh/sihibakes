@@ -10,7 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import { usePathname } from "next/navigation";
-import { Bell } from "lucide-react";
+import { Bell, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
   type AdminNotificationCounts,
@@ -40,6 +40,12 @@ type AdminNotificationContextValue = {
   notificationPermission: NotificationPermission | "unsupported";
 };
 
+type InAppToast = {
+  title: string;
+  body: string;
+  url?: string;
+};
+
 const AdminNotificationContext = createContext<AdminNotificationContextValue | null>(
   null
 );
@@ -50,7 +56,23 @@ const EMPTY_COUNTS: AdminNotificationCounts = {
   newEnquiries: 0,
 };
 
-const FALLBACK_MS = 45_000;
+const POLL_MS = 15_000;
+const TOAST_MS = 4_000;
+
+function shouldSkipWhatsAppAlert(conversationId?: string): boolean {
+  if (!conversationId) return false;
+
+  const viewingId = getViewingWhatsAppConversationId();
+  const onWhatsAppPage =
+    typeof window !== "undefined" &&
+    window.location.pathname.startsWith("/admin/whatsapp");
+  return (
+    onWhatsAppPage &&
+    viewingId === conversationId &&
+    document.visibilityState === "visible" &&
+    document.hasFocus()
+  );
+}
 
 export function AdminNotificationProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
@@ -60,16 +82,24 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
   const [feedOpen, setFeedOpen] = useState(false);
   const [soundEnabled, setSoundEnabledState] = useState(true);
   const [showEnableBanner, setShowEnableBanner] = useState(false);
+  const [inAppToast, setInAppToast] = useState<InAppToast | null>(null);
   const [notificationPermission, setNotificationPermission] = useState<
     NotificationPermission | "unsupported"
   >("default");
   const countsRef = useRef<AdminNotificationCounts>(EMPTY_COUNTS);
   const initializedRef = useRef(false);
   const pathnameRef = useRef(pathname);
+  const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     pathnameRef.current = pathname;
   }, [pathname]);
+
+  const showInAppToast = useCallback((toast: InAppToast) => {
+    setInAppToast(toast);
+    if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+    toastTimerRef.current = setTimeout(() => setInAppToast(null), TOAST_MS);
+  }, []);
 
   const alertUser = useCallback(
     (params: {
@@ -86,8 +116,15 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
         tag: params.tag,
         url: params.url,
       });
+      if (document.visibilityState === "visible" && document.hasFocus()) {
+        showInAppToast({
+          title: params.title,
+          body: params.body,
+          url: params.url,
+        });
+      }
     },
-    []
+    [showInAppToast]
   );
 
   const refreshFeed = useCallback(async () => {
@@ -129,6 +166,21 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
               : `${delta} new enquiries were submitted.`,
           tag: "admin-enquiry",
           url: "/admin/enquiries",
+        });
+      }
+      if (
+        data.whatsappUnread > prev.whatsappUnread &&
+        !shouldSkipWhatsAppAlert()
+      ) {
+        const delta = data.whatsappUnread - prev.whatsappUnread;
+        alertUser({
+          title: "WhatsApp message",
+          body:
+            delta === 1
+              ? "A customer sent a new WhatsApp message."
+              : `${delta} new WhatsApp messages.`,
+          tag: "admin-wa-count",
+          url: "/admin/whatsapp",
         });
       }
     }
@@ -191,12 +243,17 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
   }, []);
 
   useEffect(() => {
+    const onPointerDown = () => unlockAdminAudio();
+    document.addEventListener("pointerdown", onPointerDown, { once: true });
+    return () => document.removeEventListener("pointerdown", onPointerDown);
+  }, []);
+
+  useEffect(() => {
     void refreshAll().then(() => {
       initializedRef.current = true;
     });
 
     const supabase = createClient();
-    let realtimeOk = false;
 
     const onWhatsAppMessageInsert = (payload: {
       new: Record<string, unknown> | null;
@@ -206,15 +263,7 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
       if (!row || row.direction !== "inbound") return;
 
       const conversationId = String(row.conversation_id ?? "");
-      const viewingId = getViewingWhatsAppConversationId();
-      const onWhatsAppPage = pathnameRef.current.startsWith("/admin/whatsapp");
-      const viewingThisThread =
-        onWhatsAppPage &&
-        viewingId === conversationId &&
-        document.visibilityState === "visible" &&
-        document.hasFocus();
-
-      if (viewingThisThread) return;
+      if (shouldSkipWhatsAppAlert(conversationId)) return;
 
       alertUser({
         title: "WhatsApp message",
@@ -252,16 +301,21 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
         { event: "*", schema: "public", table: "whatsapp_conversations" },
         () => scheduleRefresh()
       )
-      .subscribe((status) => {
-        realtimeOk = status === "SUBSCRIBED";
-      });
+      .subscribe();
 
-    const fallback = setInterval(() => {
-      if (!realtimeOk) void refreshAll();
-    }, FALLBACK_MS);
+    const poll = setInterval(() => {
+      void refreshAll();
+    }, POLL_MS);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshAll();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
-      clearInterval(fallback);
+      clearInterval(poll);
+      if (toastTimerRef.current) clearTimeout(toastTimerRef.current);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       void supabase.removeChannel(channel);
       document.title = "Sihi Bakes Admin";
     };
@@ -286,6 +340,34 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
         notificationPermission,
       }}
     >
+      {inAppToast && (
+        <div className="fixed left-1/2 top-20 z-50 w-[min(100vw-2rem,24rem)] -translate-x-1/2 md:left-auto md:right-24 md:top-20 md:translate-x-0">
+          <div className="flex items-start gap-3 rounded-2xl bg-[#4B2C20] p-4 text-white shadow-lg ring-1 ring-black/10">
+            <Bell size={18} className="mt-0.5 shrink-0" />
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">{inAppToast.title}</p>
+              <p className="mt-0.5 text-xs text-white/75">{inAppToast.body}</p>
+              {inAppToast.url && (
+                <a
+                  href={inAppToast.url}
+                  className="mt-2 inline-block text-xs font-medium text-white underline"
+                  onClick={() => setInAppToast(null)}
+                >
+                  View
+                </a>
+              )}
+            </div>
+            <button
+              type="button"
+              onClick={() => setInAppToast(null)}
+              className="shrink-0 rounded-lg p-1 text-white/60 hover:text-white"
+              aria-label="Dismiss"
+            >
+              <X size={14} />
+            </button>
+          </div>
+        </div>
+      )}
       {showEnableBanner && (
         <div className="fixed bottom-4 right-4 z-50 max-w-sm rounded-2xl bg-[#4B2C20] p-4 text-white shadow-lg ring-1 ring-black/10">
           <div className="flex items-start gap-3">

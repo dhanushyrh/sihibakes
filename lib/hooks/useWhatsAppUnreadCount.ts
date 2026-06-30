@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 
-const FALLBACK_REFRESH_MS = 60_000;
+const POLL_MS = 15_000;
 
 export function useWhatsAppUnreadCount() {
   const [unreadCount, setUnreadCount] = useState(0);
-  const realtimeOkRef = useRef(false);
 
   const fetchUnread = useCallback(async () => {
     const res = await fetch("/api/admin/whatsapp/unread-count");
@@ -29,16 +28,20 @@ export function useWhatsAppUnreadCount() {
           void fetchUnread();
         }
       )
-      .subscribe((status) => {
-        realtimeOkRef.current = status === "SUBSCRIBED";
-      });
+      .subscribe();
 
-    const fallback = setInterval(() => {
-      if (!realtimeOkRef.current) void fetchUnread();
-    }, FALLBACK_REFRESH_MS);
+    const poll = setInterval(() => {
+      void fetchUnread();
+    }, POLL_MS);
+
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void fetchUnread();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
 
     return () => {
-      clearInterval(fallback);
+      clearInterval(poll);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
       void supabase.removeChannel(channel);
     };
   }, [fetchUnread]);
