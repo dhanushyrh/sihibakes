@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Cormorant_Garamond, Sora, Great_Vibes } from "next/font/google";
 import "./globals.css";
 import { CartProvider } from "@/components/store/CartProvider";
@@ -51,6 +53,8 @@ export default function RootLayout({
             {children}
           </DeliverySessionProvider>
         </CartProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );
