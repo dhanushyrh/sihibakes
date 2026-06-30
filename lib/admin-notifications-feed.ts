@@ -46,7 +46,7 @@ export async function getAdminNotificationFeed(
     admin
       .from("contact_enquiries")
       .select("id, name, type, phone, created_at")
-      .eq("status", "new")
+      .is("read_at", null)
       .order("created_at", { ascending: false })
       .limit(LIMIT),
     admin
@@ -71,7 +71,7 @@ export async function getAdminNotificationFeed(
     admin
       .from("contact_enquiries")
       .select("*", { count: "exact", head: true })
-      .eq("status", "new"),
+      .is("read_at", null),
     admin
       .from("whatsapp_conversations")
       .select("unread_count")

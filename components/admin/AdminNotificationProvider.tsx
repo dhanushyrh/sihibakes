@@ -168,21 +168,9 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
           url: "/admin/enquiries",
         });
       }
-      if (
-        data.whatsappUnread > prev.whatsappUnread &&
-        !shouldSkipWhatsAppAlert()
-      ) {
-        const delta = data.whatsappUnread - prev.whatsappUnread;
-        alertUser({
-          title: "WhatsApp message",
-          body:
-            delta === 1
-              ? "A customer sent a new WhatsApp message."
-              : `${delta} new WhatsApp messages.`,
-          tag: "admin-wa-count",
-          url: "/admin/whatsapp",
-        });
-      }
+      // WhatsApp alerts are handled solely by the realtime whatsapp_messages
+      // INSERT handler (onWhatsAppMessageInsert). Alerting here too would play
+      // the sound twice for the same message.
     }
     countsRef.current = data;
     setCounts(data);
@@ -283,7 +271,7 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
       )
       .on(
         "postgres_changes",
-        { event: "INSERT", schema: "public", table: "contact_enquiries" },
+        { event: "*", schema: "public", table: "contact_enquiries" },
         () => scheduleRefresh()
       )
       .on(

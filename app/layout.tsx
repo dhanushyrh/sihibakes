@@ -2,34 +2,22 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
-import { Cormorant_Garamond, Sora, Great_Vibes } from "next/font/google";
+import { Cormorant_Garamond, Sora } from "next/font/google";
 import "./globals.css";
-import { CartProvider } from "@/components/store/CartProvider";
-import { DeliverySessionProvider } from "@/components/store/DeliverySessionProvider";
 import { ScrollToTop } from "@/components/store/ScrollToTop";
 import { siteMetadata } from "@/lib/site-metadata";
-
-export const dynamic = "force-dynamic";
-export const dynamicParams = true;
-export const revalidate = 0;
-export const fetchCache = "force-no-store";
 
 const sora = Sora({
   variable: "--font-sora",
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["400", "500", "600"],
 });
 
 const display = Cormorant_Garamond({
   variable: "--font-display",
   subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-});
-
-const script = Great_Vibes({
-  variable: "--font-script",
-  subsets: ["latin"],
-  weight: ["400"],
+  weight: ["600"],
+  display: "optional",
 });
 
 export const metadata: Metadata = siteMetadata;
@@ -42,17 +30,13 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${sora.variable} ${display.variable} ${script.variable} h-full`}
+      className={`${sora.variable} ${display.variable} h-full`}
     >
       <body className="min-h-full flex flex-col antialiased">
-        <CartProvider>
-          <DeliverySessionProvider>
-            <Suspense fallback={null}>
-              <ScrollToTop />
-            </Suspense>
-            {children}
-          </DeliverySessionProvider>
-        </CartProvider>
+        <Suspense fallback={null}>
+          <ScrollToTop />
+        </Suspense>
+        {children}
         <Analytics />
         <SpeedInsights />
       </body>

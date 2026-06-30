@@ -23,6 +23,22 @@ export default function AdminEnquiryDetailPage() {
   const [saving, setSaving] = useState(false);
   const [copied, setCopied] = useState(false);
 
+  const markRead = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/admin/enquiries/${id}/read`, {
+        method: "POST",
+      });
+      if (!res.ok) return;
+      const data = await res.json();
+      if (data.enquiry) {
+        setEnquiry(data.enquiry);
+        setStatus(data.enquiry.status);
+      }
+    } catch {
+      // Non-fatal: notification will clear on the next poll.
+    }
+  }, [id]);
+
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -36,9 +52,12 @@ export default function AdminEnquiryDetailPage() {
       setEnquiry(e);
       setStatus(e.status);
       setAdminNotes(e.admin_notes ?? "");
+      if (!e.read_at) {
+        void markRead();
+      }
     }
     setLoading(false);
-  }, [id]);
+  }, [id, markRead]);
 
   useEffect(() => {
     void load();

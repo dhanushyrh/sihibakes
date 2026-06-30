@@ -1,9 +1,10 @@
-import { getStorefrontStatus } from "@/lib/data";
+import { getStorefrontStatus, type StorefrontStatus } from "@/lib/data";
 import { OrdersPausedBanner } from "@/components/store/StoreFooter";
 
-export async function ShopStatusBanner() {
-  const { isOpen, bannerMessage } = await getStorefrontStatus();
-
+export function ShopStatusBannerView({
+  isOpen,
+  bannerMessage,
+}: StorefrontStatus) {
   if (!bannerMessage) return null;
 
   return (
@@ -13,4 +14,9 @@ export async function ShopStatusBanner() {
       storeClosed={!isOpen || bannerMessage.toLowerCase().includes("store closed")}
     />
   );
+}
+
+export async function ShopStatusBanner() {
+  const status = await getStorefrontStatus();
+  return <ShopStatusBannerView {...status} />;
 }

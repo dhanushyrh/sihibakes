@@ -145,6 +145,7 @@ export type AdminEnquiriesQueryParams = {
   pageSize?: number;
   type?: EnquiryType | "all";
   status?: EnquiryStatus[];
+  unread?: boolean;
   q?: string;
   dateFrom?: string;
   dateTo?: string;
@@ -172,8 +173,11 @@ export function parseAdminEnquiriesQueryParams(
   const q = searchParams.get("q")?.trim() || undefined;
   const dateFrom = searchParams.get("dateFrom") || undefined;
   const dateTo = searchParams.get("dateTo") || undefined;
+  const unread =
+    searchParams.get("unread") === "1" ||
+    searchParams.get("unread") === "true";
 
-  return { page, pageSize, type, status, q, dateFrom, dateTo };
+  return { page, pageSize, type, status, unread, q, dateFrom, dateTo };
 }
 
 export async function queryAdminEnquiries(
@@ -196,6 +200,9 @@ export async function queryAdminEnquiries(
   if (params.status?.length) {
     query = query.in("status", params.status);
   }
+  if (params.unread) {
+    query = query.is("read_at", null);
+  }
   if (params.q) {
     const term = `%${params.q}%`;
     query = query.or(`name.ilike.${term},phone.ilike.${term}`);
@@ -214,6 +221,50 @@ export async function queryAdminEnquiries(
     count,
     error: error ? new Error(error.message) : null,
   };
+}
+
+export async function getUnreadEnquiryCount(
+  admin: SupabaseClient
+): Promise<number> {
+  const { count, error } = await admin
+    .from("contact_enquiries")
+    .select("*", { count: "exact", head: true })
+    .is("read_at", null);
+
+  if (error) {
+    console.error("Unread enquiry count failed:", error);
+    return 0;
+  }
+
+  return count ?? 0;
+}
+
+export async function markEnquiryRead(
+  admin: SupabaseClient,
+  id: string
+): Promise<ContactEnquiry | null> {
+  const { data, error } = await admin
+    .from("contact_enquiries")
+    .update({ read_at: new Date().toISOString() })
+    .eq("id", id)
+    .is("read_at", null)
+    .select("*, enquiry_items(*)")
+    .maybeSingle();
+
+  if (error) {
+    console.error("Mark enquiry read failed:", error);
+    return null;
+  }
+
+  if (data) return data as ContactEnquiry;
+
+  const { data: existing } = await admin
+    .from("contact_enquiries")
+    .select("*, enquiry_items(*)")
+    .eq("id", id)
+    .maybeSingle();
+
+  return (existing as ContactEnquiry | null) ?? null;
 }
 
 export function formatEnquirySummary(enquiry: ContactEnquiry): string {

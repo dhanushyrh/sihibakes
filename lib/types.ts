@@ -301,6 +301,7 @@ export interface ContactEnquiry {
   event_time: string | null;
   admin_notes: string | null;
   phone_verified_at: string | null;
+  read_at: string | null;
   created_at: string;
   updated_at: string;
   enquiry_items?: EnquiryItem[];

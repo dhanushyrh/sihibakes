@@ -68,7 +68,7 @@ export default function AdminEnquiriesPage() {
   useEffect(() => {
     void (async () => {
       const params = new URLSearchParams();
-      params.set("status", "new");
+      params.set("unread", "1");
       params.set("pageSize", "1");
       const res = await fetch(`/api/admin/enquiries?${params.toString()}`);
       const data = await res.json();
@@ -102,7 +102,7 @@ export default function AdminEnquiriesPage() {
             </h1>
             {newCount > 0 && (
               <span className="rounded-full bg-blue-100 px-2.5 py-0.5 text-xs font-semibold text-blue-800">
-                {newCount} new
+                {newCount} unread
               </span>
             )}
           </div>

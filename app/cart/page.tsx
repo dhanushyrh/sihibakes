@@ -1,6 +1,6 @@
 import { getStorefrontStatus, getShopSettings } from "@/lib/data";
 import { toStoreContact, getStorefrontDetails } from "@/lib/storefront";
-import { ShopStatusBanner } from "@/components/store/ShopStatusBanner";
+import { ShopStatusBannerView } from "@/components/store/ShopStatusBanner";
 import CartClient from "./CartClient";
 
 export default async function CartPage() {
@@ -10,7 +10,7 @@ export default async function CartPage() {
 
   return (
     <>
-      <ShopStatusBanner />
+      <ShopStatusBannerView {...storefront} />
       <CartClient
         storeOpen={storefront.isOpen}
         storeClosedMessage={storefront.bannerMessage}

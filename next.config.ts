@@ -14,6 +14,8 @@ const supabaseHostname = getSupabaseImageHostname();
 
 const nextConfig: NextConfig = {
   images: {
+    formats: ["image/avif", "image/webp"],
+    minimumCacheTTL: 60 * 60 * 24,
     remotePatterns: [
       ...(supabaseHostname
         ? [
@@ -30,6 +32,9 @@ const nextConfig: NextConfig = {
         pathname: "/storage/v1/object/public/**",
       },
     ],
+  },
+  experimental: {
+    optimizePackageImports: ["lucide-react", "date-fns"],
   },
 };
 

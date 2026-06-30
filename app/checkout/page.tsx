@@ -5,7 +5,7 @@ import {
 } from "@/lib/data";
 import { DEFAULT_KITCHEN } from "@/lib/constants";
 import { getDeliveryFence } from "@/lib/delivery-fence";
-import { ShopStatusBanner } from "@/components/store/ShopStatusBanner";
+import { ShopStatusBannerView } from "@/components/store/ShopStatusBanner";
 import CheckoutClient from "./CheckoutClient";
 
 export default async function CheckoutPage() {
@@ -17,7 +17,7 @@ export default async function CheckoutPage() {
 
   return (
     <>
-      <ShopStatusBanner />
+      <ShopStatusBannerView {...storefront} />
       <CheckoutClient
       slots={slots}
       kitchenLat={settings?.kitchen_lat ?? DEFAULT_KITCHEN.lat}

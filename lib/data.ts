@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import type { DeliveryFeeSlab, DeliverySlot, Product, ShopSettings, CustomerReview } from "@/lib/types";
+import type { DeliveryFeeSlab, DeliverySlot, Product, ShopSettings, CustomerReview, ProductTag } from "@/lib/types";
+import { cache } from "react";
 import { format } from "date-fns";
 import {
   getNextDeliveryDate,
@@ -23,7 +24,25 @@ import { filterCustomerDeliverySlots } from "@/lib/customer-delivery-slots";
 import { computeDeliveryModeAvailability } from "@/lib/delivery-mode-availability";
 import { shopDateKey, shopDatePlusDays } from "@/lib/shop-timezone";
 
-async function getEffectiveClosedDates(): Promise<string[]> {
+export type HubMarqueeProduct = Pick<
+  Product,
+  "id" | "title" | "image_path" | "price_inr" | "discount_percent" | "tags"
+>;
+
+function hubMarqueeTagScore(product: HubMarqueeProduct): number {
+  let score = 0;
+  if (product.tags.includes("bestseller")) score += 4;
+  if (product.tags.includes("must_try")) score += 3;
+  if (product.tags.includes("chef_special")) score += 2;
+  if (product.tags.includes("new")) score += 1;
+  return score;
+}
+
+function sortHubMarqueeProducts(products: HubMarqueeProduct[]): HubMarqueeProduct[] {
+  return [...products].sort((a, b) => hubMarqueeTagScore(b) - hubMarqueeTagScore(a));
+}
+
+const getEffectiveClosedDates = cache(async (): Promise<string[]> => {
   const settings = await getShopSettings();
   const closed = new Set(normalizeClosedDates(settings?.closed_dates ?? []));
 
@@ -51,19 +70,19 @@ async function getEffectiveClosedDates(): Promise<string[]> {
     }
   }
   return [...closed];
-}
+});
 
-export async function isDeliveryDayClosed(date: string): Promise<boolean> {
+export const isDeliveryDayClosed = cache(async (date: string): Promise<boolean> => {
   const closed = await getEffectiveClosedDates();
   return closed.includes(normalizeDateKey(date));
-}
+});
 
 export interface StorefrontStatus {
   isOpen: boolean;
   bannerMessage: string | null;
 }
 
-export async function getStorefrontStatus(): Promise<StorefrontStatus> {
+export const getStorefrontStatus = cache(async (): Promise<StorefrontStatus> => {
   const settings = await getShopSettings();
   const today = shopDateKey();
 
@@ -90,7 +109,7 @@ export async function getStorefrontStatus(): Promise<StorefrontStatus> {
   }
 
   return { isOpen: true, bannerMessage: null };
-}
+});
 
 async function enrichProductsWithInventory(
   products: Product[],
@@ -161,7 +180,7 @@ async function enrichProductsWithInventory(
   });
 }
 
-export async function getShopSettings(): Promise<ShopSettings | null> {
+export const getShopSettings = cache(async (): Promise<ShopSettings | null> => {
   if (!isSupabaseConfigured()) return MOCK_SETTINGS;
   const supabase = await createClient();
   const { data } = await supabase.from("shop_settings").select("*").limit(1).single();
@@ -175,7 +194,7 @@ export async function getShopSettings(): Promise<ShopSettings | null> {
     phone: row.phone ?? "",
     alt_phone: row.alt_phone ?? "",
   };
-}
+});
 
 export async function getDeliveryFeeSlabs(): Promise<DeliveryFeeSlab[]> {
   if (!isSupabaseConfigured()) return MOCK_SLABS;
@@ -217,6 +236,41 @@ export async function getFeaturedProducts(): Promise<Product[]> {
     .slice(0, 4);
 }
 
+export const getHubMarqueeProducts = cache(async (): Promise<HubMarqueeProduct[]> => {
+  if (!isSupabaseConfigured()) {
+    return sortHubMarqueeProducts(
+      MOCK_PRODUCTS.filter((product) => product.is_active).map((product) => ({
+        id: product.id,
+        title: product.title,
+        image_path: product.image_path,
+        price_inr: product.price_inr,
+        discount_percent: product.discount_percent,
+        tags: product.tags,
+      }))
+    );
+  }
+
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("products")
+    .select("id, title, image_path, price_inr, discount_percent, tags, is_active")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+
+  const active = (data ?? [])
+    .filter((row) => row.is_active)
+    .map((row) => ({
+      id: row.id as string,
+      title: row.title as string,
+      image_path: row.image_path as string | null,
+      price_inr: row.price_inr as number,
+      discount_percent: row.discount_percent as number | null,
+      tags: (row.tags ?? []) as ProductTag[],
+    }));
+
+  return sortHubMarqueeProducts(active);
+});
+
 export async function getLandingProducts(): Promise<Product[]> {
   const products = await getProducts();
   const active = products.filter((p) => p.is_active);
@@ -233,7 +287,7 @@ export async function getLandingProducts(): Promise<Product[]> {
   return [...active].sort((a, b) => tagScore(b) - tagScore(a));
 }
 
-export async function getAvailableDeliverySlots(): Promise<DeliverySlot[]> {
+export const getAvailableDeliverySlots = cache(async (): Promise<DeliverySlot[]> => {
   const closedDates = await getEffectiveClosedDates();
 
   if (!isSupabaseConfigured()) {
@@ -254,7 +308,7 @@ export async function getAvailableDeliverySlots(): Promise<DeliverySlot[]> {
     .order("window_start");
 
   return filterCustomerDeliverySlots((data ?? []) as DeliverySlot[], closedDates);
-}
+});
 
 export async function getDeliveryModeAvailability() {
   const settings = await getShopSettings();
@@ -338,7 +392,7 @@ export async function checkProductAvailability(
   return { ok: true, remaining };
 }
 
-export async function getPublishedReviews(): Promise<CustomerReview[]> {
+export const getPublishedReviews = cache(async (): Promise<CustomerReview[]> => {
   if (!isSupabaseConfigured()) {
     return MOCK_REVIEWS.filter((r) => r.is_active);
   }
@@ -352,4 +406,4 @@ export async function getPublishedReviews(): Promise<CustomerReview[]> {
     .order("reviewed_at", { ascending: false });
 
   return (data ?? []) as CustomerReview[];
-}
+});
