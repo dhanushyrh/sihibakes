@@ -11,6 +11,7 @@ import {
   sendWhatsAppText,
   type TemplateComponent,
 } from "@/lib/whatsapp/client";
+import { getUtilityTemplateLanguageCode } from "@/lib/whatsapp/config";
 import { resolveTemplateComponents } from "@/lib/whatsapp/template-components";
 import { isWithinCustomerServiceWindow } from "@/lib/whatsapp/window";
 
@@ -160,7 +161,7 @@ export async function sendConversationTemplate(params: {
     messageType: "admin_chat",
     templateName: params.templateName,
     components,
-    languageCode,
+    languageCode: languageCode ?? getUtilityTemplateLanguageCode(),
     orderId,
     skipChatPersistence: true,
     bypassNotificationsToggle: true,

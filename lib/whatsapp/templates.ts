@@ -319,6 +319,23 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
       ],
     },
     {
+      name: "enquiry_received",
+      language: "en_US",
+      category: "UTILITY",
+      allowCategoryChange: true,
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Hi {{1}}, thank you for your enquiry at Sihi Bakes. Your reference is {{2}}. Our team will get back to you shortly.",
+          example: {
+            body_text: [["Rahul", "A1B2C3D4"]],
+          },
+        },
+        { type: "FOOTER", text: footer },
+      ],
+    },
+    {
       name: "reach_confirmation",
       language: "en_US",
       category: "UTILITY",

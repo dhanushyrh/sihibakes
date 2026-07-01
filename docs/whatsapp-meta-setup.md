@@ -51,6 +51,7 @@ Also useful later:
 
 Ensure these templates exist in WhatsApp Manager (names must match env vars):
 
+- `enquiry_received` (UTILITY — sent when a customer submits an enquiry)
 - `reach_confirmation` (UTILITY — default for checkout id messages; works on lower messaging tiers)
 - `checkout_otp` (AUTHENTICATION — optional; see tier requirement below)
 - `order_confirmed` (order placed on payment + admin confirmation)
@@ -74,6 +75,15 @@ Requirements:
 - Access token with `whatsapp_business_management` scope
 - New templates start as `PENDING` until Meta approves (usually within 24 hours)
 - Meta rate limit: ~100 template creates per hour per WABA
+
+### Enquiry acknowledgment (`enquiry_received`)
+
+Sent automatically when a customer submits a general, kitty party, or landing enquiry (after phone verification):
+
+> Hi {{1}}, thank you for your enquiry at Sihi Bakes. Your reference is {{2}}. Our team will get back to you shortly.
+
+- `{{1}}` — customer first name
+- `{{2}}` — short enquiry reference (first 8 characters of enquiry id)
 
 ### Reach confirmation template (`reach_confirmation`)
 

@@ -12,6 +12,7 @@ export type WhatsAppConfig = {
     orderStatus: string;
     orderDispatch: string;
     orderCancelled: string;
+    enquiryReceived: string;
   };
   languageCode: string;
   orderPlacedLanguageCode: string;
@@ -46,6 +47,21 @@ export async function isPhoneOtpDemoMode(): Promise<boolean> {
   return !(await isWhatsAppNotificationsEnabled());
 }
 
+/** Locale for utility templates — Sihi templates are approved as en_US in Meta. */
+export function getUtilityTemplateLanguageCode(): string {
+  const raw =
+    process.env.WHATSAPP_TEMPLATE_UTILITY_LANGUAGE?.trim() ||
+    process.env.WHATSAPP_LANGUAGE_CODE?.trim() ||
+    "en_US";
+  return normalizeUtilityTemplateLanguageCode(raw);
+}
+
+export function normalizeUtilityTemplateLanguageCode(code: string): string {
+  // Meta treats en and en_US separately; our utility templates use en_US.
+  if (code === "en") return "en_US";
+  return code;
+}
+
 export function getWhatsAppConfig(): WhatsAppConfig | null {
   const accessToken = process.env.WHATSAPP_ACCESS_TOKEN?.trim();
   const phoneNumberId = process.env.WHATSAPP_PHONE_NUMBER_ID?.trim();
@@ -77,8 +93,11 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
         "order_out_for_delivery_v2",
       orderCancelled:
         process.env.WHATSAPP_TEMPLATE_ORDER_CANCELLED?.trim() || "order_cancelled",
+      enquiryReceived:
+        process.env.WHATSAPP_TEMPLATE_ENQUIRY_RECEIVED?.trim() || "enquiry_received",
     },
-    orderPlacedLanguageCode:
-      process.env.WHATSAPP_TEMPLATE_ORDER_PLACED_LANGUAGE?.trim() || "en_US",
+    orderPlacedLanguageCode: normalizeUtilityTemplateLanguageCode(
+      process.env.WHATSAPP_TEMPLATE_ORDER_PLACED_LANGUAGE?.trim() || "en_US"
+    ),
   };
 }

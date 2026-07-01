@@ -2,6 +2,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ENQUIRIES_PAGE_SIZE } from "@/lib/constants";
 import { isValidIndianPhone, normalizeIndianPhone } from "@/lib/checkout-validation";
 import { requireVerifiedPhoneWithConsent } from "@/lib/legal-consent";
+import { notifyEnquiryReceived } from "@/lib/whatsapp/notifications";
 import type { ContactEnquiry, EnquiryStatus, EnquiryType } from "@/lib/types";
 
 export type EnquirySubmitBody = {
@@ -136,6 +137,8 @@ export async function createEnquiry(
       return { error: "Could not submit enquiry", status: 500 };
     }
   }
+
+  void notifyEnquiryReceived({ enquiryId: enquiry.id, name, phone });
 
   return { id: enquiry.id };
 }

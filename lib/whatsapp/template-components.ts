@@ -2,7 +2,7 @@ import { STORE_CONTACT } from "@/lib/constants";
 import { statusChangeLabel } from "@/lib/order-status-update";
 import { formatDisplayPhone } from "@/lib/storefront";
 import type { Order, OrderStatus } from "@/lib/types";
-import { getWhatsAppConfig } from "@/lib/whatsapp/config";
+import { getWhatsAppConfig, getUtilityTemplateLanguageCode } from "@/lib/whatsapp/config";
 import type { TemplateComponent } from "@/lib/whatsapp/client";
 
 /** Meta AUTHENTICATION template (requires TIER_2K). */
@@ -10,6 +10,9 @@ export const WHATSAPP_AUTH_OTP_TEMPLATE = "checkout_otp";
 
 /** Default UTILITY reach-confirmation template (checkout id delivery). */
 export const WHATSAPP_REACH_CONFIRMATION_TEMPLATE = "reach_confirmation";
+
+/** Default UTILITY enquiry acknowledgment template. */
+export const WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE = "enquiry_received";
 
 export function isAuthenticationOtpTemplate(templateName: string): boolean {
   return templateName.trim().toLowerCase() === WHATSAPP_AUTH_OTP_TEMPLATE;
@@ -94,6 +97,25 @@ export function buildReachConfirmationComponents(
       parameters: [
         textParam(referenceId),
         textParam(formatOtpSupportPhone(supportPhone)),
+      ],
+    },
+  ];
+}
+
+function enquiryFirstName(name: string): string {
+  return name.trim().split(/\s+/)[0] || "there";
+}
+
+export function buildEnquiryReceivedComponents(
+  name: string,
+  enquiryReference: string
+): TemplateComponent[] {
+  return [
+    {
+      type: "body",
+      parameters: [
+        textParam(enquiryFirstName(name)),
+        textParam(enquiryReference),
       ],
     },
   ];
@@ -201,8 +223,8 @@ export function resolveTemplateComponents(
   }
 ): ResolvedTemplatePayload | null {
   const config = getWhatsAppConfig();
-  const utilityLanguage = config?.languageCode ?? "en_US";
-  const otpLanguage = config?.otpLanguageCode ?? "en";
+  const utilityLanguage = getUtilityTemplateLanguageCode();
+  const otpLanguage = config?.otpLanguageCode ?? "en_US";
   const normalized = templateName.trim().toLowerCase();
 
   const templates = config?.templates;
@@ -231,14 +253,15 @@ export function resolveTemplateComponents(
   if (normalized === orderPlaced.toLowerCase()) {
     return {
       components: buildOrderPlacedComponents(order),
-      languageCode: config?.orderPlacedLanguageCode ?? utilityLanguage,
+      languageCode:
+        config?.orderPlacedLanguageCode ?? getUtilityTemplateLanguageCode(),
     };
   }
 
   if (normalized === orderConfirmed.toLowerCase()) {
     return {
       components: buildOrderConfirmedComponents(order),
-      languageCode: utilityLanguage,
+      languageCode: getUtilityTemplateLanguageCode(),
     };
   }
 

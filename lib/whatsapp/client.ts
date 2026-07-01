@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getWhatsAppConfig, isWhatsAppConfigured, isWhatsAppNotificationsEnabled } from "@/lib/whatsapp/config";
+import { getWhatsAppConfig, getUtilityTemplateLanguageCode, isWhatsAppConfigured, isWhatsAppNotificationsEnabled } from "@/lib/whatsapp/config";
 import { formatPhoneForWhatsApp } from "@/lib/whatsapp/phone";
 import {
   insertWhatsAppMessage,
@@ -227,7 +227,7 @@ export async function sendWhatsAppTemplate(params: {
     type: "template",
     template: {
       name: params.templateName,
-      language: { code: params.languageCode ?? config.languageCode },
+      language: { code: params.languageCode ?? getUtilityTemplateLanguageCode() },
       ...(params.components?.length ? { components: params.components } : {}),
     },
   };

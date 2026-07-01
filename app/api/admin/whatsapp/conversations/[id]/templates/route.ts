@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
-import { getWhatsAppConfig } from "@/lib/whatsapp/config";
+import { getUtilityTemplateLanguageCode } from "@/lib/whatsapp/config";
 import { sendConversationTemplate } from "@/lib/whatsapp/admin-messaging";
 import type { TemplateComponent } from "@/lib/whatsapp/client";
 
@@ -26,12 +26,11 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 
-  const config = getWhatsAppConfig();
   const result = await sendConversationTemplate({
     conversationId: id,
     templateName,
     components: body.components,
-    languageCode: body.languageCode ?? config?.languageCode,
+    languageCode: body.languageCode ?? getUtilityTemplateLanguageCode(),
     orderId: body.orderId ?? null,
   });
 

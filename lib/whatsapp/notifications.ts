@@ -1,16 +1,19 @@
 import { BRAND } from "@/lib/constants";
 import type { Order, OrderStatus } from "@/lib/types";
-import { getWhatsAppConfig } from "@/lib/whatsapp/config";
+import {
+  getUtilityTemplateLanguageCode,
+  getWhatsAppConfig,
+  isWhatsAppConfigured,
+  isWhatsAppNotificationsEnabled,
+} from "@/lib/whatsapp/config";
 import { hasSentMessage, sendWhatsAppTemplate } from "@/lib/whatsapp/client";
 import { getShopSettings } from "@/lib/data";
 import { getStorefrontDetails } from "@/lib/storefront";
 import {
   buildCheckoutOtpTemplateComponents,
-  buildOrderCancelledComponents,
-  buildOrderConfirmedComponents,
-  buildOrderDispatchComponents,
-  buildOrderStatusComponents,
+  buildEnquiryReceivedComponents,
   resolveTemplateComponents,
+  WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE,
   WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
 } from "@/lib/whatsapp/template-components";
 
@@ -31,6 +34,34 @@ export async function sendCheckoutOtp(phone: string, code: string) {
     ),
     languageCode: config?.otpLanguageCode ?? "en_US",
   });
+}
+
+export async function notifyEnquiryReceived(params: {
+  enquiryId: string;
+  name: string;
+  phone: string;
+}) {
+  if (!isWhatsAppConfigured()) return;
+  if (!(await isWhatsAppNotificationsEnabled())) return;
+
+  const config = getWhatsAppConfig();
+  const templateName =
+    config?.templates.enquiryReceived ?? WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE;
+
+  const result = await sendWhatsAppTemplate({
+    phone: params.phone,
+    messageType: "enquiry_received",
+    templateName,
+    components: buildEnquiryReceivedComponents(
+      params.name,
+      params.enquiryId.slice(0, 8).toUpperCase()
+    ),
+    languageCode: getUtilityTemplateLanguageCode(),
+  });
+
+  if (!result.ok) {
+    console.warn("WhatsApp enquiry acknowledgment failed:", result.error);
+  }
 }
 
 /** Order placed (payment success) — uses approved Sihi utility template. */
@@ -74,14 +105,16 @@ export async function sendOrderConfirmedNotification(order: Order) {
 
   const config = getWhatsAppConfig();
   const templateName = config?.templates.orderConfirmed ?? "order_confirmed";
+  const resolved = resolveTemplateComponents(templateName, { order });
+  if (!resolved) return;
 
   return sendWhatsAppTemplate({
     phone: order.phone,
     messageType: "order_confirmed",
     templateName,
-    components: buildOrderConfirmedComponents(order),
+    components: resolved.components,
     orderId: order.id,
-    languageCode: config?.languageCode ?? "en_US",
+    languageCode: resolved.languageCode,
   });
 }
 
@@ -91,51 +124,48 @@ export async function sendOrderStatusNotification(
   extras?: { estimatedArrival?: string }
 ) {
   const config = getWhatsAppConfig();
-  const languageCode = config?.languageCode ?? "en_US";
 
   if (newStatus === "confirmed") {
     return sendOrderConfirmedNotification(order);
   }
 
+  let templateName: string | null = null;
   if (newStatus === "out_for_delivery") {
-    const templateName =
-      config?.templates.orderDispatch ?? "order_out_for_delivery_v2";
-
-    return sendWhatsAppTemplate({
-      phone: order.phone,
-      messageType: "order_out_for_delivery",
-      templateName,
-      components: buildOrderDispatchComponents(order, extras),
-      orderId: order.id,
-      languageCode,
-    });
+    templateName = config?.templates.orderDispatch ?? "order_out_for_delivery_v2";
+  } else if (newStatus === "cancelled") {
+    templateName = config?.templates.orderCancelled ?? "order_cancelled";
+  } else if (
+    newStatus === "preparing" ||
+    newStatus === "delivered" ||
+    newStatus === "self_delivered"
+  ) {
+    templateName = config?.templates.orderStatus ?? "order_status_update";
   }
 
-  if (newStatus === "cancelled") {
-    const templateName = config?.templates.orderCancelled ?? "order_cancelled";
+  if (!templateName) return;
 
-    return sendWhatsAppTemplate({
-      phone: order.phone,
-      messageType: "order_cancelled",
-      templateName,
-      components: buildOrderCancelledComponents(order),
-      orderId: order.id,
-      languageCode,
-    });
-  }
+  const resolved = resolveTemplateComponents(templateName, {
+    order,
+    status: newStatus,
+    extras,
+  });
+  if (!resolved) return;
 
-  if (newStatus === "preparing" || newStatus === "delivered" || newStatus === "self_delivered") {
-    const templateName = config?.templates.orderStatus ?? "order_status_update";
+  const messageType =
+    newStatus === "out_for_delivery"
+      ? "order_out_for_delivery"
+      : newStatus === "cancelled"
+        ? "order_cancelled"
+        : `order_status_${newStatus}`;
 
-    return sendWhatsAppTemplate({
-      phone: order.phone,
-      messageType: `order_status_${newStatus}`,
-      templateName,
-      components: buildOrderStatusComponents(order, newStatus),
-      orderId: order.id,
-      languageCode,
-    });
-  }
+  return sendWhatsAppTemplate({
+    phone: order.phone,
+    messageType,
+    templateName,
+    components: resolved.components,
+    orderId: order.id,
+    languageCode: resolved.languageCode,
+  });
 }
 
 export async function notifyOrderStatusChange(
