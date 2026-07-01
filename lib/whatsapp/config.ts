@@ -11,6 +11,7 @@ export type WhatsAppConfig = {
     orderConfirmed: string;
     orderStatus: string;
     orderPreparing: string;
+    orderDelivered: string;
     orderDispatch: string;
     orderCancelled: string;
     enquiryReceived: string;
@@ -84,16 +85,17 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
     templates: {
       otp: process.env.WHATSAPP_TEMPLATE_OTP?.trim() || "reach_confirmation",
       orderPlaced:
-        process.env.WHATSAPP_TEMPLATE_ORDER_PLACED?.trim() || "order_confirmed",
+        process.env.WHATSAPP_TEMPLATE_ORDER_PLACED?.trim() || "order_confirmed_v2",
       orderConfirmed:
-        process.env.WHATSAPP_TEMPLATE_ORDER_CONFIRMED?.trim() || "order_confirmed",
+        process.env.WHATSAPP_TEMPLATE_ORDER_CONFIRMED?.trim() || "order_confirmed_v2",
       orderStatus:
         process.env.WHATSAPP_TEMPLATE_ORDER_STATUS?.trim() || "order_status_update",
       orderPreparing:
         process.env.WHATSAPP_TEMPLATE_ORDER_PREPARING?.trim() || "order_preparing",
+      orderDelivered:
+        process.env.WHATSAPP_TEMPLATE_ORDER_DELIVERED?.trim() || "order_delivered",
       orderDispatch:
-        process.env.WHATSAPP_TEMPLATE_ORDER_DISPATCH?.trim() ||
-        "order_out_for_delivery_v2",
+        process.env.WHATSAPP_TEMPLATE_ORDER_DISPATCH?.trim() || "order_on_the_way_v2",
       orderCancelled:
         process.env.WHATSAPP_TEMPLATE_ORDER_CANCELLED?.trim() || "order_cancelled",
       enquiryReceived:

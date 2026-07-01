@@ -56,9 +56,11 @@ export const WHATSAPP_MESSAGES_PAGE_SIZE = 50;
 export const WHATSAPP_SERVICE_WINDOW_HOURS = 24;
 
 export const WHATSAPP_ADMIN_TEMPLATE_OPTIONS = [
-  { key: "order_confirmed", label: "Order confirmed" },
+  { key: "order_confirmed_v2", label: "Order confirmed" },
+  { key: "order_confirmed", label: "Order confirmed (legacy)" },
+  { key: "order_delivered", label: "Order delivered" },
   { key: "order_status_update", label: "Order status update" },
-  { key: "order_out_for_delivery_v2", label: "Out for delivery" },
+  { key: "order_on_the_way_v2", label: "Out for delivery" },
   { key: "order_cancelled", label: "Order cancelled" },
 ] as const;
 

@@ -249,6 +249,25 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
 
   return [
     {
+      name: "order_confirmed_v2",
+      language: "en_US",
+      category: "UTILITY",
+      allowCategoryChange: true,
+      components: [
+        {
+          type: "BODY",
+          text:
+            "🎉 Order Confirmed!\n\nHi {{1}},\n\nThank you for ordering from Sihi Bakes! 💛\n\nYour order {{2}} has been confirmed.\n\nTotal: {{3}}\nDelivery Slot: {{4}}\n\nWe'll notify you as soon as your order starts being prepared.",
+          example: {
+            body_text: [
+              ["Dhanush", "SIHI-20260701-2550", "₹299", "4 Jul, 6:00 PM – 8:00 PM"],
+            ],
+          },
+        },
+        { type: "FOOTER", text: footer },
+      ],
+    },
+    {
       name: "order_confirmed",
       language: "en_US",
       category: "UTILITY",
@@ -283,6 +302,23 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
       ],
     },
     {
+      name: "order_delivered",
+      language: "en_US",
+      category: "UTILITY",
+      allowCategoryChange: true,
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Sihi Bakes Update\n\nYour order {{1}} has been delivered.\n\nWe hope you enjoy every bite! 💛 Thank you for choosing Sihi Bakes. We'd love to hear your feedback.",
+          example: {
+            body_text: [["SIHI-20260701-2550"]],
+          },
+        },
+        { type: "FOOTER", text: footer },
+      ],
+    },
+    {
       name: "order_status_update",
       language: "en_US",
       category: "UTILITY",
@@ -295,6 +331,44 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
           example: {
             body_text: [
               ["SB-1001", "Preparing", "Your order is being prepared in our kitchen."],
+            ],
+          },
+        },
+        { type: "FOOTER", text: footer },
+      ],
+    },
+    {
+      name: "order_on_the_way_v2",
+      language: "en_US",
+      category: "UTILITY",
+      allowCategoryChange: true,
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Your Sihi Bakes order {{1}} is on its way!\n\nDelivery Partner: {{2}}\nref code: {{3}}\nETA: {{4}}\n\nThank you! 💛",
+          example: {
+            body_text: [
+              ["SIHI-20260701-2550", "Test Rider", "9997", "4 Jul, 6:00–8:00 PM"],
+            ],
+          },
+        },
+        { type: "FOOTER", text: footer },
+      ],
+    },
+    {
+      name: "order_on_the_way",
+      language: "en_US",
+      category: "UTILITY",
+      allowCategoryChange: true,
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Your Sihi Bakes order {{1}} is on its way!\n\nDelivery Partner: {{2}}\nref code: {{3}}\nETA: {{4}}\n\nThank you! 💛",
+          example: {
+            body_text: [
+              ["SIHI-20260701-2550", "Test Rider", "9997", "4 Jul, 6:00–8:00 PM"],
             ],
           },
         },

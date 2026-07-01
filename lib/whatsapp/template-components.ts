@@ -9,6 +9,9 @@ import {
   getTemplateLanguageCode,
   WHATSAPP_AUTH_OTP_TEMPLATE,
   WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE,
+  WHATSAPP_ORDER_CONFIRMED_TEMPLATE,
+  WHATSAPP_ORDER_DELIVERED_TEMPLATE,
+  WHATSAPP_ORDER_ON_THE_WAY_TEMPLATE,
   WHATSAPP_ORDER_PREPARING_TEMPLATE,
   WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
 } from "@/lib/whatsapp/template-registry";
@@ -16,6 +19,8 @@ import {
 export {
   WHATSAPP_AUTH_OTP_TEMPLATE,
   WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE,
+  WHATSAPP_ORDER_DELIVERED_TEMPLATE,
+  WHATSAPP_ORDER_ON_THE_WAY_TEMPLATE,
   WHATSAPP_ORDER_PREPARING_TEMPLATE,
   WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
 } from "@/lib/whatsapp/template-registry";
@@ -73,6 +78,42 @@ export function formatExpectedDelivery(
   const start = order.delivery_window_start.slice(0, 5);
   const end = order.delivery_window_end.slice(0, 5);
   return `${dateLabel}, ${start}–${end}`;
+}
+
+function formatTime12h(time: string): string {
+  const [hourPart, minutePart] = time.slice(0, 5).split(":");
+  const hour = Number.parseInt(hourPart ?? "0", 10);
+  const minute = minutePart ?? "00";
+  if (Number.isNaN(hour)) return time.slice(0, 5);
+  const ampm = hour >= 12 ? "PM" : "AM";
+  const hour12 = hour % 12 || 12;
+  return `${hour12}:${minute} ${ampm}`;
+}
+
+/** ETA line for out-for-delivery WhatsApp, e.g. "4 Jul, 6:00–8:00 PM". */
+export function formatDispatchEta(
+  order: Pick<Order, "delivery_date" | "delivery_window_start" | "delivery_window_end">
+): string {
+  const date = new Date(`${order.delivery_date}T12:00:00`);
+  const dateLabel = Number.isNaN(date.getTime())
+    ? order.delivery_date
+    : date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  const start = formatTime12h(order.delivery_window_start);
+  const end = formatTime12h(order.delivery_window_end);
+  return `${dateLabel}, ${start}–${end}`;
+}
+
+/** Delivery slot for order confirmation, e.g. "4 Jul, 6:00 PM – 8:00 PM". */
+export function formatOrderConfirmedDeliverySlot(
+  order: Pick<Order, "delivery_date" | "delivery_window_start" | "delivery_window_end">
+): string {
+  const date = new Date(`${order.delivery_date}T12:00:00`);
+  const dateLabel = Number.isNaN(date.getTime())
+    ? order.delivery_date
+    : date.toLocaleDateString("en-IN", { day: "numeric", month: "short" });
+  const start = formatTime12h(order.delivery_window_start);
+  const end = formatTime12h(order.delivery_window_end);
+  return `${dateLabel}, ${start} – ${end}`;
 }
 
 function firstName(order: Pick<Order, "customer_name">): string {
@@ -175,13 +216,22 @@ export function buildOrderConfirmedComponents(order: Order): TemplateComponent[]
         textParam(firstName(order)),
         textParam(order.order_number),
         textParam(formatOrderTotalForWhatsApp(order)),
-        textParam(formatDeliverySlot(order)),
+        textParam(formatOrderConfirmedDeliverySlot(order)),
       ],
     },
   ];
 }
 
 export function buildOrderPreparingComponents(order: Order): TemplateComponent[] {
+  return [
+    {
+      type: "body",
+      parameters: [textParam(order.order_number)],
+    },
+  ];
+}
+
+export function buildOrderDeliveredComponents(order: Order): TemplateComponent[] {
   return [
     {
       type: "body",
@@ -211,7 +261,7 @@ export function buildOrderDispatchComponents(
   extras?: { estimatedArrival?: string }
 ): TemplateComponent[] {
   const estimatedArrival =
-    extras?.estimatedArrival?.trim() || formatDeliverySlot(order);
+    extras?.estimatedArrival?.trim() || formatDispatchEta(order);
 
   return [
     {
@@ -290,11 +340,12 @@ export function resolveTemplateComponents(
   const normalized = templateName.trim().toLowerCase();
 
   const templates = config?.templates;
-  const orderPlaced = templates?.orderPlaced ?? "order_confirmed";
-  const orderConfirmed = templates?.orderConfirmed ?? "order_confirmed";
+  const orderPlaced = templates?.orderPlaced ?? WHATSAPP_ORDER_CONFIRMED_TEMPLATE;
+  const orderConfirmed = templates?.orderConfirmed ?? WHATSAPP_ORDER_CONFIRMED_TEMPLATE;
   const orderStatus = templates?.orderStatus ?? "order_status_update";
   const orderPreparing = templates?.orderPreparing ?? WHATSAPP_ORDER_PREPARING_TEMPLATE;
-  const orderDispatch = templates?.orderDispatch ?? "order_out_for_delivery_v2";
+  const orderDelivered = templates?.orderDelivered ?? WHATSAPP_ORDER_DELIVERED_TEMPLATE;
+  const orderDispatch = templates?.orderDispatch ?? WHATSAPP_ORDER_ON_THE_WAY_TEMPLATE;
   const orderCancelled = templates?.orderCancelled ?? "order_cancelled";
   const otp = templates?.otp ?? WHATSAPP_REACH_CONFIRMATION_TEMPLATE;
   const enquiryReceived =
@@ -338,6 +389,13 @@ export function resolveTemplateComponents(
     return finalizeTemplatePayload(
       orderPreparing,
       buildOrderPreparingComponents(order)
+    );
+  }
+
+  if (normalized === orderDelivered.toLowerCase()) {
+    return finalizeTemplatePayload(
+      orderDelivered,
+      buildOrderDeliveredComponents(order)
     );
   }
 

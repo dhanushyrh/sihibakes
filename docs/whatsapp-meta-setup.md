@@ -55,10 +55,12 @@ Ensure these templates exist in WhatsApp Manager (names must match env vars). Al
 | --- | --- | --- | --- | --- |
 | `reach_confirmation` | `WHATSAPP_TEMPLATE_OTP` | `en_US` | `{{1}}` id, `{{2}}` support phone | Checkout phone verify |
 | `checkout_otp` | `WHATSAPP_TEMPLATE_OTP` | `en` | `{{1}}` code (+ copy button) | Auth OTP (TIER_2K+ only) |
-| `order_confirmed` | `WHATSAPP_TEMPLATE_ORDER_PLACED` / `ORDER_CONFIRMED` | `en_US` | name, order #, total, slot | Payment success / confirmed |
+| `order_confirmed_v2` | `WHATSAPP_TEMPLATE_ORDER_PLACED` / `ORDER_CONFIRMED` | `en_US` | name, order #, total, slot | Payment success |
+| `order_confirmed` | — | `en_US` | name, order #, total, slot | Legacy |
 | `order_preparing` | `WHATSAPP_TEMPLATE_ORDER_PREPARING` | `en_US` | order # | Status → preparing |
-| `order_status_update` | `WHATSAPP_TEMPLATE_ORDER_STATUS` | `en_US` | order #, status label, note | Delivered updates |
-| `order_out_for_delivery_v2` | `WHATSAPP_TEMPLATE_ORDER_DISPATCH` | `en_US` | order #, partner, ref, ETA | Out for delivery |
+| `order_delivered` | `WHATSAPP_TEMPLATE_ORDER_DELIVERED` | `en_US` | order # | Status → delivered |
+| `order_status_update` | `WHATSAPP_TEMPLATE_ORDER_STATUS` | `en_US` | order #, status label, note | Admin manual status |
+| `order_on_the_way_v2` | `WHATSAPP_TEMPLATE_ORDER_DISPATCH` | `en_US` | order #, partner, ref, ETA | Out for delivery |
 | `order_cancelled` | `WHATSAPP_TEMPLATE_ORDER_CANCELLED` | `en_US` | order #, reason | Order cancelled |
 | `enquiry_received` | `WHATSAPP_TEMPLATE_ENQUIRY_RECEIVED` | `en_US` | first name, reference | Enquiry submitted |
 
@@ -69,10 +71,13 @@ Template list:
 - `enquiry_received` (UTILITY — sent when a customer submits an enquiry)
 - `reach_confirmation` (UTILITY — default for checkout id messages; works on lower messaging tiers)
 - `checkout_otp` (AUTHENTICATION — optional; see tier requirement below)
-- `order_confirmed` (order placed on payment + admin confirmation)
+- `order_confirmed_v2` (order placed on payment — confirmation with total and slot)
+- `order_confirmed` (legacy)
 - `order_preparing` (sent when admin moves order to preparing)
-- `order_status_update`
-- `order_out_for_delivery_v2`
+- `order_delivered` (sent when admin marks order delivered)
+- `order_status_update` (legacy — admin manual sends)
+- `order_on_the_way_v2` (out for delivery — partner, ref code, ETA)
+- `order_out_for_delivery_v2` (legacy)
 - `order_cancelled`
 
 Admin chat can send the order-related templates from the inbox when the reply window is closed.
@@ -91,6 +96,57 @@ Requirements:
 - Access token with `whatsapp_business_management` scope
 - New templates start as `PENDING` until Meta approves (usually within 24 hours)
 - Meta rate limit: ~100 template creates per hour per WABA
+
+### Order confirmed (`order_confirmed_v2`)
+
+Sent when payment succeeds (order placed):
+
+> 🎉 Order Confirmed!
+>
+> Hi {{1}},
+>
+> Thank you for ordering from Sihi Bakes! 💛
+>
+> Your order {{2}} has been confirmed.
+>
+> Total: {{3}}
+> Delivery Slot: {{4}}
+>
+> We'll notify you as soon as your order starts being prepared.
+
+- `{{1}}` — customer first name
+- `{{2}}` — order number
+- `{{3}}` — grand total incl. delivery (e.g. `₹299`)
+- `{{4}}` — delivery slot (e.g. `4 Jul, 6:00 PM – 8:00 PM`)
+
+### Order on the way (`order_on_the_way_v2`)
+
+Sent when admin marks an order **Out for delivery**:
+
+> Your Sihi Bakes order {{1}} is on its way!
+>
+> Delivery Partner: {{2}}
+> ref code: {{3}}
+> ETA: {{4}}
+>
+> Thank you! 💛
+
+- `{{1}}` — order number
+- `{{2}}` — delivery partner name
+- `{{3}}` — delivery reference / OTP code
+- `{{4}}` — ETA window (e.g. `4 Jul, 6:00–8:00 PM`)
+
+### Order delivered (`order_delivered`)
+
+Sent when admin marks an order **Delivered** or **Self delivered**:
+
+> Sihi Bakes Update
+>
+> Your order {{1}} has been delivered.
+>
+> We hope you enjoy every bite! 💛 Thank you for choosing Sihi Bakes. We'd love to hear your feedback.
+
+- `{{1}}` — order number
 
 ### Order preparing (`order_preparing`)
 

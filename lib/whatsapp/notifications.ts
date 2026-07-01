@@ -84,7 +84,7 @@ export async function sendOrderPlacedNotification(order: Order) {
   }
 
   const config = getWhatsAppConfig();
-  const templateName = config?.templates.orderPlaced ?? "order_confirmed";
+  const templateName = config?.templates.orderPlaced ?? "order_confirmed_v2";
   const resolved = resolveTemplateComponents(templateName, { order });
   if (!resolved) {
     const error = `Could not build template parameters for "${templateName}"`;
@@ -117,7 +117,7 @@ export async function sendOrderConfirmedNotification(order: Order) {
   if (await hasSentMessage(order.id, "order_placed")) return;
 
   const config = getWhatsAppConfig();
-  const templateName = config?.templates.orderConfirmed ?? "order_confirmed";
+  const templateName = config?.templates.orderConfirmed ?? "order_confirmed_v2";
   const resolved = resolveTemplateComponents(templateName, { order });
   if (!resolved) return;
 
@@ -147,11 +147,11 @@ export async function sendOrderStatusNotification(
   if (newStatus === "preparing") {
     templateName = config?.templates.orderPreparing ?? "order_preparing";
   } else if (newStatus === "out_for_delivery") {
-    templateName = config?.templates.orderDispatch ?? "order_out_for_delivery_v2";
+    templateName = config?.templates.orderDispatch ?? "order_on_the_way_v2";
   } else if (newStatus === "cancelled") {
     templateName = config?.templates.orderCancelled ?? "order_cancelled";
   } else if (newStatus === "delivered" || newStatus === "self_delivered") {
-    templateName = config?.templates.orderStatus ?? "order_status_update";
+    templateName = config?.templates.orderDelivered ?? "order_delivered";
   }
 
   if (!templateName) return;
