@@ -119,16 +119,8 @@ export function buildCheckoutOtpTemplateComponents(
 }
 
 export function buildOrderPlacedComponents(order: Order): TemplateComponent[] {
-  return [
-    {
-      type: "body",
-      parameters: [
-        textParam(firstName(order)),
-        textParam(order.order_number),
-        textParam(formatExpectedDelivery(order)),
-      ],
-    },
-  ];
+  // order_placed uses the same order_confirmed template (4 body variables).
+  return buildOrderConfirmedComponents(order);
 }
 
 export function buildOrderConfirmedComponents(order: Order): TemplateComponent[] {
