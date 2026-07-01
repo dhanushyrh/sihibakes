@@ -52,8 +52,7 @@ Also useful later:
 Ensure these templates exist in WhatsApp Manager (names must match env vars):
 
 - `checkout_otp` (AUTHENTICATION — see tier requirement below)
-- `jaspers_market_order_confirmation_v1` (or your order-placed template)
-- `order_confirmed`
+- `order_confirmed` (order placed on payment + admin confirmation)
 - `order_status_update`
 - `order_out_for_delivery_v2`
 - `order_cancelled`

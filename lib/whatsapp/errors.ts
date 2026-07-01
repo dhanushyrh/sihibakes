@@ -36,6 +36,19 @@ export function parseWhatsAppApiError(error?: {
   }
 
   if (
+    code === 131058 ||
+    raw.toLowerCase().includes("hello world") ||
+    raw.toLowerCase().includes("public test number")
+  ) {
+    return {
+      message:
+        "Meta sample/test templates (e.g. hello_world, jaspers_market_order_confirmation_v1) only work on public test numbers. Set WHATSAPP_TEMPLATE_ORDER_PLACED=order_confirmed to use your approved Sihi template.",
+      severity: "critical",
+      isAuthError: false,
+    };
+  }
+
+  if (
     error?.error_subcode === 2388185 ||
     raw.includes("does not have permission to create message template")
   ) {

@@ -162,8 +162,7 @@ export function resolveTemplateComponents(
   const normalized = templateName.trim().toLowerCase();
 
   const templates = config?.templates;
-  const orderPlaced =
-    templates?.orderPlaced ?? "jaspers_market_order_confirmation_v1";
+  const orderPlaced = templates?.orderPlaced ?? "order_confirmed";
   const orderConfirmed = templates?.orderConfirmed ?? "order_confirmed";
   const orderStatus = templates?.orderStatus ?? "order_status_update";
   const orderDispatch = templates?.orderDispatch ?? "order_out_for_delivery_v2";

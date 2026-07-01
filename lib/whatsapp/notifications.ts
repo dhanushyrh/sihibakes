@@ -7,8 +7,8 @@ import {
   buildOrderCancelledComponents,
   buildOrderConfirmedComponents,
   buildOrderDispatchComponents,
-  buildOrderPlacedComponents,
   buildOrderStatusComponents,
+  resolveTemplateComponents,
 } from "@/lib/whatsapp/template-components";
 
 export async function sendCheckoutOtp(phone: string, code: string) {
@@ -24,23 +24,28 @@ export async function sendCheckoutOtp(phone: string, code: string) {
   });
 }
 
-/** Meta sample utility template: customer name, order id, expected delivery. */
+/** Order placed (payment success) — uses approved Sihi utility template. */
 export async function sendOrderPlacedNotification(order: Order) {
   if (await hasSentMessage(order.id, "order_placed")) {
     return { ok: true, messageId: null, error: null };
   }
 
   const config = getWhatsAppConfig();
-  const templateName =
-    config?.templates.orderPlaced ?? "jaspers_market_order_confirmation_v1";
+  const templateName = config?.templates.orderPlaced ?? "order_confirmed";
+  const resolved = resolveTemplateComponents(templateName, { order });
+  if (!resolved) {
+    const error = `Could not build template parameters for "${templateName}"`;
+    console.error(`WhatsApp order placed notification failed for ${order.order_number}:`, error);
+    return { ok: false, messageId: null, error };
+  }
 
   const result = await sendWhatsAppTemplate({
     phone: order.phone,
     messageType: "order_placed",
     templateName,
-    components: buildOrderPlacedComponents(order),
+    components: resolved.components,
     orderId: order.id,
-    languageCode: config?.orderPlacedLanguageCode ?? "en_US",
+    languageCode: resolved.languageCode,
   });
 
   if (!result.ok) {
@@ -55,6 +60,8 @@ export async function sendOrderPlacedNotification(order: Order) {
 
 export async function sendOrderConfirmedNotification(order: Order) {
   if (await hasSentMessage(order.id, "order_confirmed")) return;
+  // Payment success already sends order_confirmed template as order_placed.
+  if (await hasSentMessage(order.id, "order_placed")) return;
 
   const config = getWhatsAppConfig();
   const templateName = config?.templates.orderConfirmed ?? "order_confirmed";

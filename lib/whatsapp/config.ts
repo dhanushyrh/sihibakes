@@ -67,8 +67,7 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
     templates: {
       otp: process.env.WHATSAPP_TEMPLATE_OTP?.trim() || "checkout_otp",
       orderPlaced:
-        process.env.WHATSAPP_TEMPLATE_ORDER_PLACED?.trim() ||
-        "jaspers_market_order_confirmation_v1",
+        process.env.WHATSAPP_TEMPLATE_ORDER_PLACED?.trim() || "order_confirmed",
       orderConfirmed:
         process.env.WHATSAPP_TEMPLATE_ORDER_CONFIRMED?.trim() || "order_confirmed",
       orderStatus:

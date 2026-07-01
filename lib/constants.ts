@@ -60,7 +60,6 @@ export const WHATSAPP_ADMIN_TEMPLATE_OPTIONS = [
   { key: "order_status_update", label: "Order status update" },
   { key: "order_out_for_delivery_v2", label: "Out for delivery" },
   { key: "order_cancelled", label: "Order cancelled" },
-  { key: "jaspers_market_order_confirmation_v1", label: "Order placed" },
 ] as const;
 
 /** Inclusive calendar days customers can book delivery (today + next days). */
