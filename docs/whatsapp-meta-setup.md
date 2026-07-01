@@ -49,7 +49,21 @@ Also useful later:
 
 ## 5. Approved templates
 
-Ensure these templates exist in WhatsApp Manager (names must match env vars):
+Ensure these templates exist in WhatsApp Manager (names must match env vars). All utility templates use locale **`en_US`** unless noted.
+
+| Template | Env var | Locale | Body params | Sent when |
+| --- | --- | --- | --- | --- |
+| `reach_confirmation` | `WHATSAPP_TEMPLATE_OTP` | `en_US` | `{{1}}` id, `{{2}}` support phone | Checkout phone verify |
+| `checkout_otp` | `WHATSAPP_TEMPLATE_OTP` | `en` | `{{1}}` code (+ copy button) | Auth OTP (TIER_2K+ only) |
+| `order_confirmed` | `WHATSAPP_TEMPLATE_ORDER_PLACED` / `ORDER_CONFIRMED` | `en_US` | name, order #, total, slot | Payment success / confirmed |
+| `order_status_update` | `WHATSAPP_TEMPLATE_ORDER_STATUS` | `en_US` | order #, status label, note | Preparing / delivered |
+| `order_out_for_delivery_v2` | `WHATSAPP_TEMPLATE_ORDER_DISPATCH` | `en_US` | order #, partner, ref, ETA | Out for delivery |
+| `order_cancelled` | `WHATSAPP_TEMPLATE_ORDER_CANCELLED` | `en_US` | order #, reason | Order cancelled |
+| `enquiry_received` | `WHATSAPP_TEMPLATE_ENQUIRY_RECEIVED` | `en_US` | first name, reference | Enquiry submitted |
+
+The app validates body parameter counts and normalizes `en` → `en_US` for utility templates before each send.
+
+Template list:
 
 - `enquiry_received` (UTILITY — sent when a customer submits an enquiry)
 - `reach_confirmation` (UTILITY — default for checkout id messages; works on lower messaging tiers)

@@ -1,17 +1,12 @@
 import { BRAND } from "@/lib/constants";
 import type { Order, OrderStatus } from "@/lib/types";
 import {
-  getUtilityTemplateLanguageCode,
   getWhatsAppConfig,
   isWhatsAppConfigured,
   isWhatsAppNotificationsEnabled,
 } from "@/lib/whatsapp/config";
 import { hasSentMessage, sendWhatsAppTemplate } from "@/lib/whatsapp/client";
-import { getShopSettings } from "@/lib/data";
-import { getStorefrontDetails } from "@/lib/storefront";
 import {
-  buildCheckoutOtpTemplateComponents,
-  buildEnquiryReceivedComponents,
   resolveTemplateComponents,
   WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE,
   WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
@@ -20,19 +15,27 @@ import {
 export async function sendCheckoutOtp(phone: string, code: string) {
   const config = getWhatsAppConfig();
   const templateName = config?.templates.otp ?? WHATSAPP_REACH_CONFIRMATION_TEMPLATE;
+  const { getShopSettings } = await import("@/lib/data");
+  const { getStorefrontDetails } = await import("@/lib/storefront");
   const settings = await getShopSettings();
   const supportPhone = getStorefrontDetails(settings).phone;
+
+  const resolved = resolveTemplateComponents(templateName, {
+    code,
+    supportPhone,
+  });
+  if (!resolved) {
+    const error = `Could not build template parameters for "${templateName}"`;
+    console.error("WhatsApp checkout id send failed:", error);
+    return { ok: false, messageId: null, error };
+  }
 
   return sendWhatsAppTemplate({
     phone,
     messageType: "checkout_otp",
     templateName,
-    components: buildCheckoutOtpTemplateComponents(
-      templateName,
-      code,
-      supportPhone
-    ),
-    languageCode: config?.otpLanguageCode ?? "en_US",
+    components: resolved.components,
+    languageCode: resolved.languageCode,
   });
 }
 
@@ -48,15 +51,25 @@ export async function notifyEnquiryReceived(params: {
   const templateName =
     config?.templates.enquiryReceived ?? WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE;
 
+  const resolved = resolveTemplateComponents(templateName, {
+    enquiry: {
+      name: params.name,
+      reference: params.enquiryId.slice(0, 8).toUpperCase(),
+    },
+  });
+  if (!resolved) {
+    console.warn(
+      `WhatsApp enquiry acknowledgment skipped — could not build "${templateName}"`
+    );
+    return;
+  }
+
   const result = await sendWhatsAppTemplate({
     phone: params.phone,
     messageType: "enquiry_received",
     templateName,
-    components: buildEnquiryReceivedComponents(
-      params.name,
-      params.enquiryId.slice(0, 8).toUpperCase()
-    ),
-    languageCode: getUtilityTemplateLanguageCode(),
+    components: resolved.components,
+    languageCode: resolved.languageCode,
   });
 
   if (!result.ok) {

@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
-import { getUtilityTemplateLanguageCode } from "@/lib/whatsapp/config";
+import { getTemplateLanguageCode } from "@/lib/whatsapp/template-registry";
 import { sendConversationTemplate } from "@/lib/whatsapp/admin-messaging";
 import type { TemplateComponent } from "@/lib/whatsapp/client";
 
@@ -30,7 +30,7 @@ export async function POST(request: Request, context: RouteContext) {
     conversationId: id,
     templateName,
     components: body.components,
-    languageCode: body.languageCode ?? getUtilityTemplateLanguageCode(),
+    languageCode: body.languageCode ?? getTemplateLanguageCode(templateName),
     orderId: body.orderId ?? null,
   });
 

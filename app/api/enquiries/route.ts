@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createEnquiry } from "@/lib/enquiries";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured } from "@/lib/mock-data";
+import { notifyEnquiryReceived } from "@/lib/whatsapp/notifications";
 
 export async function POST(request: Request) {
   try {
@@ -20,6 +21,12 @@ export async function POST(request: Request) {
     if ("error" in result) {
       return NextResponse.json({ error: result.error }, { status: result.status });
     }
+
+    void notifyEnquiryReceived({
+      enquiryId: result.id,
+      name: result.name,
+      phone: result.phone,
+    });
 
     return NextResponse.json({ ok: true, id: result.id });
   } catch (err) {

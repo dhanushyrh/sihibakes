@@ -11,7 +11,7 @@ import {
   sendWhatsAppText,
   type TemplateComponent,
 } from "@/lib/whatsapp/client";
-import { getUtilityTemplateLanguageCode } from "@/lib/whatsapp/config";
+import { getTemplateLanguageCode } from "@/lib/whatsapp/template-registry";
 import { resolveTemplateComponents } from "@/lib/whatsapp/template-components";
 import { isWithinCustomerServiceWindow } from "@/lib/whatsapp/window";
 
@@ -156,12 +156,20 @@ export async function sendConversationTemplate(params: {
     }
   }
 
+  if (!components?.length) {
+    return {
+      ok: false,
+      messageId: null,
+      error: `Could not build template parameters for "${params.templateName}"`,
+    };
+  }
+
   const result = await sendWhatsAppTemplate({
     phone: conversation.phone,
     messageType: "admin_chat",
     templateName: params.templateName,
     components,
-    languageCode: languageCode ?? getUtilityTemplateLanguageCode(),
+    languageCode: languageCode ?? getTemplateLanguageCode(params.templateName),
     orderId,
     skipChatPersistence: true,
     bypassNotificationsToggle: true,

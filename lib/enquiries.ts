@@ -2,7 +2,6 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import { ENQUIRIES_PAGE_SIZE } from "@/lib/constants";
 import { isValidIndianPhone, normalizeIndianPhone } from "@/lib/checkout-validation";
 import { requireVerifiedPhoneWithConsent } from "@/lib/legal-consent";
-import { notifyEnquiryReceived } from "@/lib/whatsapp/notifications";
 import type { ContactEnquiry, EnquiryStatus, EnquiryType } from "@/lib/types";
 
 export type EnquirySubmitBody = {
@@ -52,7 +51,7 @@ export function validateEnquiryBody(body: EnquirySubmitBody): string | null {
 export async function createEnquiry(
   admin: SupabaseClient,
   body: EnquirySubmitBody
-): Promise<{ id: string } | { error: string; status: number }> {
+): Promise<{ id: string; name: string; phone: string } | { error: string; status: number }> {
   const validationError = validateEnquiryBody(body);
   if (validationError) {
     return { error: validationError, status: 400 };
@@ -138,9 +137,7 @@ export async function createEnquiry(
     }
   }
 
-  void notifyEnquiryReceived({ enquiryId: enquiry.id, name, phone });
-
-  return { id: enquiry.id };
+  return { id: enquiry.id, name, phone };
 }
 
 export type AdminEnquiriesQueryParams = {

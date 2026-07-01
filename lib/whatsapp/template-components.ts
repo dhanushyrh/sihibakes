@@ -2,17 +2,21 @@ import { STORE_CONTACT } from "@/lib/constants";
 import { statusChangeLabel } from "@/lib/order-status-update";
 import { formatDisplayPhone } from "@/lib/storefront";
 import type { Order, OrderStatus } from "@/lib/types";
-import { getWhatsAppConfig, getUtilityTemplateLanguageCode } from "@/lib/whatsapp/config";
+import { getWhatsAppConfig } from "@/lib/whatsapp/config";
 import type { TemplateComponent } from "@/lib/whatsapp/client";
+import {
+  getExpectedBodyParamCount,
+  getTemplateLanguageCode,
+  WHATSAPP_AUTH_OTP_TEMPLATE,
+  WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE,
+  WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
+} from "@/lib/whatsapp/template-registry";
 
-/** Meta AUTHENTICATION template (requires TIER_2K). */
-export const WHATSAPP_AUTH_OTP_TEMPLATE = "checkout_otp";
-
-/** Default UTILITY reach-confirmation template (checkout id delivery). */
-export const WHATSAPP_REACH_CONFIRMATION_TEMPLATE = "reach_confirmation";
-
-/** Default UTILITY enquiry acknowledgment template. */
-export const WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE = "enquiry_received";
+export {
+  WHATSAPP_AUTH_OTP_TEMPLATE,
+  WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE,
+  WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
+} from "@/lib/whatsapp/template-registry";
 
 export function isAuthenticationOtpTemplate(templateName: string): boolean {
   return templateName.trim().toLowerCase() === WHATSAPP_AUTH_OTP_TEMPLATE;
@@ -212,19 +216,50 @@ export type ResolvedTemplatePayload = {
   languageCode: string;
 };
 
+function countBodyParams(components: TemplateComponent[]): number {
+  return components.find((component) => component.type === "body")?.parameters.length ?? 0;
+}
+
+function validateResolvedTemplate(
+  templateName: string,
+  payload: ResolvedTemplatePayload
+): ResolvedTemplatePayload | null {
+  const expected = getExpectedBodyParamCount(templateName);
+  if (expected == null) return payload;
+
+  const actual = countBodyParams(payload.components);
+  if (actual !== expected) {
+    console.error(
+      `WhatsApp template "${templateName}" expects ${expected} body params, got ${actual}`
+    );
+    return null;
+  }
+
+  return payload;
+}
+
+function finalizeTemplatePayload(
+  templateName: string,
+  components: TemplateComponent[]
+): ResolvedTemplatePayload | null {
+  return validateResolvedTemplate(templateName, {
+    components,
+    languageCode: getTemplateLanguageCode(templateName),
+  });
+}
+
 export function resolveTemplateComponents(
   templateName: string,
   params: {
     order?: Order | null;
     code?: string;
     supportPhone?: string | null;
+    enquiry?: { name: string; reference: string };
     status?: OrderStatus;
     extras?: { estimatedArrival?: string };
   }
 ): ResolvedTemplatePayload | null {
   const config = getWhatsAppConfig();
-  const utilityLanguage = getUtilityTemplateLanguageCode();
-  const otpLanguage = config?.otpLanguageCode ?? "en_US";
   const normalized = templateName.trim().toLowerCase();
 
   const templates = config?.templates;
@@ -234,57 +269,63 @@ export function resolveTemplateComponents(
   const orderDispatch = templates?.orderDispatch ?? "order_out_for_delivery_v2";
   const orderCancelled = templates?.orderCancelled ?? "order_cancelled";
   const otp = templates?.otp ?? WHATSAPP_REACH_CONFIRMATION_TEMPLATE;
+  const enquiryReceived =
+    templates?.enquiryReceived ?? WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE;
 
   if (normalized === otp.toLowerCase()) {
     if (!params.code) return null;
-    return {
-      components: buildCheckoutOtpTemplateComponents(
-        otp,
-        params.code,
-        params.supportPhone
-      ),
-      languageCode: otpLanguage,
-    };
+    return finalizeTemplatePayload(otp, buildCheckoutOtpTemplateComponents(
+      otp,
+      params.code,
+      params.supportPhone
+    ));
+  }
+
+  if (normalized === enquiryReceived.toLowerCase()) {
+    if (!params.enquiry) return null;
+    return finalizeTemplatePayload(
+      enquiryReceived,
+      buildEnquiryReceivedComponents(params.enquiry.name, params.enquiry.reference)
+    );
   }
 
   const order = params.order;
   if (!order) return null;
 
   if (normalized === orderPlaced.toLowerCase()) {
-    return {
-      components: buildOrderPlacedComponents(order),
-      languageCode:
-        config?.orderPlacedLanguageCode ?? getUtilityTemplateLanguageCode(),
-    };
+    return finalizeTemplatePayload(
+      orderPlaced,
+      buildOrderPlacedComponents(order)
+    );
   }
 
   if (normalized === orderConfirmed.toLowerCase()) {
-    return {
-      components: buildOrderConfirmedComponents(order),
-      languageCode: getUtilityTemplateLanguageCode(),
-    };
+    return finalizeTemplatePayload(
+      orderConfirmed,
+      buildOrderConfirmedComponents(order)
+    );
   }
 
   if (normalized === orderStatus.toLowerCase()) {
     const status = params.status ?? "preparing";
-    return {
-      components: buildOrderStatusComponents(order, status),
-      languageCode: utilityLanguage,
-    };
+    return finalizeTemplatePayload(
+      orderStatus,
+      buildOrderStatusComponents(order, status)
+    );
   }
 
   if (normalized === orderDispatch.toLowerCase()) {
-    return {
-      components: buildOrderDispatchComponents(order, params.extras),
-      languageCode: utilityLanguage,
-    };
+    return finalizeTemplatePayload(
+      orderDispatch,
+      buildOrderDispatchComponents(order, params.extras)
+    );
   }
 
   if (normalized === orderCancelled.toLowerCase()) {
-    return {
-      components: buildOrderCancelledComponents(order),
-      languageCode: utilityLanguage,
-    };
+    return finalizeTemplatePayload(
+      orderCancelled,
+      buildOrderCancelledComponents(order)
+    );
   }
 
   return null;
