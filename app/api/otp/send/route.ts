@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createOtp, isPhoneVerified, OtpResendCooldownError } from "@/lib/otp-store";
-import { isPhoneOtpDemoMode, isWhatsAppConfigured } from "@/lib/whatsapp/config";
+import {
+  isPhoneOtpDemoMode,
+  isWhatsAppConfigured,
+  isWhatsAppNotificationsEnabled,
+} from "@/lib/whatsapp/config";
 import { sendCheckoutOtp } from "@/lib/whatsapp/notifications";
 
 export const runtime = "nodejs";
@@ -14,7 +18,7 @@ export async function POST(request: Request) {
     }
 
     const normalizedPhone = String(phone);
-    const demoMode = isPhoneOtpDemoMode();
+    const demoMode = await isPhoneOtpDemoMode();
 
     if (await isPhoneVerified(normalizedPhone)) {
       return NextResponse.json({
@@ -40,9 +44,10 @@ export async function POST(request: Request) {
     }
 
     const whatsappConfigured = isWhatsAppConfigured();
+    const notificationsEnabled = await isWhatsAppNotificationsEnabled();
     let whatsappSent = false;
 
-    if (whatsappConfigured) {
+    if (whatsappConfigured && notificationsEnabled) {
       const result = await sendCheckoutOtp(normalizedPhone, code);
       whatsappSent = result.ok;
       if (!result.ok) {
@@ -52,7 +57,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({
       ok: true,
-      demo_mode: demoMode || (!whatsappSent && !whatsappConfigured),
+      demo_mode: demoMode || (!whatsappSent && (!whatsappConfigured || !notificationsEnabled)),
       message: whatsappSent
         ? "OTP sent to your WhatsApp number"
         : demoMode

@@ -21,6 +21,7 @@ function isAuthErrorMessage(message: string, code?: number): boolean {
 export function parseWhatsAppApiError(error?: {
   message?: string;
   code?: number;
+  error_subcode?: number;
 }): ParsedWhatsAppError {
   const raw = error?.message?.trim() || "WhatsApp API request failed";
   const code = error?.code;
@@ -29,6 +30,18 @@ export function parseWhatsAppApiError(error?: {
     return {
       message:
         "Recipient phone number not on Meta test allow list (add under WhatsApp → API Setup → To).",
+      severity: "warning",
+      isAuthError: false,
+    };
+  }
+
+  if (
+    error?.error_subcode === 2388185 ||
+    raw.includes("does not have permission to create message template")
+  ) {
+    return {
+      message:
+        "This WhatsApp Business account cannot create AUTHENTICATION templates yet. Meta requires messaging tier TIER_2K (2,000 business-initiated conversations/day). Your number is likely on TIER_250. Grow message volume or create the template in WhatsApp Manager once eligible.",
       severity: "warning",
       isAuthError: false,
     };
@@ -61,9 +74,15 @@ export function parseWhatsAppApiError(error?: {
 export function formatWhatsAppErrorForAdmin(error?: {
   message?: string;
   code?: number;
+  error_subcode?: number;
+  error_user_msg?: string;
 }): string {
   const parsed = parseWhatsAppApiError(error);
+  const detail = error?.error_user_msg?.trim();
   const codeSuffix =
     error?.code != null ? ` (Meta error code ${error.code})` : "";
+  if (detail && !parsed.message.includes(detail)) {
+    return `${parsed.message} ${detail}${codeSuffix}`;
+  }
   return `${parsed.message}${codeSuffix}`;
 }

@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { sendWhatsAppText } from "@/lib/whatsapp/client";
-import { isWhatsAppConfigured } from "@/lib/whatsapp/config";
+import { isWhatsAppConfigured, isWhatsAppNotificationsEnabled } from "@/lib/whatsapp/config";
 import {
   insertWhatsAppMessage,
   previewForMessage,
@@ -48,6 +48,7 @@ export async function sendWelcomeAutoReply(
 ): Promise<void> {
   try {
     if (!isAutoReplyEnabled()) return;
+    if (!(await isWhatsAppNotificationsEnabled())) return;
     if (!isNewServiceWindow(params.previousLastCustomerMessageAt)) return;
 
     const text = buildWelcomeAutoReplyText();

@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getWhatsAppConfig, isWhatsAppConfigured } from "@/lib/whatsapp/config";
+import { getWhatsAppConfig, isWhatsAppConfigured, isWhatsAppNotificationsEnabled } from "@/lib/whatsapp/config";
 import { formatPhoneForWhatsApp } from "@/lib/whatsapp/phone";
 import {
   insertWhatsAppMessage,
@@ -176,6 +176,7 @@ export async function sendWhatsAppTemplate(params: {
   languageCode?: string;
   conversationId?: string | null;
   skipChatPersistence?: boolean;
+  bypassNotificationsToggle?: boolean;
 }): Promise<SendTemplateResult> {
   const waPhone = formatPhoneForWhatsApp(params.phone);
   if (!waPhone) {
@@ -193,6 +194,19 @@ export async function sendWhatsAppTemplate(params: {
 
   if (!isWhatsAppConfigured()) {
     const error = "WhatsApp not configured";
+    await logMessage({
+      phone: params.phone,
+      messageType: params.messageType,
+      templateName: params.templateName,
+      orderId: params.orderId,
+      status: "skipped",
+      errorMessage: error,
+    });
+    return { ok: false, messageId: null, error };
+  }
+
+  if (!params.bypassNotificationsToggle && !(await isWhatsAppNotificationsEnabled())) {
+    const error = "WhatsApp notifications disabled";
     await logMessage({
       phone: params.phone,
       messageType: params.messageType,
@@ -295,6 +309,7 @@ export async function sendWhatsAppText(params: {
   text: string;
   conversationId?: string | null;
   orderId?: string | null;
+  bypassNotificationsToggle?: boolean;
 }): Promise<SendTextResult> {
   const waPhone = formatPhoneForWhatsApp(params.phone);
   if (!waPhone) {
@@ -308,6 +323,10 @@ export async function sendWhatsAppText(params: {
 
   if (!isWhatsAppConfigured()) {
     return { ok: false, messageId: null, error: "WhatsApp not configured" };
+  }
+
+  if (!params.bypassNotificationsToggle && !(await isWhatsAppNotificationsEnabled())) {
+    return { ok: false, messageId: null, error: "WhatsApp notifications disabled" };
   }
 
   const config = getWhatsAppConfig()!;

@@ -36,7 +36,17 @@ type GraphCreateResponse = {
   id?: string;
   status?: string;
   category?: string;
-  error?: { message?: string; code?: number; error_subcode?: number };
+  error?: {
+    message?: string;
+    code?: number;
+    error_subcode?: number;
+    error_user_msg?: string;
+  };
+};
+
+type GraphUpsertResponse = {
+  data?: { id?: string; status?: string }[];
+  error?: GraphCreateResponse["error"];
 };
 
 export function isWhatsAppTemplateManagementConfigured(): boolean {
@@ -99,6 +109,72 @@ export async function listWhatsAppTemplates(params?: {
   }
 }
 
+export async function createAuthenticationWhatsAppTemplate(
+  input: CreateWhatsAppTemplateInput
+): Promise<{
+  ok: boolean;
+  id: string | null;
+  status: string | null;
+  error: string | null;
+}> {
+  const base = graphBaseUrl();
+  if (!base) {
+    return {
+      ok: false,
+      id: null,
+      status: null,
+      error: "Set WHATSAPP_ACCESS_TOKEN and WHATSAPP_WABA_ID for template management.",
+    };
+  }
+
+  const name = input.name.trim().toLowerCase().replace(/[^a-z0-9_]/g, "_");
+  if (!name) {
+    return { ok: false, id: null, status: null, error: "Invalid template name" };
+  }
+
+  // Authentication templates must use upsert_message_templates (not message_templates).
+  const body = {
+    name,
+    languages: [input.language],
+    category: "AUTHENTICATION" as const,
+    components: input.components,
+  };
+
+  try {
+    const res = await fetch(`${base.url}/upsert_message_templates`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${base.token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+    });
+
+    const data = (await res.json()) as GraphUpsertResponse;
+
+    if (!res.ok) {
+      return {
+        ok: false,
+        id: null,
+        status: null,
+        error: formatWhatsAppErrorForAdmin(data.error) || `Meta API error (${res.status})`,
+      };
+    }
+
+    const created = data.data?.[0];
+    return {
+      ok: true,
+      id: created?.id ?? null,
+      status: created?.status ?? "PENDING",
+      error: null,
+    };
+  } catch (err) {
+    const message =
+      err instanceof Error ? err.message : "Failed to create authentication template";
+    return { ok: false, id: null, status: null, error: message };
+  }
+}
+
 export async function createWhatsAppTemplate(
   input: CreateWhatsAppTemplateInput
 ): Promise<{
@@ -107,6 +183,10 @@ export async function createWhatsAppTemplate(
   status: string | null;
   error: string | null;
 }> {
+  if (input.category === "AUTHENTICATION") {
+    return createAuthenticationWhatsAppTemplate(input);
+  }
+
   const base = graphBaseUrl();
   if (!base) {
     return {
@@ -253,7 +333,7 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
         },
         {
           type: "BUTTONS",
-          buttons: [{ type: "OTP", otp_type: "COPY_CODE", text: "Copy code" }],
+          buttons: [{ type: "OTP", otp_type: "COPY_CODE" }],
         },
       ],
     },

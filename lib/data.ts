@@ -193,6 +193,7 @@ export const getShopSettings = cache(async (): Promise<ShopSettings | null> => {
     fssai_license_no: row.fssai_license_no ?? "",
     phone: row.phone ?? "",
     alt_phone: row.alt_phone ?? "",
+    whatsapp_notifications_enabled: row.whatsapp_notifications_enabled ?? true,
   };
 });
 

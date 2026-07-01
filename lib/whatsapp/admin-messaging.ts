@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { Order } from "@/lib/types";
 import {
   getConversationById,
   insertWhatsAppMessage,
@@ -10,6 +11,7 @@ import {
   sendWhatsAppText,
   type TemplateComponent,
 } from "@/lib/whatsapp/client";
+import { resolveTemplateComponents } from "@/lib/whatsapp/template-components";
 import { isWithinCustomerServiceWindow } from "@/lib/whatsapp/window";
 
 type SendResult = {
@@ -58,6 +60,22 @@ async function persistOutboundMessage(params: {
   return row?.id ?? null;
 }
 
+async function findLatestOrderForPhone(phone: string): Promise<Order | null> {
+  const admin = createAdminClient();
+  const digits = phone.replace(/\D/g, "").slice(-10);
+  if (digits.length < 10) return null;
+
+  const { data } = await admin
+    .from("orders")
+    .select("*")
+    .or(`phone.ilike.%${digits},alt_phone.ilike.%${digits}`)
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  return (data as Order | null) ?? null;
+}
+
 export async function sendConversationTextReply(params: {
   conversationId: string;
   text: string;
@@ -85,6 +103,7 @@ export async function sendConversationTextReply(params: {
   const result = await sendWhatsAppText({
     phone: conversation.phone,
     text: trimmed,
+    bypassNotificationsToggle: true,
   });
 
   const dbMessageId = await persistOutboundMessage({
@@ -112,14 +131,39 @@ export async function sendConversationTemplate(params: {
     return { ok: false, messageId: null, error: "Conversation not found" };
   }
 
+  let components = params.components;
+  let languageCode = params.languageCode;
+  let orderId = params.orderId ?? null;
+
+  if (!components?.length) {
+    const order =
+      orderId != null
+        ? (
+            await admin.from("orders").select("*").eq("id", orderId).maybeSingle()
+          ).data
+        : await findLatestOrderForPhone(conversation.phone);
+
+    if (order) {
+      orderId = (order as Order).id;
+      const resolved = resolveTemplateComponents(params.templateName, {
+        order: order as Order,
+      });
+      if (resolved) {
+        components = resolved.components;
+        languageCode = languageCode ?? resolved.languageCode;
+      }
+    }
+  }
+
   const result = await sendWhatsAppTemplate({
     phone: conversation.phone,
     messageType: "admin_chat",
     templateName: params.templateName,
-    components: params.components,
-    languageCode: params.languageCode,
-    orderId: params.orderId,
+    components,
+    languageCode,
+    orderId,
     skipChatPersistence: true,
+    bypassNotificationsToggle: true,
   });
 
   const dbMessageId = await persistOutboundMessage({
@@ -130,7 +174,7 @@ export async function sendConversationTemplate(params: {
     templateName: params.templateName,
     status: result.ok ? "sent" : "failed",
     errorMessage: result.error,
-    orderId: params.orderId,
+    orderId,
   });
 
   return { ...result, dbMessageId };

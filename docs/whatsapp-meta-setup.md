@@ -51,7 +51,7 @@ Also useful later:
 
 Ensure these templates exist in WhatsApp Manager (names must match env vars):
 
-- `checkout_otp`
+- `checkout_otp` (AUTHENTICATION — see tier requirement below)
 - `jaspers_market_order_confirmation_v1` (or your order-placed template)
 - `order_confirmed`
 - `order_status_update`
@@ -74,6 +74,19 @@ Requirements:
 - Access token with `whatsapp_business_management` scope
 - New templates start as `PENDING` until Meta approves (usually within 24 hours)
 - Meta rate limit: ~100 template creates per hour per WABA
+
+### Authentication template (`checkout_otp`)
+
+Meta does **not** allow AUTHENTICATION templates on accounts below **messaging tier TIER_2K** (2,000 business-initiated conversations per day). New numbers typically start at **TIER_250**.
+
+- Create via `POST /<WABA_ID>/upsert_message_templates` (the app seed route uses this automatically).
+- If API returns *"does not have permission to create message template"* (error code 10, subcode 2388185), your WABA is not eligible yet.
+- **Workaround until tier upgrades:** OTP falls back to on-screen demo mode (`isPhoneOtpDemoMode`) — customers see the code in the browser.
+- **To become eligible:** send high-quality template messages to grow to TIER_2K, then re-run seed or create `checkout_otp` in WhatsApp Manager → Message templates → Create → Authentication.
+- UTILITY templates with OTP wording are rejected (`INCORRECT_CATEGORY`) — Meta requires the AUTHENTICATION category for verification codes.
+
+Check your tier in WhatsApp Manager → Phone numbers → Messaging limits, or via Graph API field `messaging_limit_tier` on the phone number ID.
+
 
 ## 6. Verify end-to-end
 

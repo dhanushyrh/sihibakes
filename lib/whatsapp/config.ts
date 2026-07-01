@@ -15,6 +15,7 @@ export type WhatsAppConfig = {
   };
   languageCode: string;
   orderPlacedLanguageCode: string;
+  otpLanguageCode: string;
 };
 
 export function isWhatsAppConfigured(): boolean {
@@ -32,9 +33,17 @@ export function isWhatsAppWebhookConfigured(): boolean {
   );
 }
 
+export async function isWhatsAppNotificationsEnabled(): Promise<boolean> {
+  if (!isWhatsAppConfigured()) return false;
+  const { getShopSettings } = await import("@/lib/data");
+  const settings = await getShopSettings();
+  return settings?.whatsapp_notifications_enabled ?? true;
+}
+
 /** True when checkout shows the OTP on-screen instead of sending via WhatsApp. */
-export function isPhoneOtpDemoMode(): boolean {
-  return !isWhatsAppConfigured();
+export async function isPhoneOtpDemoMode(): Promise<boolean> {
+  if (!isWhatsAppConfigured()) return true;
+  return !(await isWhatsAppNotificationsEnabled());
 }
 
 export function getWhatsAppConfig(): WhatsAppConfig | null {
@@ -53,6 +62,8 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
       process.env.WHATSAPP_BUSINESS_ACCOUNT_ID?.trim() ||
       null,
     languageCode: process.env.WHATSAPP_LANGUAGE_CODE?.trim() || "en_US",
+    otpLanguageCode:
+      process.env.WHATSAPP_TEMPLATE_OTP_LANGUAGE?.trim() || "en",
     templates: {
       otp: process.env.WHATSAPP_TEMPLATE_OTP?.trim() || "checkout_otp",
       orderPlaced:
