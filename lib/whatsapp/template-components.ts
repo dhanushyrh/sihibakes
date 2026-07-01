@@ -35,6 +35,22 @@ export function formatInr(amount: number): string {
   return `₹${amount.toLocaleString("en-IN")}`;
 }
 
+/** Grand total paid by customer (subtotal − coupon discount + delivery). */
+export function orderGrandTotalInr(
+  order: Pick<Order, "subtotal_inr" | "discount_inr" | "delivery_fee_inr" | "total_inr">
+): number {
+  const computed =
+    order.subtotal_inr - (order.discount_inr ?? 0) + (order.delivery_fee_inr ?? 0);
+  // Prefer computed total when stored total_inr omits delivery (legacy data).
+  return Math.max(0, Math.max(computed, order.total_inr));
+}
+
+export function formatOrderTotalForWhatsApp(
+  order: Pick<Order, "subtotal_inr" | "discount_inr" | "delivery_fee_inr" | "total_inr">
+): string {
+  return formatInr(orderGrandTotalInr(order));
+}
+
 export function formatDeliverySlot(
   order: Pick<Order, "delivery_date" | "delivery_window_start" | "delivery_window_end">
 ): string {
@@ -156,7 +172,7 @@ export function buildOrderConfirmedComponents(order: Order): TemplateComponent[]
       parameters: [
         textParam(firstName(order)),
         textParam(order.order_number),
-        textParam(formatInr(order.total_inr)),
+        textParam(formatOrderTotalForWhatsApp(order)),
         textParam(formatDeliverySlot(order)),
       ],
     },

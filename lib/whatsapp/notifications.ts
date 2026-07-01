@@ -139,6 +139,25 @@ export async function sendOrderStatusNotification(
   const config = getWhatsAppConfig();
 
   if (newStatus === "confirmed") {
+    // Payment success already sends the order_confirmed template — send a follow-up status note.
+    if (await hasSentMessage(order.id, "order_placed")) {
+      const templateName = config?.templates.orderStatus ?? "order_status_update";
+      const resolved = resolveTemplateComponents(templateName, {
+        order,
+        status: "confirmed",
+      });
+      if (!resolved) return;
+
+      return sendWhatsAppTemplate({
+        phone: order.phone,
+        messageType: "order_status_confirmed",
+        templateName,
+        components: resolved.components,
+        orderId: order.id,
+        languageCode: resolved.languageCode,
+      });
+    }
+
     return sendOrderConfirmedNotification(order);
   }
 
