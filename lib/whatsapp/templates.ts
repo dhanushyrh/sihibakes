@@ -319,6 +319,23 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
       ],
     },
     {
+      name: "reach_confirmation",
+      language: "en_US",
+      category: "UTILITY",
+      allowCategoryChange: true,
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Thanks for reaching out Sihi Bakes, your id is {{1}}. Please reach out for more support at {{2}} if needed.",
+          example: {
+            body_text: [["SIHI-847291", "+91 8310923990"]],
+          },
+        },
+        { type: "FOOTER", text: footer },
+      ],
+    },
+    {
       name: "checkout_otp",
       language: "en",
       category: "AUTHENTICATION",

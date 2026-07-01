@@ -1,7 +1,24 @@
+import { STORE_CONTACT } from "@/lib/constants";
 import { statusChangeLabel } from "@/lib/order-status-update";
+import { formatDisplayPhone } from "@/lib/storefront";
 import type { Order, OrderStatus } from "@/lib/types";
 import { getWhatsAppConfig } from "@/lib/whatsapp/config";
 import type { TemplateComponent } from "@/lib/whatsapp/client";
+
+/** Meta AUTHENTICATION template (requires TIER_2K). */
+export const WHATSAPP_AUTH_OTP_TEMPLATE = "checkout_otp";
+
+/** Default UTILITY reach-confirmation template (checkout id delivery). */
+export const WHATSAPP_REACH_CONFIRMATION_TEMPLATE = "reach_confirmation";
+
+export function isAuthenticationOtpTemplate(templateName: string): boolean {
+  return templateName.trim().toLowerCase() === WHATSAPP_AUTH_OTP_TEMPLATE;
+}
+
+export function formatOtpSupportPhone(phone?: string | null): string {
+  const formatted = formatDisplayPhone(phone?.trim() || STORE_CONTACT.phone);
+  return formatted || STORE_CONTACT.phone;
+}
 
 function textParam(value: string) {
   return { type: "text" as const, text: value.slice(0, 1024) };
@@ -52,7 +69,7 @@ function statusDetailMessage(status: OrderStatus): string {
   }
 }
 
-export function buildCheckoutOtpComponents(code: string): TemplateComponent[] {
+export function buildCheckoutOtpAuthComponents(code: string): TemplateComponent[] {
   return [
     {
       type: "body",
@@ -65,6 +82,40 @@ export function buildCheckoutOtpComponents(code: string): TemplateComponent[] {
       parameters: [textParam(code)],
     },
   ];
+}
+
+export function buildReachConfirmationComponents(
+  referenceId: string,
+  supportPhone?: string | null
+): TemplateComponent[] {
+  return [
+    {
+      type: "body",
+      parameters: [
+        textParam(referenceId),
+        textParam(formatOtpSupportPhone(supportPhone)),
+      ],
+    },
+  ];
+}
+
+/** @deprecated Use buildReachConfirmationComponents */
+export function buildCheckoutOtpComponents(
+  code: string,
+  supportPhone?: string | null
+): TemplateComponent[] {
+  return buildReachConfirmationComponents(code, supportPhone);
+}
+
+export function buildCheckoutOtpTemplateComponents(
+  templateName: string,
+  code: string,
+  supportPhone?: string | null
+): TemplateComponent[] {
+  if (isAuthenticationOtpTemplate(templateName)) {
+    return buildCheckoutOtpAuthComponents(code);
+  }
+  return buildReachConfirmationComponents(code, supportPhone);
 }
 
 export function buildOrderPlacedComponents(order: Order): TemplateComponent[] {
@@ -152,6 +203,7 @@ export function resolveTemplateComponents(
   params: {
     order?: Order | null;
     code?: string;
+    supportPhone?: string | null;
     status?: OrderStatus;
     extras?: { estimatedArrival?: string };
   }
@@ -167,12 +219,16 @@ export function resolveTemplateComponents(
   const orderStatus = templates?.orderStatus ?? "order_status_update";
   const orderDispatch = templates?.orderDispatch ?? "order_out_for_delivery_v2";
   const orderCancelled = templates?.orderCancelled ?? "order_cancelled";
-  const otp = templates?.otp ?? "checkout_otp";
+  const otp = templates?.otp ?? WHATSAPP_REACH_CONFIRMATION_TEMPLATE;
 
   if (normalized === otp.toLowerCase()) {
     if (!params.code) return null;
     return {
-      components: buildCheckoutOtpComponents(params.code),
+      components: buildCheckoutOtpTemplateComponents(
+        otp,
+        params.code,
+        params.supportPhone
+      ),
       languageCode: otpLanguage,
     };
   }

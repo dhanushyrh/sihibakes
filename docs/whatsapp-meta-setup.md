@@ -51,7 +51,8 @@ Also useful later:
 
 Ensure these templates exist in WhatsApp Manager (names must match env vars):
 
-- `checkout_otp` (AUTHENTICATION — see tier requirement below)
+- `reach_confirmation` (UTILITY — default for checkout id messages; works on lower messaging tiers)
+- `checkout_otp` (AUTHENTICATION — optional; see tier requirement below)
 - `order_confirmed` (order placed on payment + admin confirmation)
 - `order_status_update`
 - `order_out_for_delivery_v2`
@@ -74,15 +75,26 @@ Requirements:
 - New templates start as `PENDING` until Meta approves (usually within 24 hours)
 - Meta rate limit: ~100 template creates per hour per WABA
 
-### Authentication template (`checkout_otp`)
+### Reach confirmation template (`reach_confirmation`)
+
+The app sends checkout ids via a **UTILITY** template (default `WHATSAPP_TEMPLATE_OTP=reach_confirmation`):
+
+> Thanks for reaching out Sihi Bakes, your id is {{1}}. Please reach out for more support at {{2}} if needed.
+
+- `{{1}}` — reference id shown to the customer at checkout
+- `{{2}}` — your shop support phone (from Admin → Settings, or `STORE_CONTACT` fallback)
+
+Create it via **Admin → WhatsApp → Templates → Seed defaults**, or set `WHATSAPP_TEMPLATE_OTP=reach_confirmation` after Meta approves the template.
+
+### Authentication template (`checkout_otp`, optional)
 
 Meta does **not** allow AUTHENTICATION templates on accounts below **messaging tier TIER_2K** (2,000 business-initiated conversations per day). New numbers typically start at **TIER_250**.
 
+- Set `WHATSAPP_TEMPLATE_OTP=checkout_otp` and `WHATSAPP_TEMPLATE_OTP_LANGUAGE=en` only after tier upgrade.
 - Create via `POST /<WABA_ID>/upsert_message_templates` (the app seed route uses this automatically).
 - If API returns *"does not have permission to create message template"* (error code 10, subcode 2388185), your WABA is not eligible yet.
-- **Workaround until tier upgrades:** OTP falls back to on-screen demo mode (`isPhoneOtpDemoMode`) — customers see the code in the browser.
+- **Workaround until tier upgrades:** use `reach_confirmation` (seeded by default) instead of the authentication template.
 - **To become eligible:** send high-quality template messages to grow to TIER_2K, then re-run seed or create `checkout_otp` in WhatsApp Manager → Message templates → Create → Authentication.
-- UTILITY templates with OTP wording are rejected (`INCORRECT_CATEGORY`) — Meta requires the AUTHENTICATION category for verification codes.
 
 Check your tier in WhatsApp Manager → Phone numbers → Messaging limits, or via Graph API field `messaging_limit_tier` on the phone number ID.
 

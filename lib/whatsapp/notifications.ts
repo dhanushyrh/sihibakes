@@ -2,25 +2,34 @@ import { BRAND } from "@/lib/constants";
 import type { Order, OrderStatus } from "@/lib/types";
 import { getWhatsAppConfig } from "@/lib/whatsapp/config";
 import { hasSentMessage, sendWhatsAppTemplate } from "@/lib/whatsapp/client";
+import { getShopSettings } from "@/lib/data";
+import { getStorefrontDetails } from "@/lib/storefront";
 import {
-  buildCheckoutOtpComponents,
+  buildCheckoutOtpTemplateComponents,
   buildOrderCancelledComponents,
   buildOrderConfirmedComponents,
   buildOrderDispatchComponents,
   buildOrderStatusComponents,
   resolveTemplateComponents,
+  WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
 } from "@/lib/whatsapp/template-components";
 
 export async function sendCheckoutOtp(phone: string, code: string) {
   const config = getWhatsAppConfig();
-  const templateName = config?.templates.otp ?? "checkout_otp";
+  const templateName = config?.templates.otp ?? WHATSAPP_REACH_CONFIRMATION_TEMPLATE;
+  const settings = await getShopSettings();
+  const supportPhone = getStorefrontDetails(settings).phone;
 
   return sendWhatsAppTemplate({
     phone,
     messageType: "checkout_otp",
     templateName,
-    components: buildCheckoutOtpComponents(code),
-    languageCode: config?.otpLanguageCode ?? "en",
+    components: buildCheckoutOtpTemplateComponents(
+      templateName,
+      code,
+      supportPhone
+    ),
+    languageCode: config?.otpLanguageCode ?? "en_US",
   });
 }
 

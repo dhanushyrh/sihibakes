@@ -63,9 +63,9 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
       null,
     languageCode: process.env.WHATSAPP_LANGUAGE_CODE?.trim() || "en_US",
     otpLanguageCode:
-      process.env.WHATSAPP_TEMPLATE_OTP_LANGUAGE?.trim() || "en",
+      process.env.WHATSAPP_TEMPLATE_OTP_LANGUAGE?.trim() || "en_US",
     templates: {
-      otp: process.env.WHATSAPP_TEMPLATE_OTP?.trim() || "checkout_otp",
+      otp: process.env.WHATSAPP_TEMPLATE_OTP?.trim() || "reach_confirmation",
       orderPlaced:
         process.env.WHATSAPP_TEMPLATE_ORDER_PLACED?.trim() || "order_confirmed",
       orderConfirmed:
