@@ -266,6 +266,23 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
       ],
     },
     {
+      name: "order_preparing",
+      language: "en_US",
+      category: "UTILITY",
+      allowCategoryChange: true,
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Sihi Bakes Update. Your order {{1}} is now Preparing. Our kitchen has started preparing your order with care. We will notify you again once it is ready for pickup or out for delivery. Thank you for your patience.",
+          example: {
+            body_text: [["SIHI-20260701-2550"]],
+          },
+        },
+        { type: "FOOTER", text: footer },
+      ],
+    },
+    {
       name: "order_status_update",
       language: "en_US",
       category: "UTILITY",

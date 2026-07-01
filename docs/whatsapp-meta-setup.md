@@ -56,7 +56,8 @@ Ensure these templates exist in WhatsApp Manager (names must match env vars). Al
 | `reach_confirmation` | `WHATSAPP_TEMPLATE_OTP` | `en_US` | `{{1}}` id, `{{2}}` support phone | Checkout phone verify |
 | `checkout_otp` | `WHATSAPP_TEMPLATE_OTP` | `en` | `{{1}}` code (+ copy button) | Auth OTP (TIER_2K+ only) |
 | `order_confirmed` | `WHATSAPP_TEMPLATE_ORDER_PLACED` / `ORDER_CONFIRMED` | `en_US` | name, order #, total, slot | Payment success / confirmed |
-| `order_status_update` | `WHATSAPP_TEMPLATE_ORDER_STATUS` | `en_US` | order #, status label, note | Preparing / delivered |
+| `order_preparing` | `WHATSAPP_TEMPLATE_ORDER_PREPARING` | `en_US` | order # | Status → preparing |
+| `order_status_update` | `WHATSAPP_TEMPLATE_ORDER_STATUS` | `en_US` | order #, status label, note | Delivered updates |
 | `order_out_for_delivery_v2` | `WHATSAPP_TEMPLATE_ORDER_DISPATCH` | `en_US` | order #, partner, ref, ETA | Out for delivery |
 | `order_cancelled` | `WHATSAPP_TEMPLATE_ORDER_CANCELLED` | `en_US` | order #, reason | Order cancelled |
 | `enquiry_received` | `WHATSAPP_TEMPLATE_ENQUIRY_RECEIVED` | `en_US` | first name, reference | Enquiry submitted |
@@ -69,6 +70,7 @@ Template list:
 - `reach_confirmation` (UTILITY — default for checkout id messages; works on lower messaging tiers)
 - `checkout_otp` (AUTHENTICATION — optional; see tier requirement below)
 - `order_confirmed` (order placed on payment + admin confirmation)
+- `order_preparing` (sent when admin moves order to preparing)
 - `order_status_update`
 - `order_out_for_delivery_v2`
 - `order_cancelled`
@@ -89,6 +91,12 @@ Requirements:
 - Access token with `whatsapp_business_management` scope
 - New templates start as `PENDING` until Meta approves (usually within 24 hours)
 - Meta rate limit: ~100 template creates per hour per WABA
+
+### Order preparing (`order_preparing`)
+
+Sent when admin moves an order to **Preparing** (no message is sent for **Confirmed** — payment receipt covers that):
+
+> Sihi Bakes Update. Your order {{1}} is now Preparing. Our kitchen has started preparing your order with care. We will notify you again once it is ready for pickup or out for delivery. Thank you for your patience.
 
 ### Enquiry acknowledgment (`enquiry_received`)
 

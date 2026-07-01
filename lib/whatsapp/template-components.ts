@@ -9,12 +9,14 @@ import {
   getTemplateLanguageCode,
   WHATSAPP_AUTH_OTP_TEMPLATE,
   WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE,
+  WHATSAPP_ORDER_PREPARING_TEMPLATE,
   WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
 } from "@/lib/whatsapp/template-registry";
 
 export {
   WHATSAPP_AUTH_OTP_TEMPLATE,
   WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE,
+  WHATSAPP_ORDER_PREPARING_TEMPLATE,
   WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
 } from "@/lib/whatsapp/template-registry";
 
@@ -179,6 +181,15 @@ export function buildOrderConfirmedComponents(order: Order): TemplateComponent[]
   ];
 }
 
+export function buildOrderPreparingComponents(order: Order): TemplateComponent[] {
+  return [
+    {
+      type: "body",
+      parameters: [textParam(order.order_number)],
+    },
+  ];
+}
+
 export function buildOrderStatusComponents(
   order: Order,
   status: OrderStatus
@@ -282,6 +293,7 @@ export function resolveTemplateComponents(
   const orderPlaced = templates?.orderPlaced ?? "order_confirmed";
   const orderConfirmed = templates?.orderConfirmed ?? "order_confirmed";
   const orderStatus = templates?.orderStatus ?? "order_status_update";
+  const orderPreparing = templates?.orderPreparing ?? WHATSAPP_ORDER_PREPARING_TEMPLATE;
   const orderDispatch = templates?.orderDispatch ?? "order_out_for_delivery_v2";
   const orderCancelled = templates?.orderCancelled ?? "order_cancelled";
   const otp = templates?.otp ?? WHATSAPP_REACH_CONFIRMATION_TEMPLATE;
@@ -319,6 +331,13 @@ export function resolveTemplateComponents(
     return finalizeTemplatePayload(
       orderConfirmed,
       buildOrderConfirmedComponents(order)
+    );
+  }
+
+  if (normalized === orderPreparing.toLowerCase()) {
+    return finalizeTemplatePayload(
+      orderPreparing,
+      buildOrderPreparingComponents(order)
     );
   }
 

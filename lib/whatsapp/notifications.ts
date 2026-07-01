@@ -139,38 +139,18 @@ export async function sendOrderStatusNotification(
   const config = getWhatsAppConfig();
 
   if (newStatus === "confirmed") {
-    // Payment success already sends the order_confirmed template — send a follow-up status note.
-    if (await hasSentMessage(order.id, "order_placed")) {
-      const templateName = config?.templates.orderStatus ?? "order_status_update";
-      const resolved = resolveTemplateComponents(templateName, {
-        order,
-        status: "confirmed",
-      });
-      if (!resolved) return;
-
-      return sendWhatsAppTemplate({
-        phone: order.phone,
-        messageType: "order_status_confirmed",
-        templateName,
-        components: resolved.components,
-        orderId: order.id,
-        languageCode: resolved.languageCode,
-      });
-    }
-
-    return sendOrderConfirmedNotification(order);
+    // Payment receipt already sent — no separate message when admin confirms.
+    return;
   }
 
   let templateName: string | null = null;
-  if (newStatus === "out_for_delivery") {
+  if (newStatus === "preparing") {
+    templateName = config?.templates.orderPreparing ?? "order_preparing";
+  } else if (newStatus === "out_for_delivery") {
     templateName = config?.templates.orderDispatch ?? "order_out_for_delivery_v2";
   } else if (newStatus === "cancelled") {
     templateName = config?.templates.orderCancelled ?? "order_cancelled";
-  } else if (
-    newStatus === "preparing" ||
-    newStatus === "delivered" ||
-    newStatus === "self_delivered"
-  ) {
+  } else if (newStatus === "delivered" || newStatus === "self_delivered") {
     templateName = config?.templates.orderStatus ?? "order_status_update";
   }
 

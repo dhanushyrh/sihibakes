@@ -10,6 +10,7 @@ export type WhatsAppConfig = {
     orderPlaced: string;
     orderConfirmed: string;
     orderStatus: string;
+    orderPreparing: string;
     orderDispatch: string;
     orderCancelled: string;
     enquiryReceived: string;
@@ -88,6 +89,8 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
         process.env.WHATSAPP_TEMPLATE_ORDER_CONFIRMED?.trim() || "order_confirmed",
       orderStatus:
         process.env.WHATSAPP_TEMPLATE_ORDER_STATUS?.trim() || "order_status_update",
+      orderPreparing:
+        process.env.WHATSAPP_TEMPLATE_ORDER_PREPARING?.trim() || "order_preparing",
       orderDispatch:
         process.env.WHATSAPP_TEMPLATE_ORDER_DISPATCH?.trim() ||
         "order_out_for_delivery_v2",
