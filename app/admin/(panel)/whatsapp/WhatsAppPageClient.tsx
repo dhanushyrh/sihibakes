@@ -53,8 +53,8 @@ export function AdminWhatsAppPageClient({
   };
 
   return (
-    <div>
-      <div className="border-b border-[#4B2C20]/10 bg-[#F5E6D3]/20 px-4 pt-4 md:px-8">
+    <div className="-mx-4 -mb-4 flex h-[calc(100dvh-8rem)] flex-col overflow-hidden md:-mx-8 md:-mb-8 md:h-[calc(100dvh-6rem)]">
+      <div className="shrink-0 border-b border-[#4B2C20]/10 bg-[#F5E6D3]/20 px-4 pt-4 md:px-6">
         <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <ConfirmSwitch
             active={notificationsEnabled}
@@ -102,8 +102,12 @@ export function AdminWhatsAppPageClient({
           ))}
         </div>
       </div>
-      {tab === "chat" ? <WhatsAppChatPanel /> : (
-        <div className="p-4 md:p-8">
+      {tab === "chat" ? (
+        <div className="flex min-h-0 flex-1 flex-col">
+          <WhatsAppChatPanel />
+        </div>
+      ) : (
+        <div className="min-h-0 flex-1 overflow-y-auto p-4 md:p-8">
           <WhatsAppTemplatesPanel />
         </div>
       )}

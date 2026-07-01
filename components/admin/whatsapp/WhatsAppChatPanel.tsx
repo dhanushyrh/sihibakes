@@ -152,7 +152,17 @@ export function WhatsAppChatPanel() {
   const threadEndRef = useRef<HTMLDivElement>(null);
   const realtimeOkRef = useRef(false);
   const selectedIdRef = useRef<string | null>(null);
+  const skipAutoSelectRef = useRef(false);
   selectedIdRef.current = selectedId;
+
+  const pickLatestConversation = useCallback((rows: WhatsAppConversation[]) => {
+    if (searchQuery || skipAutoSelectRef.current) return;
+    setSelectedId((prev) => {
+      if (prev) return prev;
+      const sorted = sortConversations(rows);
+      return sorted[0]?.id ?? null;
+    });
+  }, [searchQuery]);
 
   useEffect(() => {
     const timer = setTimeout(() => setSearchQuery(searchInput.trim()), 300);
@@ -174,12 +184,15 @@ export function WhatsAppChatPanel() {
         setError(data.error ?? "Failed to load conversations");
         setConversations([]);
       } else {
-        const rows = (data.conversations ?? []) as WhatsAppConversation[];
+        const rows = sortConversations(
+          (data.conversations ?? []) as WhatsAppConversation[]
+        );
         setConversations(rows);
+        pickLatestConversation(rows);
       }
       if (!options?.silent) setLoadingList(false);
     },
-    [searchQuery]
+    [searchQuery, pickLatestConversation]
   );
 
   const loadThread = useCallback(
@@ -413,11 +426,12 @@ export function WhatsAppChatPanel() {
   const serviceWindowOpen = activeConversation?.serviceWindowOpen ?? false;
 
   return (
-    <div className="p-4 md:p-8">
-      <div className="flex items-center gap-3">
+    <div className="flex h-full min-h-0 flex-col px-4 pb-4 md:px-6 md:pb-6">
+      <div className="flex shrink-0 items-center gap-3 pt-2">
         <Link
           href="/admin"
           className="flex h-9 w-9 items-center justify-center rounded-full bg-white ring-1 ring-[#4B2C20]/10 md:hidden"
+          aria-label="Back to admin home"
         >
           <ArrowLeft size={18} />
         </Link>
@@ -452,7 +466,7 @@ export function WhatsAppChatPanel() {
         </button>
       </div>
 
-      <div className="relative mt-4 sm:mt-6">
+      <div className="relative mt-3 shrink-0 sm:mt-4">
         <Search
           size={16}
           className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4B2C20]/40"
@@ -466,14 +480,18 @@ export function WhatsAppChatPanel() {
         />
       </div>
 
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-3 shrink-0 text-sm text-red-600">{error}</p>}
 
-      <div className="mt-4 grid min-h-[70vh] gap-4 lg:grid-cols-[320px_1fr]">
-        <div className="overflow-hidden rounded-2xl bg-white ring-1 ring-[#4B2C20]/10">
-          <div className="border-b border-[#4B2C20]/10 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#4B2C20]/50">
+      <div className="mt-3 flex min-h-0 flex-1 flex-col gap-3 sm:mt-4 sm:gap-4 lg:grid lg:grid-cols-[minmax(240px,280px)_minmax(0,1fr)]">
+        <div
+          className={`flex min-h-0 flex-col overflow-hidden rounded-2xl bg-white ring-1 ring-[#4B2C20]/10 lg:max-w-[280px] ${
+            selectedId ? "max-lg:hidden" : "min-h-0 flex-1 lg:flex-none"
+          }`}
+        >
+          <div className="shrink-0 border-b border-[#4B2C20]/10 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-[#4B2C20]/50">
             Conversations
           </div>
-          <div className="max-h-[70vh] overflow-y-auto">
+          <div className="min-h-0 flex-1 overflow-y-auto">
             {loadingList ? (
               <ConversationListSkeleton />
             ) : conversations.length === 0 ? (
@@ -487,7 +505,10 @@ export function WhatsAppChatPanel() {
                   <button
                     key={conversation.id}
                     type="button"
-                    onClick={() => setSelectedId(conversation.id)}
+                    onClick={() => {
+                      skipAutoSelectRef.current = false;
+                      setSelectedId(conversation.id);
+                    }}
                     className={`w-full border-b border-[#4B2C20]/5 px-4 py-3 text-left transition last:border-0 ${
                       active ? "bg-[#F5E6D3]/50" : "hover:bg-[#F5E6D3]/25"
                     }`}
@@ -526,23 +547,40 @@ export function WhatsAppChatPanel() {
           </div>
         </div>
 
-        <div className="flex min-h-[70vh] flex-col overflow-hidden rounded-2xl bg-[#F5E6D3]/20 ring-1 ring-[#4B2C20]/10">
+        <div
+          className={`flex min-h-0 min-w-0 flex-col overflow-hidden rounded-2xl bg-[#F5E6D3]/20 ring-1 ring-[#4B2C20]/10 ${
+            selectedId ? "min-h-0 flex-1" : "max-lg:hidden lg:flex"
+          }`}
+        >
           {!selectedId ? (
-            <div className="flex flex-1 items-center justify-center p-8 text-sm text-[#4B2C20]/50">
+            <div className="flex flex-1 items-center justify-center p-8 text-sm text-[#4B2C20]/50 max-lg:hidden">
               Select a conversation
             </div>
           ) : (
             <>
-              <div className="border-b border-[#4B2C20]/10 bg-white px-4 py-3">
+              <div className="shrink-0 border-b border-[#4B2C20]/10 bg-white px-4 py-3">
                 {activeConversation ? (
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-[#4B2C20]">
-                        {displayName(activeConversation)}
-                      </p>
-                      <p className="text-xs text-[#4B2C20]/50">
-                        {formatPhone(activeConversation.phone)}
-                      </p>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          skipAutoSelectRef.current = true;
+                          setSelectedId(null);
+                        }}
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full ring-1 ring-[#4B2C20]/10 lg:hidden"
+                        aria-label="Back to conversations"
+                      >
+                        <ArrowLeft size={16} />
+                      </button>
+                      <div className="min-w-0">
+                        <p className="truncate font-medium text-[#4B2C20]">
+                          {displayName(activeConversation)}
+                        </p>
+                        <p className="text-xs text-[#4B2C20]/50">
+                          {formatPhone(activeConversation.phone)}
+                        </p>
+                      </div>
                     </div>
                     <div
                       className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ring-1 ${
@@ -564,7 +602,7 @@ export function WhatsAppChatPanel() {
                 )}
               </div>
 
-              <div className="flex-1 space-y-3 overflow-y-auto p-4">
+              <div className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">
                 {loadingThread ? (
                   <MessageThreadSkeleton />
                 ) : messages.length === 0 ? (
@@ -579,7 +617,7 @@ export function WhatsAppChatPanel() {
                 <div ref={threadEndRef} />
               </div>
 
-              <div className="border-t border-[#4B2C20]/10 bg-white p-4">
+              <div className="shrink-0 border-t border-[#4B2C20]/10 bg-white p-4">
                 {serviceWindowOpen ? (
                   <div className="flex gap-2">
                     <textarea
