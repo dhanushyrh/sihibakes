@@ -60,7 +60,8 @@ Ensure these templates exist in WhatsApp Manager (names must match env vars). Al
 | `order_preparing` | `WHATSAPP_TEMPLATE_ORDER_PREPARING` | `en_US` | order # | Status → preparing |
 | `order_delivered` | `WHATSAPP_TEMPLATE_ORDER_DELIVERED` | `en_US` | order # | Status → delivered |
 | `order_status_update` | `WHATSAPP_TEMPLATE_ORDER_STATUS` | `en_US` | order #, status label, note | Admin manual status |
-| `order_on_the_way_v2` | `WHATSAPP_TEMPLATE_ORDER_DISPATCH` | `en_US` | order #, partner, ref, ETA | Out for delivery |
+| `order_on_the_way_v2` | `WHATSAPP_TEMPLATE_ORDER_DISPATCH` | `en_US` | order #, partner, ref, ETA | Partner out for delivery |
+| `order_self_on_the_way_v2` | `WHATSAPP_TEMPLATE_ORDER_SELF_DISPATCH` | `en_US` | order #, ETA | Self-delivery out for delivery |
 | `order_cancelled` | `WHATSAPP_TEMPLATE_ORDER_CANCELLED` | `en_US` | order #, reason | Order cancelled |
 | `enquiry_received` | `WHATSAPP_TEMPLATE_ENQUIRY_RECEIVED` | `en_US` | first name, reference | Enquiry submitted — **live** |
 
@@ -76,7 +77,8 @@ Template list:
 - `order_preparing` (sent when admin moves order to preparing)
 - `order_delivered` (sent when admin marks order delivered)
 - `order_status_update` (legacy — admin manual sends)
-- `order_on_the_way_v2` (out for delivery — partner, ref code, ETA)
+- `order_on_the_way_v2` (partner out for delivery — partner, ref code, ETA)
+- `order_self_on_the_way_v2` (self-delivery out for delivery — order # and ETA)
 - `order_out_for_delivery_v2` (legacy)
 - `order_cancelled`
 
@@ -121,7 +123,7 @@ Sent when payment succeeds (order placed):
 
 ### Order on the way (`order_on_the_way_v2`)
 
-Sent when admin marks an order **Out for delivery**:
+Sent when admin marks an order **Out for delivery** with a **delivery partner** (Borzo or manual):
 
 > Your Sihi Bakes order {{1}} is on its way!
 >
@@ -135,6 +137,21 @@ Sent when admin marks an order **Out for delivery**:
 - `{{2}}` — delivery partner name
 - `{{3}}` — delivery reference / OTP code
 - `{{4}}` — ETA window (e.g. `4 Jul, 6:00–8:00 PM`)
+
+### Self delivery on the way (`order_self_on_the_way_v2`)
+
+Sent when admin marks an order **Out for delivery** with **Self delivery** (in-house team):
+
+> Your Sihi Bakes order {{1}} is on its way!
+>
+> Our team is delivering your order directly to you.
+>
+> ETA: {{2}}
+>
+> Thank you! 💛
+
+- `{{1}}` — order number
+- `{{2}}` — ETA window (e.g. `4 Jul, 6:00–8:00 PM`)
 
 ### Order delivered (`order_delivered`)
 

@@ -1,4 +1,4 @@
-import type { OrderStatus } from "@/lib/types";
+import type { Order, OrderStatus } from "@/lib/types";
 import { BORZO_VENDOR_NAME } from "@/lib/borzo/config";
 import { isBorzoVendorName } from "@/lib/borzo/delivery";
 
@@ -35,6 +35,12 @@ export function statusChangeLabel(status: OrderStatus): string {
 
 export function requiresDeliveryDispatch(status: OrderStatus): boolean {
   return status === "out_for_delivery";
+}
+
+export function isSelfDeliveryOrder(
+  order: Pick<Order, "delivery_vendor">
+): boolean {
+  return order.delivery_vendor?.trim() === SELF_DELIVERY_VENDOR;
 }
 
 export function requiresPartnerDispatchDetails(

@@ -13,6 +13,7 @@ export type WhatsAppConfig = {
     orderPreparing: string;
     orderDelivered: string;
     orderDispatch: string;
+    orderSelfDispatch: string;
     orderCancelled: string;
     enquiryReceived: string;
   };
@@ -96,6 +97,9 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
         process.env.WHATSAPP_TEMPLATE_ORDER_DELIVERED?.trim() || "order_delivered",
       orderDispatch:
         process.env.WHATSAPP_TEMPLATE_ORDER_DISPATCH?.trim() || "order_on_the_way_v2",
+      orderSelfDispatch:
+        process.env.WHATSAPP_TEMPLATE_ORDER_SELF_DISPATCH?.trim() ||
+        "order_self_on_the_way_v2",
       orderCancelled:
         process.env.WHATSAPP_TEMPLATE_ORDER_CANCELLED?.trim() || "order_cancelled",
       enquiryReceived:

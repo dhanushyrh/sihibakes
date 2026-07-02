@@ -13,6 +13,7 @@ import {
   WHATSAPP_ORDER_DELIVERED_TEMPLATE,
   WHATSAPP_ORDER_ON_THE_WAY_TEMPLATE,
   WHATSAPP_ORDER_PREPARING_TEMPLATE,
+  WHATSAPP_ORDER_SELF_DISPATCH_TEMPLATE,
   WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
 } from "@/lib/whatsapp/template-registry";
 
@@ -22,6 +23,7 @@ export {
   WHATSAPP_ORDER_DELIVERED_TEMPLATE,
   WHATSAPP_ORDER_ON_THE_WAY_TEMPLATE,
   WHATSAPP_ORDER_PREPARING_TEMPLATE,
+  WHATSAPP_ORDER_SELF_DISPATCH_TEMPLATE,
   WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
 } from "@/lib/whatsapp/template-registry";
 
@@ -276,6 +278,21 @@ export function buildOrderDispatchComponents(
   ];
 }
 
+export function buildOrderSelfDispatchComponents(
+  order: Order,
+  extras?: { estimatedArrival?: string }
+): TemplateComponent[] {
+  const estimatedArrival =
+    extras?.estimatedArrival?.trim() || formatDispatchEta(order);
+
+  return [
+    {
+      type: "body",
+      parameters: [textParam(order.order_number), textParam(estimatedArrival)],
+    },
+  ];
+}
+
 export function buildOrderCancelledComponents(order: Order): TemplateComponent[] {
   return [
     {
@@ -346,6 +363,8 @@ export function resolveTemplateComponents(
   const orderPreparing = templates?.orderPreparing ?? WHATSAPP_ORDER_PREPARING_TEMPLATE;
   const orderDelivered = templates?.orderDelivered ?? WHATSAPP_ORDER_DELIVERED_TEMPLATE;
   const orderDispatch = templates?.orderDispatch ?? WHATSAPP_ORDER_ON_THE_WAY_TEMPLATE;
+  const orderSelfDispatch =
+    templates?.orderSelfDispatch ?? WHATSAPP_ORDER_SELF_DISPATCH_TEMPLATE;
   const orderCancelled = templates?.orderCancelled ?? "order_cancelled";
   const otp = templates?.otp ?? WHATSAPP_REACH_CONFIRMATION_TEMPLATE;
   const enquiryReceived =
@@ -411,6 +430,13 @@ export function resolveTemplateComponents(
     return finalizeTemplatePayload(
       orderDispatch,
       buildOrderDispatchComponents(order, params.extras)
+    );
+  }
+
+  if (normalized === orderSelfDispatch.toLowerCase()) {
+    return finalizeTemplatePayload(
+      orderSelfDispatch,
+      buildOrderSelfDispatchComponents(order, params.extras)
     );
   }
 

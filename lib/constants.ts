@@ -61,6 +61,7 @@ export const WHATSAPP_ADMIN_TEMPLATE_OPTIONS = [
   { key: "order_delivered", label: "Order delivered" },
   { key: "order_status_update", label: "Order status update" },
   { key: "order_on_the_way_v2", label: "Out for delivery" },
+  { key: "order_self_on_the_way_v2", label: "Self delivery — on the way" },
   { key: "order_cancelled", label: "Order cancelled" },
 ] as const;
 

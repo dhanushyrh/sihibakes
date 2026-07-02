@@ -338,6 +338,23 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
       ],
     },
     {
+      name: "order_self_on_the_way_v2",
+      language: "en_US",
+      category: "UTILITY",
+      allowCategoryChange: true,
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Your Sihi Bakes order {{1}} is on its way!\n\nOur team is delivering your order directly to you.\n\nETA: {{2}}\n\nThank you! 💛",
+          example: {
+            body_text: [["SIHI-20260701-2550", "4 Jul, 6:00–8:00 PM"]],
+          },
+        },
+        { type: "FOOTER", text: footer },
+      ],
+    },
+    {
       name: "order_on_the_way_v2",
       language: "en_US",
       category: "UTILITY",

@@ -1,5 +1,6 @@
 import { BRAND } from "@/lib/constants";
 import { enquiryShortId } from "@/lib/enquiries";
+import { isSelfDeliveryOrder } from "@/lib/order-status-update";
 import type { Order, OrderStatus } from "@/lib/types";
 import {
   getWhatsAppConfig,
@@ -10,6 +11,7 @@ import { hasSentMessage, sendWhatsAppTemplate } from "@/lib/whatsapp/client";
 import {
   resolveTemplateComponents,
   WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE,
+  WHATSAPP_ORDER_SELF_DISPATCH_TEMPLATE,
   WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
 } from "@/lib/whatsapp/template-components";
 
@@ -158,7 +160,9 @@ export async function sendOrderStatusNotification(
   if (newStatus === "preparing") {
     templateName = config?.templates.orderPreparing ?? "order_preparing";
   } else if (newStatus === "out_for_delivery") {
-    templateName = config?.templates.orderDispatch ?? "order_on_the_way_v2";
+    templateName = isSelfDeliveryOrder(order)
+      ? config?.templates.orderSelfDispatch ?? WHATSAPP_ORDER_SELF_DISPATCH_TEMPLATE
+      : config?.templates.orderDispatch ?? "order_on_the_way_v2";
   } else if (newStatus === "cancelled") {
     templateName = config?.templates.orderCancelled ?? "order_cancelled";
   } else if (newStatus === "delivered" || newStatus === "self_delivered") {
@@ -176,7 +180,9 @@ export async function sendOrderStatusNotification(
 
   const messageType =
     newStatus === "out_for_delivery"
-      ? "order_out_for_delivery"
+      ? isSelfDeliveryOrder(order)
+        ? "order_self_out_for_delivery"
+        : "order_out_for_delivery"
       : newStatus === "cancelled"
         ? "order_cancelled"
         : `order_status_${newStatus}`;
