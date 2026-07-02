@@ -39,6 +39,7 @@ export interface Product {
   allergens: Allergens;
   tags: ProductTag[];
   is_active: boolean;
+  is_sold_out: boolean;
   daily_order_limit: number | null;
   created_at: string;
   updated_at: string;

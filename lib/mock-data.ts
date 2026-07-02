@@ -49,6 +49,7 @@ export const MOCK_PRODUCTS: Product[] = [
     allergens: { egg: true, dairy: true, gluten: true, nuts: false, soy: false },
     tags: ["bestseller", "must_try"],
     is_active: true,
+    is_sold_out: false,
     daily_order_limit: 20,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),

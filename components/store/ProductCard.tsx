@@ -26,6 +26,8 @@ interface ProductCardProps {
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelect?: (product: Product) => void;
+  /** Cap quantity per line (e.g. pre-order limit). */
+  maxQuantityPerItem?: number;
   /** Eager-load when this card is above the fold (improves LCP). */
   priority?: boolean;
 }
@@ -39,6 +41,7 @@ export function ProductCard({
   selectionMode = false,
   selected = false,
   onToggleSelect,
+  maxQuantityPerItem,
   priority = false,
 }: ProductCardProps) {
   const cart = useCart();
@@ -53,14 +56,17 @@ export function ProductCard({
   const inCart = quantity > 0;
 
   const handleAdd = () => {
+    if (maxQuantityPerItem != null && quantity >= maxQuantityPerItem) return;
     if (onQuantityChange) onQuantityChange(product.id, 1);
     else if (onAdd) onAdd(product);
     else cart.addItem(product.id);
   };
 
   const changeQuantity = (next: number) => {
-    if (onQuantityChange) onQuantityChange(product.id, next);
-    else cart.updateQuantity(product.id, next);
+    const capped =
+      maxQuantityPerItem != null ? Math.min(next, maxQuantityPerItem) : next;
+    if (onQuantityChange) onQuantityChange(product.id, capped);
+    else cart.updateQuantity(product.id, capped);
   };
 
   return (
@@ -180,7 +186,10 @@ export function ProductCard({
                 <button
                   type="button"
                   onClick={() => changeQuantity(quantity + 1)}
-                  className="flex h-8 w-8 items-center justify-center rounded-full bg-chocolate text-cream transition active:scale-95"
+                  disabled={
+                    maxQuantityPerItem != null && quantity >= maxQuantityPerItem
+                  }
+                  className="flex h-8 w-8 items-center justify-center rounded-full bg-chocolate text-cream transition active:scale-95 disabled:opacity-40"
                   aria-label={`Increase ${product.title} quantity`}
                 >
                   <Plus size={14} strokeWidth={2.5} />

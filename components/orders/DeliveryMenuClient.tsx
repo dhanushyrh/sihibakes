@@ -10,6 +10,7 @@ import { useCart } from "@/components/store/CartProvider";
 import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
 import { isMenuProduct } from "@/lib/cart-products";
 import { formatDeliveryModeSummary } from "@/lib/delivery-mode-availability";
+import { getMaxQuantityPerItem } from "@/lib/inventory";
 import type { Product, ProductTag } from "@/lib/types";
 import { TAG_OPTIONS } from "@/lib/constants";
 import type { PublicCoupon } from "@/lib/public-coupons";
@@ -84,6 +85,14 @@ export function DeliveryMenuClient({
       ? formatDeliveryModeSummary(session.deliveryMode, session.deliveryDate)
       : null;
 
+  const maxQuantityPerItem = getMaxQuantityPerItem(session.deliveryMode);
+
+  const addToCart = (productId: string) => {
+    const existing = items.find((item) => item.productId === productId)?.quantity ?? 0;
+    if (maxQuantityPerItem != null && existing >= maxQuantityPerItem) return;
+    addItem(productId);
+  };
+
   if (!sessionReady || !isDeliveryModeReady) {
     return <OrderFlowLoading />;
   }
@@ -124,6 +133,12 @@ export function DeliveryMenuClient({
 
         <MenuCouponsShowcase coupons={coupons} />
 
+        {session.deliveryMode === "pre_order" && (
+          <p className="mt-4 rounded-2xl bg-white px-4 py-3 text-xs text-chocolate/60 ring-1 ring-chocolate/10">
+            Pre-order limit: up to {maxQuantityPerItem} of each item per order.
+          </p>
+        )}
+
         <div className="mt-4 flex gap-2 overflow-x-auto pb-2">
           <button
             type="button"
@@ -163,7 +178,8 @@ export function DeliveryMenuClient({
                 key={product.id}
                 product={product}
                 onSelect={setSelected}
-                onAdd={(p) => addItem(p.id)}
+                onAdd={(p) => addToCart(p.id)}
+                maxQuantityPerItem={maxQuantityPerItem}
                 priority={index < 2}
               />
             ))}
@@ -187,7 +203,8 @@ export function DeliveryMenuClient({
       <ProductDetailModal
         product={selected}
         onClose={() => setSelected(null)}
-        onAdd={(p) => addItem(p.id)}
+        onAdd={(p) => addToCart(p.id)}
+        maxQuantityPerItem={maxQuantityPerItem}
       />
     </div>
   );

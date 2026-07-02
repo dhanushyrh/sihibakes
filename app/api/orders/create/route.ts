@@ -19,8 +19,10 @@ import {
 } from "@/lib/pricing";
 import { createRazorpayOrder, getRazorpayPublicKey } from "@/lib/razorpay";
 import { isPaymentSkipEnabled } from "@/lib/payment-skip";
-import { isSlotBookableWithLeadTime, isWithinOrderBookingWindow } from "@/lib/customer-delivery-slots";
+import { isSlotBookableWithLeadTime, isWithinOrderBookingWindow, type DeliveryMode } from "@/lib/customer-delivery-slots";
 import { getDeliveryFence, isWithinDeliveryFence } from "@/lib/delivery-fence";
+import { PRE_ORDER_MAX_QUANTITY_PER_ITEM } from "@/lib/inventory";
+import { shopDateKey } from "@/lib/shop-timezone";
 import {
   markActivityOrderCreated,
 } from "@/lib/customer-activity";
@@ -49,6 +51,7 @@ export async function POST(request: Request) {
       delivery_slot_id,
       coupon_code,
       activity_session_id,
+      delivery_mode,
     } = body;
 
     const settings = await getShopSettings();
@@ -138,7 +141,29 @@ export async function POST(request: Request) {
       );
     }
 
-    const products = await getProductsByIds(productIds, slot.slot_date);
+    const deliveryMode: DeliveryMode =
+      delivery_mode === "same_day" || delivery_mode === "pre_order"
+        ? delivery_mode
+        : slot.slot_date === shopDateKey()
+          ? "same_day"
+          : "pre_order";
+
+    if (deliveryMode === "pre_order") {
+      for (const item of items as { productId: string; quantity: number }[]) {
+        if (item.quantity > PRE_ORDER_MAX_QUANTITY_PER_ITEM) {
+          return NextResponse.json(
+            {
+              error: `Pre-order limit is ${PRE_ORDER_MAX_QUANTITY_PER_ITEM} per item`,
+            },
+            { status: 400 }
+          );
+        }
+      }
+    }
+
+    const products = await getProductsByIds(productIds, slot.slot_date, {
+      deliveryMode,
+    });
     const cartItems = items
       .map((i: { productId: string; quantity: number }) => {
         const product = products.find((p) => p.id === i.productId);
@@ -175,7 +200,8 @@ export async function POST(request: Request) {
       const avail = await checkProductAvailability(
         product.id,
         quantity,
-        slot.slot_date
+        slot.slot_date,
+        deliveryMode
       );
       if (!avail.ok) {
         return NextResponse.json(

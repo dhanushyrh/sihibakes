@@ -34,6 +34,7 @@ const defaultProduct: Partial<Product> = {
   allergens: emptyAllergens,
   tags: [],
   is_active: true,
+  is_sold_out: false,
   daily_order_limit: null,
 };
 
@@ -128,6 +129,7 @@ export function ProductForm({ initial, mode }: ProductFormProps) {
       allergens: editing.allergens ?? emptyAllergens,
       tags: editing.tags ?? [],
       is_active: editing.is_active ?? true,
+      is_sold_out: editing.is_sold_out ?? false,
       daily_order_limit: null,
       updated_at: new Date().toISOString(),
     };
@@ -459,6 +461,25 @@ export function ProductForm({ initial, mode }: ProductFormProps) {
                   checked={editing.is_active ?? true}
                   onChange={(e) =>
                     setEditing({ ...editing, is_active: e.target.checked })
+                  }
+                  className="h-5 w-5 rounded accent-[#4B2C20]"
+                />
+              </label>
+            <label className="mt-3 flex cursor-pointer items-center justify-between rounded-xl bg-[#F5E6D3]/30 px-4 py-3">
+                <div>
+                  <p className="text-sm font-medium text-[#4B2C20]">
+                    Mark as sold out
+                  </p>
+                  <p className="text-xs text-[#4B2C20]/50">
+                    Shows sold out on same-day and pre-order menus. Same-day
+                    daily stock limits still apply separately.
+                  </p>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={editing.is_sold_out ?? false}
+                  onChange={(e) =>
+                    setEditing({ ...editing, is_sold_out: e.target.checked })
                   }
                   className="h-5 w-5 rounded accent-[#4B2C20]"
                 />

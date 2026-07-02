@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Product } from "@/lib/types";
 import { formatCurrency } from "@/lib/delivery";
 import { AvailabilitySwitch } from "@/components/admin/AvailabilitySwitch";
+import { SoldOutSwitch } from "@/components/admin/SoldOutSwitch";
 import { ProductGridSkeleton } from "@/components/admin/ui/AdminPageSkeleton";
 import { Plus, Pencil, Trash2, Package } from "lucide-react";
 
@@ -48,6 +49,18 @@ export default function AdminProductsPage() {
       .eq("id", id);
     setProducts((prev) =>
       prev.map((p) => (p.id === id ? { ...p, is_active } : p))
+    );
+    setTogglingId(null);
+  };
+
+  const toggleSoldOut = async (id: string, is_sold_out: boolean) => {
+    setTogglingId(id);
+    await supabase
+      .from("products")
+      .update({ is_sold_out, updated_at: new Date().toISOString() })
+      .eq("id", id);
+    setProducts((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, is_sold_out } : p))
     );
     setTogglingId(null);
   };
@@ -140,6 +153,11 @@ export default function AdminProductsPage() {
                 />
                 {!p.is_active && (
                   <span className="absolute left-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[10px] font-medium text-white">
+                    Hidden
+                  </span>
+                )}
+                {p.is_active && p.is_sold_out && (
+                  <span className="absolute left-2 top-2 rounded-full bg-red-700/90 px-2 py-0.5 text-[10px] font-medium text-white">
                     Sold out
                   </span>
                 )}
@@ -150,12 +168,18 @@ export default function AdminProductsPage() {
                   {formatCurrency(p.price_inr)} · Serves {p.serves}
                 </p>
 
-                <div className="mt-3">
+                <div className="mt-3 space-y-3">
                   <AvailabilitySwitch
                     active={p.is_active}
                     productTitle={p.title}
                     disabled={togglingId === p.id}
                     onToggle={(next) => toggleAvailability(p.id, next)}
+                  />
+                  <SoldOutSwitch
+                    soldOut={p.is_sold_out ?? false}
+                    productTitle={p.title}
+                    disabled={togglingId === p.id || !p.is_active}
+                    onToggle={(next) => toggleSoldOut(p.id, next)}
                   />
                 </div>
 

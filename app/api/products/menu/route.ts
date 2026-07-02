@@ -8,6 +8,7 @@ export async function GET(request: Request) {
   const deliveryMode = searchParams.get("delivery_mode") as DeliveryMode | null;
   const products = await getProducts(false, deliveryDate, {
     includeLowStockBadge: deliveryMode === "same_day",
+    deliveryMode,
   });
   return NextResponse.json(products);
 }

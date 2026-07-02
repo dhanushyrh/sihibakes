@@ -205,13 +205,16 @@ export function DeliveryCheckoutClient({
       ids: ids.join(","),
       delivery_date: inventoryDate,
     });
+    if (deliveryMode) {
+      params.set("delivery_mode", deliveryMode);
+    }
     fetch(`/api/products?${params}`)
       .then((r) => r.json())
       .then((data: Product[]) => {
         setProducts(data);
         pruneItems(data.filter(isMenuProduct).map((p) => p.id));
       });
-  }, [items, selectedDate, session.deliveryDate, pruneItems]);
+  }, [items, selectedDate, session.deliveryDate, deliveryMode, pruneItems]);
 
   const handleDateChange = (date: string) => {
     setSelectedDate(date);
@@ -518,6 +521,7 @@ export function DeliveryCheckoutClient({
         delivery_lat: session.lat,
         delivery_lng: session.lng,
         delivery_slot_id: selectedSlotId,
+        delivery_mode: session.deliveryMode ?? undefined,
         coupon_code: appliedCoupon?.code || undefined,
         activity_session_id: getActivitySessionIdForOrder(),
       }),

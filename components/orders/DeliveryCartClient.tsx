@@ -16,6 +16,7 @@ import { formatCurrency } from "@/lib/delivery";
 import { getUnitPrice } from "@/lib/pricing";
 import { getMenuProductIds, isMenuProduct } from "@/lib/cart-products";
 import { formatDeliveryModeSummary } from "@/lib/delivery-mode-availability";
+import { getMaxQuantityPerItem } from "@/lib/inventory";
 import { trackActivity } from "@/lib/activity-tracker";
 import type { Product } from "@/lib/types";
 import { OrderFlowLoading } from "@/components/store/OrderFlowLoading";
@@ -70,6 +71,9 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
       ids: ids.join(","),
       delivery_date: session.deliveryDate,
     });
+    if (session.deliveryMode) {
+      params.set("delivery_mode", session.deliveryMode);
+    }
     fetch(`/api/products?${params}`)
       .then((r) => r.json())
       .then((data: Product[]) => {
@@ -85,7 +89,17 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
         setLoading(false);
       })
       .catch(() => setLoading(false));
-  }, [items, session.deliveryDate, pruneItems]);
+  }, [items, session.deliveryDate, session.deliveryMode, pruneItems]);
+
+  const maxQuantityPerItem = getMaxQuantityPerItem(session.deliveryMode);
+
+  const changeLineQuantity = (productId: string, quantity: number) => {
+    const capped =
+      maxQuantityPerItem != null
+        ? Math.min(quantity, maxQuantityPerItem)
+        : quantity;
+    updateQuantity(productId, capped);
+  };
 
   useEffect(() => {
     if (loading || products.length === 0) return;
@@ -202,6 +216,12 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
           </div>
         )}
 
+        {session.deliveryMode === "pre_order" && (
+          <p className="mb-4 rounded-2xl bg-white px-4 py-3 text-xs text-chocolate/60 ring-1 ring-chocolate/10">
+            Pre-order limit: up to {maxQuantityPerItem} of each item per order.
+          </p>
+        )}
+
         {unavailableNotice && (
           <p className="mb-4 rounded-2xl bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200">
             {unavailableNotice}
@@ -263,7 +283,7 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
                         <button
                           type="button"
                           onClick={() =>
-                            updateQuantity(line.productId, line.quantity - 1)
+                            changeLineQuantity(line.productId, line.quantity - 1)
                           }
                           className="flex h-8 w-8 items-center justify-center rounded-full bg-cream"
                         >
@@ -275,9 +295,13 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
                         <button
                           type="button"
                           onClick={() =>
-                            updateQuantity(line.productId, line.quantity + 1)
+                            changeLineQuantity(line.productId, line.quantity + 1)
                           }
-                          className="flex h-8 w-8 items-center justify-center rounded-full bg-chocolate text-cream"
+                          disabled={
+                            maxQuantityPerItem != null &&
+                            line.quantity >= maxQuantityPerItem
+                          }
+                          className="flex h-8 w-8 items-center justify-center rounded-full bg-chocolate text-cream disabled:opacity-40"
                         >
                           <Plus size={14} />
                         </button>

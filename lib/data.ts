@@ -1,13 +1,15 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import type { DeliveryFeeSlab, DeliverySlot, Product, ShopSettings, CustomerReview, ProductTag } from "@/lib/types";
+import type { DeliveryMode } from "@/lib/customer-delivery-slots";
 import { cache } from "react";
 import { format } from "date-fns";
 import {
   getNextDeliveryDate,
   getQuantityLimit,
   getRemaining,
-  isSoldOut,
+  PRE_ORDER_MAX_QUANTITY_PER_ITEM,
+  resolveProductSoldOut,
   showLowStockBadge,
 } from "@/lib/inventory";
 import {
@@ -114,11 +116,12 @@ export const getStorefrontStatus = cache(async (): Promise<StorefrontStatus> => 
 async function enrichProductsWithInventory(
   products: Product[],
   deliveryDate?: string,
-  options?: { includeLowStockBadge?: boolean }
+  options?: { includeLowStockBadge?: boolean; deliveryMode?: DeliveryMode | null }
 ): Promise<Product[]> {
   if (!products.length) return products;
 
   const includeLowStockBadge = options?.includeLowStockBadge ?? false;
+  const deliveryMode = options?.deliveryMode ?? null;
 
   const settings = await getShopSettings();
   const closedDates = await getEffectiveClosedDates();
@@ -126,13 +129,17 @@ async function enrichProductsWithInventory(
     deliveryDate ?? getNextDeliveryDate(closedDates);
 
   if (!isSupabaseConfigured()) {
-    return products.map((p) => ({
-      ...p,
-      next_delivery_date: nextDate,
-      remaining_next_day: 12,
-      low_stock: includeLowStockBadge,
-      sold_out_today: false,
-    }));
+    return products.map((p) => {
+      const remaining = 12;
+      return {
+        ...p,
+        is_sold_out: p.is_sold_out ?? false,
+        next_delivery_date: nextDate,
+        remaining_next_day: remaining,
+        low_stock: includeLowStockBadge && showLowStockBadge(remaining),
+        sold_out_today: resolveProductSoldOut(p, remaining, deliveryMode),
+      };
+    });
   }
 
   const supabase = await createClient();
@@ -178,7 +185,7 @@ async function enrichProductsWithInventory(
       next_delivery_date: nextDate,
       remaining_next_day: remaining,
       low_stock: p.is_active && includeLowStockBadge && showLowStockBadge(remaining),
-      sold_out_today: !p.is_active || isSoldOut(remaining),
+      sold_out_today: resolveProductSoldOut(p, remaining, deliveryMode),
     };
   });
 }
@@ -214,7 +221,7 @@ export async function getDeliveryFeeSlabs(): Promise<DeliveryFeeSlab[]> {
 export async function getProducts(
   includeInactive = false,
   deliveryDate?: string,
-  options?: { includeLowStockBadge?: boolean }
+  options?: { includeLowStockBadge?: boolean; deliveryMode?: DeliveryMode | null }
 ): Promise<Product[]> {
   if (!isSupabaseConfigured()) {
     return enrichProductsWithInventory(MOCK_PRODUCTS, deliveryDate, options);
@@ -322,7 +329,10 @@ export async function getDeliveryModeAvailability() {
   const [slots, todayClosed, productsForToday] = await Promise.all([
     getAvailableDeliverySlots(),
     isDeliveryDayClosed(today),
-    getProducts(false, today),
+    getProducts(false, today, {
+      deliveryMode: "same_day",
+      includeLowStockBadge: true,
+    }),
   ]);
 
   return computeDeliveryModeAvailability({
@@ -346,25 +356,32 @@ export async function isFirstOrder(phone: string): Promise<boolean> {
 
 export async function getProductsByIds(
   ids: string[],
-  deliveryDate?: string
+  deliveryDate?: string,
+  options?: { deliveryMode?: DeliveryMode | null; includeLowStockBadge?: boolean }
 ): Promise<Product[]> {
   if (!ids.length) return [];
   if (!isSupabaseConfigured()) {
     return enrichProductsWithInventory(
       MOCK_PRODUCTS.filter((p) => ids.includes(p.id)),
-      deliveryDate
+      deliveryDate,
+      options
     );
   }
   const supabase = await createClient();
   const { data } = await supabase.from("products").select("*").in("id", ids);
-  return enrichProductsWithInventory((data ?? []) as Product[], deliveryDate);
+  return enrichProductsWithInventory((data ?? []) as Product[], deliveryDate, options);
 }
 
 export async function checkProductAvailability(
   productId: string,
   quantity: number,
-  deliveryDate: string
+  deliveryDate: string,
+  deliveryMode?: DeliveryMode | null
 ): Promise<{ ok: boolean; remaining: number; message?: string }> {
+  if (deliveryMode === "pre_order") {
+    return { ok: true, remaining: PRE_ORDER_MAX_QUANTITY_PER_ITEM };
+  }
+
   const admin = createAdminClient();
 
   const { data: avail } = await admin

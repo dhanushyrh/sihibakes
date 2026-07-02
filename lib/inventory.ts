@@ -34,6 +34,29 @@ export function minAvailableStock(ordered: number): number {
   return Math.max(0, ordered);
 }
 
+import type { DeliveryMode } from "./customer-delivery-slots";
+
+/** Max units of one product per pre-order checkout. */
+export const PRE_ORDER_MAX_QUANTITY_PER_ITEM = 5;
+
+export function getMaxQuantityPerItem(
+  deliveryMode?: DeliveryMode | null
+): number | undefined {
+  return deliveryMode === "pre_order"
+    ? PRE_ORDER_MAX_QUANTITY_PER_ITEM
+    : undefined;
+}
+
+export function resolveProductSoldOut(
+  product: { is_active: boolean; is_sold_out?: boolean },
+  remaining: number,
+  deliveryMode?: DeliveryMode | null
+): boolean {
+  if (!product.is_active || product.is_sold_out) return true;
+  if (deliveryMode === "pre_order") return false;
+  return isSoldOut(remaining);
+}
+
 export function isSoldOut(remaining: number): boolean {
   return remaining <= 0;
 }

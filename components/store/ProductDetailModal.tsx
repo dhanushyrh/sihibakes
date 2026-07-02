@@ -17,6 +17,7 @@ interface ProductDetailModalProps {
   selectionMode?: boolean;
   selected?: boolean;
   onToggleSelect?: (product: Product) => void;
+  maxQuantityPerItem?: number;
 }
 
 export function ProductDetailModal({
@@ -28,6 +29,7 @@ export function ProductDetailModal({
   selectionMode = false,
   selected = false,
   onToggleSelect,
+  maxQuantityPerItem,
 }: ProductDetailModalProps) {
   const cart = useCart();
 
@@ -42,8 +44,10 @@ export function ProductDetailModal({
   const inCart = quantity > 0;
 
   const changeQuantity = (next: number) => {
-    if (onQuantityChange) onQuantityChange(product.id, next);
-    else cart.updateQuantity(product.id, next);
+    const capped =
+      maxQuantityPerItem != null ? Math.min(next, maxQuantityPerItem) : next;
+    if (onQuantityChange) onQuantityChange(product.id, capped);
+    else cart.updateQuantity(product.id, capped);
   };
   const activeAllergens = ALLERGEN_OPTIONS.filter(
     (a) => product.allergens[a.key]
@@ -151,7 +155,10 @@ export function ProductDetailModal({
               <button
                 type="button"
                 onClick={() => changeQuantity(quantity + 1)}
-                className="flex h-11 w-11 items-center justify-center rounded-full bg-chocolate text-cream"
+                disabled={
+                  maxQuantityPerItem != null && quantity >= maxQuantityPerItem
+                }
+                className="flex h-11 w-11 items-center justify-center rounded-full bg-chocolate text-cream disabled:opacity-40"
               >
                 <Plus size={18} />
               </button>
@@ -160,10 +167,16 @@ export function ProductDetailModal({
             <button
               type="button"
               onClick={() => {
+                if (maxQuantityPerItem != null && quantity >= maxQuantityPerItem) {
+                  return;
+                }
                 onAdd(product);
                 onClose();
               }}
-              className="mt-6 w-full rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream transition hover:bg-chocolate-dark"
+              disabled={
+                maxQuantityPerItem != null && quantity >= maxQuantityPerItem
+              }
+              className="mt-6 w-full rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream transition hover:bg-chocolate-dark disabled:opacity-40"
             >
               Add to cart
             </button>
