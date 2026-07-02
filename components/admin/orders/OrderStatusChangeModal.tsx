@@ -11,7 +11,7 @@ import {
   type DeliveryEtaInput,
   type OrderStatusUpdatePayload,
 } from "@/lib/order-status-update";
-import { formatDispatchEtaFromWindow } from "@/lib/whatsapp/template-components";
+import { formatDispatchEtaFromWindow } from "@/lib/whatsapp/dispatch-eta";
 import { ORDER_STATUS_COLORS } from "@/lib/order-badges";
 import { X } from "lucide-react";
 
