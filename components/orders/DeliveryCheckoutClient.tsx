@@ -111,6 +111,24 @@ export function DeliveryCheckoutClient({
   const phoneVerified =
     session.phoneVerified && isValidIndianPhone(session.whatsappPhone);
 
+  // next/script only fires onLoad once per full page load. On client-side
+  // navigation the checkout.js tag is already present and onLoad never fires,
+  // so poll for window.Razorpay to unblock the pay button.
+  useEffect(() => {
+    if (razorpayReady) return;
+    if (typeof window !== "undefined" && window.Razorpay) {
+      setRazorpayReady(true);
+      return;
+    }
+    const interval = setInterval(() => {
+      if (typeof window !== "undefined" && window.Razorpay) {
+        setRazorpayReady(true);
+        clearInterval(interval);
+      }
+    }, 300);
+    return () => clearInterval(interval);
+  }, [razorpayReady]);
+
   const fieldInputClass = (hasError: boolean) =>
     `mt-1 w-full rounded-xl border bg-white px-3 py-3 text-base outline-none focus:border-chocolate/30 ${
       hasError ? "border-red-300" : "border-chocolate/10"
@@ -664,6 +682,7 @@ export function DeliveryCheckoutClient({
         src="https://checkout.razorpay.com/v1/checkout.js"
         strategy="afterInteractive"
         onLoad={() => setRazorpayReady(true)}
+        onReady={() => setRazorpayReady(true)}
       />
       <OrderFlowHeader title="Checkout" backHref="/orders/delivery/cart" />
 

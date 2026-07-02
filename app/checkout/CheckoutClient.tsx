@@ -73,6 +73,23 @@ export default function CheckoutPage({
   const [razorpayReady, setRazorpayReady] = useState(false);
   const [error, setError] = useState("");
 
+  // next/script fires onLoad only on full page loads; on client navigation the
+  // checkout.js tag already exists, so poll for window.Razorpay as a fallback.
+  useEffect(() => {
+    if (razorpayReady) return;
+    if (typeof window !== "undefined" && window.Razorpay) {
+      setRazorpayReady(true);
+      return;
+    }
+    const interval = setInterval(() => {
+      if (typeof window !== "undefined" && window.Razorpay) {
+        setRazorpayReady(true);
+        clearInterval(interval);
+      }
+    }, 300);
+    return () => clearInterval(interval);
+  }, [razorpayReady]);
+
   useEffect(() => {
     const ids = items.map((i) => i.productId);
     if (!ids.length) return;
@@ -306,6 +323,7 @@ export default function CheckoutPage({
         src="https://checkout.razorpay.com/v1/checkout.js"
         strategy="afterInteractive"
         onLoad={() => setRazorpayReady(true)}
+        onReady={() => setRazorpayReady(true)}
       />
       <StoreHeader />
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">

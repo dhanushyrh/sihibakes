@@ -89,7 +89,7 @@ export function DeliveryMenuClient({
   }
 
   return (
-    <div className="flex min-h-screen flex-col pb-24">
+    <div className="flex min-h-screen flex-col pb-[calc(5.5rem+env(safe-area-inset-bottom))]">
       <OrderFlowHeader
         title="Choose desserts"
         backHref="/orders/delivery"
@@ -169,16 +169,20 @@ export function DeliveryMenuClient({
             ))}
           </div>
         )}
-
-        {itemCount > 0 && (
-          <Link
-            href="/orders/delivery/cart"
-            className="fixed bottom-[calc(1rem+env(safe-area-inset-bottom))] left-4 right-4 z-30 mx-auto block max-w-lg rounded-full bg-chocolate py-3.5 text-center text-sm font-medium text-cream shadow-lg"
-          >
-            View cart · {itemCount} {itemCount === 1 ? "item" : "items"}
-          </Link>
-        )}
       </main>
+
+      {itemCount > 0 && (
+        <div className="fixed bottom-0 left-0 right-0 z-30 border-t border-chocolate/10 bg-cream/95 backdrop-blur-md">
+          <div className="mx-auto max-w-lg px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
+            <Link
+              href="/orders/delivery/cart"
+              className="block w-full rounded-full bg-chocolate py-3.5 text-center text-sm font-medium text-cream shadow-lg"
+            >
+              View cart · {itemCount} {itemCount === 1 ? "item" : "items"}
+            </Link>
+          </div>
+        </div>
+      )}
 
       <ProductDetailModal
         product={selected}
