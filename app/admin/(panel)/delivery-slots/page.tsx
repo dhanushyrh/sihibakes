@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import type { DeliverySlot, Product, ShopSettings } from "@/lib/types";
-import { DEFAULT_DAILY_QUANTITY } from "@/lib/inventory";
+import { DEFAULT_DAILY_QUANTITY, minAvailableStock } from "@/lib/inventory";
 import { normalizeClosedDates } from "@/lib/shop-closed-days";
 import {
   DEFAULT_DELIVERY_WINDOWS,
@@ -297,7 +297,7 @@ export default function AdminDeliverySlotsPage() {
 
   const setQty = (productId: string, date: string, value: number) => {
     const ordered = orderCounts[`${productId}:${date}`] ?? 0;
-    const minAvail = Math.max(1, ordered);
+    const minAvail = minAvailableStock(ordered);
     setQuantities((prev) => ({
       ...prev,
       [`${productId}:${date}`]: Math.max(minAvail, value),

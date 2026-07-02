@@ -68,14 +68,12 @@ export function DeliveryCheckoutClient({
   kitchenLat,
   kitchenLng,
   deliveryFence,
-  razorpayTestMode,
 }: {
   initialSlots: DeliverySlot[];
   storeOpen: boolean;
   kitchenLat: number;
   kitchenLng: number;
   deliveryFence: DeliveryFenceKm;
-  razorpayTestMode: boolean;
 }) {
   const router = useRouter();
   const { items, clearCart, itemCount, pruneItems } = useCart();
@@ -522,30 +520,6 @@ export function DeliveryCheckoutClient({
     } satisfies PlacedOrder;
   };
 
-  const completeMockPayment = async (order: {
-    order_id: string;
-    order_number: string;
-    phone: string;
-  }) => {
-    const res = await fetch("/api/orders/mock-payment", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        order_id: order.order_id,
-        order_number: order.order_number,
-        phone: order.phone,
-      }),
-    });
-    const data = (await res.json()) as {
-      error?: string;
-      whatsapp_sent?: boolean;
-    };
-    if (!res.ok) {
-      throw new Error(data.error || "Could not confirm order");
-    }
-    return data;
-  };
-
   const finishOrder = (orderNumber: string, phone: string) => {
     completingOrderRef.current = true;
     setCompletingOrder(true);
@@ -643,19 +617,11 @@ export function DeliveryCheckoutClient({
     try {
       const placed = await createOrder();
 
-      if (razorpayTestMode) {
-        await completeMockPayment(placed);
-        finishOrder(placed.order_number, placed.phone);
-        return;
+      if (!placed.razorpay_order_id || !placed.razorpay_key) {
+        throw new Error("Payment is not configured. Contact support.");
       }
 
-      if (placed.razorpay_order_id && placed.razorpay_key) {
-        await openRazorpayCheckout(placed);
-        return;
-      }
-
-      await completeMockPayment(placed);
-      finishOrder(placed.order_number, placed.phone);
+      await openRazorpayCheckout(placed);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not complete payment");
       setPlacingOrder(false);
@@ -1017,7 +983,7 @@ export function DeliveryCheckoutClient({
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          {!razorpayTestMode && !razorpayReady && (
+          {!razorpayReady && (
             <div className="flex items-center gap-2 text-xs text-chocolate/50">
               <Spinner size="sm" label="Loading secure payment" />
               <span>Loading secure payment…</span>
@@ -1030,9 +996,7 @@ export function DeliveryCheckoutClient({
         <div className="mx-auto max-w-lg px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <button
             type="button"
-            disabled={
-              placingOrder || (!razorpayTestMode && !razorpayReady)
-            }
+            disabled={placingOrder || !razorpayReady}
             onClick={() => void payWithRazorpay()}
             className="flex w-full items-center justify-center gap-2 rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-40"
           >
@@ -1041,8 +1005,6 @@ export function DeliveryCheckoutClient({
                 <Spinner size="sm" className="!text-cream/80" label="Processing payment" />
                 <span>Processing…</span>
               </>
-            ) : razorpayTestMode ? (
-              `Place order (skip payment) · ${formatCurrency(total)}`
             ) : (
               `Pay ${formatCurrency(total)}`
             )}

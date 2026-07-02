@@ -12,7 +12,10 @@ import { useScrollToTopOnChange } from "@/components/store/ScrollToTop";
 import { formatCurrency, formatDistance } from "@/lib/delivery";
 import { getUnitPrice } from "@/lib/pricing";
 import { buildRazorpayCheckoutOptions } from "@/lib/razorpay";
-import { formatRazorpayVerifyError } from "@/lib/razorpay-errors";
+import {
+  formatRazorpayPaymentError,
+  formatRazorpayVerifyError,
+} from "@/lib/razorpay-errors";
 import { formatDeliveryFenceShort } from "@/lib/delivery-fence";
 import type { DeliveryCalculation, DeliveryFenceKm, DeliverySlot, Product } from "@/lib/types";
 import {
@@ -67,6 +70,7 @@ export default function CheckoutPage({
   const [freeDelivery, setFreeDelivery] = useState(false);
   const [couponMessage, setCouponMessage] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [razorpayReady, setRazorpayReady] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
@@ -206,44 +210,54 @@ export default function CheckoutPage({
         return;
       }
 
-      if (data.razorpay_order_id && data.razorpay_key && window.Razorpay) {
-        const rzp = new window.Razorpay({
-          ...buildRazorpayCheckoutOptions({
-            key: data.razorpay_key,
-            orderId: data.razorpay_order_id,
-            name: "Sihi Bakes",
-            description: `Order ${data.order_number}`,
-            prefill: { name, contact: phone },
-          }),
-          handler: async (response: {
-            razorpay_order_id: string;
-            razorpay_payment_id: string;
-            razorpay_signature: string;
-          }) => {
-            const verifyRes = await fetch("/api/razorpay/verify", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                order_id: data.order_id,
-                razorpay_order_id: response.razorpay_order_id,
-                razorpay_payment_id: response.razorpay_payment_id,
-                razorpay_signature: response.razorpay_signature,
-              }),
-            });
-            const verifyData = await verifyRes.json();
-            if (!verifyRes.ok) {
-              setError(formatRazorpayVerifyError(verifyData.error, verifyData.code));
-              return;
-            }
-            clearCart();
-            router.push(`/order/${data.order_number}?phone=${phone}`);
-          },
-        });
-        rzp.open();
-      } else {
-        clearCart();
-        router.push(`/order/${data.order_number}?phone=${phone}`);
+      if (!data.razorpay_order_id || !data.razorpay_key) {
+        setError("Payment is not configured. Please try again later.");
+        return;
       }
+      if (!window.Razorpay) {
+        setError("Payment is still loading. Please wait and try again.");
+        return;
+      }
+
+      const rzp = new window.Razorpay({
+        ...buildRazorpayCheckoutOptions({
+          key: data.razorpay_key,
+          orderId: data.razorpay_order_id,
+          name: "Sihi Bakes",
+          description: `Order ${data.order_number}`,
+          prefill: { name, contact: phone },
+        }),
+        handler: async (response: {
+          razorpay_order_id: string;
+          razorpay_payment_id: string;
+          razorpay_signature: string;
+        }) => {
+          const verifyRes = await fetch("/api/razorpay/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              order_id: data.order_id,
+              razorpay_order_id: response.razorpay_order_id,
+              razorpay_payment_id: response.razorpay_payment_id,
+              razorpay_signature: response.razorpay_signature,
+            }),
+          });
+          const verifyData = await verifyRes.json();
+          if (!verifyRes.ok) {
+            setError(formatRazorpayVerifyError(verifyData.error, verifyData.code));
+            return;
+          }
+          clearCart();
+          router.push(`/order/${data.order_number}?phone=${phone}`);
+        },
+        modal: {
+          ondismiss: () => setError("Payment was cancelled. You can try again."),
+        },
+      });
+      rzp.on("payment.failed", (response) => {
+        setError(formatRazorpayPaymentError(response.error));
+      });
+      rzp.open();
     } catch {
       setError("Something went wrong. Please try again.");
     } finally {
@@ -288,7 +302,11 @@ export default function CheckoutPage({
 
   return (
     <div className="flex min-h-screen flex-col">
-      <Script src="https://checkout.razorpay.com/v1/checkout.js" />
+      <Script
+        src="https://checkout.razorpay.com/v1/checkout.js"
+        strategy="afterInteractive"
+        onLoad={() => setRazorpayReady(true)}
+      />
       <StoreHeader />
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">
         <h1 className="font-serif text-2xl font-semibold text-[#4B2C20]">
@@ -515,7 +533,7 @@ export default function CheckoutPage({
               </button>
               <button
                 type="button"
-                disabled={submitting}
+                disabled={submitting || !razorpayReady}
                 onClick={placeOrder}
                 className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#4B2C20] py-3 text-sm font-medium text-white disabled:opacity-50"
               >

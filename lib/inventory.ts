@@ -29,6 +29,11 @@ export function getRemaining(
   return Math.max(0, quantityLimit - orderCount);
 }
 
+/** Minimum available stock: can't go below units already sold. */
+export function minAvailableStock(ordered: number): number {
+  return Math.max(0, ordered);
+}
+
 export function isSoldOut(remaining: number): boolean {
   return remaining <= 0;
 }

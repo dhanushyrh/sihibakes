@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import type { DeliverySlot, Product } from "@/lib/types";
 import { DEFAULT_DAILY_QUANTITY } from "@/lib/inventory";
-import { getRemaining } from "@/lib/inventory";
+import { getRemaining, minAvailableStock } from "@/lib/inventory";
 import { isDayClosed } from "@/lib/delivery-day";
 import { ConfirmSwitch } from "@/components/admin/ConfirmSwitch";
 import { formatDayFull } from "@/lib/calendar-week";
@@ -100,7 +100,7 @@ export function DayViewDrawer({
     const dayLimits: Record<string, number> = {};
     for (const p of products) {
       const ordered = orderCounts[`${p.id}:${date}`] ?? 0;
-      const minAvail = Math.max(1, ordered);
+      const minAvail = minAvailableStock(ordered);
       const fallback =
         quantities[`${p.id}:${date}`] ?? DEFAULT_DAILY_QUANTITY;
       const val = parseQty(qtyDraft[p.id] ?? String(fallback), minAvail, fallback);
@@ -331,7 +331,7 @@ export function DayViewDrawer({
                 </div>
                 <ul className="divide-y divide-[#4B2C20]/5">
                   {productRows.map(({ product, available, ordered }) => {
-                    const minAvail = Math.max(1, ordered);
+                    const minAvail = minAvailableStock(ordered);
                     const draftRaw =
                       qtyDraft[product.id] ?? String(available);
                     const draftAvailable = parseQty(
@@ -401,7 +401,7 @@ export function DayViewDrawer({
                   <span className="w-14 text-center tabular-nums">
                     {productRows.reduce((sum, { product, available }) => {
                       const ordered = orderCounts[`${product.id}:${date}`] ?? 0;
-                      const minAvail = Math.max(1, ordered);
+                      const minAvail = minAvailableStock(ordered);
                       return (
                         sum +
                         parseQty(
@@ -418,7 +418,7 @@ export function DayViewDrawer({
                       productRows.reduce((sum, { product, available }) => {
                         const ordered =
                           orderCounts[`${product.id}:${date}`] ?? 0;
-                        const minAvail = Math.max(1, ordered);
+                        const minAvail = minAvailableStock(ordered);
                         return (
                           sum +
                           parseQty(

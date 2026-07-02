@@ -7,8 +7,6 @@ import { ShopStatusBanner } from "@/components/store/ShopStatusBanner";
 import { DeliveryCheckoutClient } from "@/components/orders/DeliveryCheckoutClient";
 import { DEFAULT_KITCHEN } from "@/lib/constants";
 import { getDeliveryFence } from "@/lib/delivery-fence";
-import { isRazorpayTestMode } from "@/lib/razorpay";
-
 export default async function DeliveryCheckoutPage() {
   const [slots, storefront, settings] = await Promise.all([
     getAvailableDeliverySlots(),
@@ -25,7 +23,6 @@ export default async function DeliveryCheckoutPage() {
         kitchenLat={settings?.kitchen_lat ?? DEFAULT_KITCHEN.lat}
         kitchenLng={settings?.kitchen_lng ?? DEFAULT_KITCHEN.lng}
         deliveryFence={getDeliveryFence(settings)}
-        razorpayTestMode={isRazorpayTestMode()}
       />
     </div>
   );

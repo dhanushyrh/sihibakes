@@ -113,9 +113,12 @@ export const getStorefrontStatus = cache(async (): Promise<StorefrontStatus> => 
 
 async function enrichProductsWithInventory(
   products: Product[],
-  deliveryDate?: string
+  deliveryDate?: string,
+  options?: { includeLowStockBadge?: boolean }
 ): Promise<Product[]> {
   if (!products.length) return products;
+
+  const includeLowStockBadge = options?.includeLowStockBadge ?? false;
 
   const settings = await getShopSettings();
   const closedDates = await getEffectiveClosedDates();
@@ -127,7 +130,7 @@ async function enrichProductsWithInventory(
       ...p,
       next_delivery_date: nextDate,
       remaining_next_day: 12,
-      low_stock: true,
+      low_stock: includeLowStockBadge,
       sold_out_today: false,
     }));
   }
@@ -174,7 +177,7 @@ async function enrichProductsWithInventory(
       ...p,
       next_delivery_date: nextDate,
       remaining_next_day: remaining,
-      low_stock: p.is_active && showLowStockBadge(remaining),
+      low_stock: p.is_active && includeLowStockBadge && showLowStockBadge(remaining),
       sold_out_today: !p.is_active || isSoldOut(remaining),
     };
   });
@@ -209,16 +212,17 @@ export async function getDeliveryFeeSlabs(): Promise<DeliveryFeeSlab[]> {
 
 export async function getProducts(
   includeInactive = false,
-  deliveryDate?: string
+  deliveryDate?: string,
+  options?: { includeLowStockBadge?: boolean }
 ): Promise<Product[]> {
   if (!isSupabaseConfigured()) {
-    return enrichProductsWithInventory(MOCK_PRODUCTS, deliveryDate);
+    return enrichProductsWithInventory(MOCK_PRODUCTS, deliveryDate, options);
   }
   const supabase = await createClient();
   const query = supabase.from("products").select("*").order("created_at", { ascending: false });
   const { data: products } = await query;
   if (!products?.length) return [];
-  return enrichProductsWithInventory(products as Product[], deliveryDate);
+  return enrichProductsWithInventory(products as Product[], deliveryDate, options);
 }
 
 export async function getProductById(id: string): Promise<Product | null> {

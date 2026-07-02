@@ -26,9 +26,14 @@ export function getRazorpayInstance() {
 }
 
 export async function createRazorpayOrder(amountInr: number, receipt: string) {
+  const amountPaise = Math.round(amountInr * 100);
+  if (amountPaise < 100) {
+    throw new Error("Minimum order amount is 100 paise (₹1)");
+  }
+
   const razorpay = getRazorpayInstance();
   return razorpay.orders.create({
-    amount: Math.round(amountInr * 100),
+    amount: amountPaise,
     currency: "INR",
     receipt,
   });

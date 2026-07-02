@@ -332,26 +332,51 @@ export async function POST(request: Request) {
     let razorpayOrderId: string | null = null;
     const razorpayKey = getRazorpayPublicKey();
 
-    if (process.env.RAZORPAY_KEY_ID && process.env.RAZORPAY_KEY_SECRET) {
-      if (razorpayKey && razorpayKey !== process.env.RAZORPAY_KEY_ID.trim()) {
-        console.warn(
-          "Razorpay key mismatch: NEXT_PUBLIC_RAZORPAY_KEY_ID should equal RAZORPAY_KEY_ID"
-        );
-      }
-      try {
-        const rzOrder = await createRazorpayOrder(pricing.total_inr, orderNumber);
-        razorpayOrderId = rzOrder.id;
-        await admin
-          .from("orders")
-          .update({ razorpay_order_id: rzOrder.id })
-          .eq("id", order.id);
-      } catch (rzErr) {
-        console.error("Razorpay order creation error:", rzErr);
+    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+      return NextResponse.json({ error: "Payment not configured" }, { status: 503 });
+    }
+
+    if (!razorpayKey) {
+      return NextResponse.json(
+        { error: "Payment not configured (missing public key)" },
+        { status: 503 }
+      );
+    }
+
+    if (razorpayKey !== process.env.RAZORPAY_KEY_ID.trim()) {
+      console.warn(
+        "Razorpay key mismatch: NEXT_PUBLIC_RAZORPAY_KEY_ID should equal RAZORPAY_KEY_ID"
+      );
+    }
+
+    const amountPaise = Math.round(pricing.total_inr * 100);
+    if (amountPaise < 100) {
+      return NextResponse.json(
+        { error: "Minimum order amount is ₹1" },
+        { status: 400 }
+      );
+    }
+
+    try {
+      const rzOrder = await createRazorpayOrder(pricing.total_inr, orderNumber);
+      razorpayOrderId = rzOrder.id;
+      await admin
+        .from("orders")
+        .update({ razorpay_order_id: rzOrder.id })
+        .eq("id", order.id);
+    } catch (rzErr) {
+      console.error("Razorpay order creation error:", rzErr);
+      const statusCode = (rzErr as { statusCode?: number })?.statusCode;
+      if (statusCode === 401) {
         return NextResponse.json(
-          { error: "Could not initiate payment. Check Razorpay keys and try again." },
-          { status: 502 }
+          { error: "Payment gateway authentication failed" },
+          { status: 401 }
         );
       }
+      return NextResponse.json(
+        { error: "Could not initiate payment. Check Razorpay keys and try again." },
+        { status: 500 }
+      );
     }
 
     return NextResponse.json({

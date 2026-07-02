@@ -41,10 +41,14 @@ export function DeliveryMenuClient({
   }, [sessionReady, isDeliveryModeReady, router]);
 
   useEffect(() => {
-    if (!sessionReady || !session.deliveryDate) return;
+    if (!sessionReady || !session.deliveryDate || !session.deliveryMode) return;
 
     setRefetching(true);
-    fetch(`/api/products/menu?delivery_date=${encodeURIComponent(session.deliveryDate)}`)
+    const params = new URLSearchParams({
+      delivery_date: session.deliveryDate,
+      delivery_mode: session.deliveryMode,
+    });
+    fetch(`/api/products/menu?${params.toString()}`)
       .then((r) => r.json())
       .then((data: Product[]) => {
         setProducts(data);
@@ -59,8 +63,8 @@ export function DeliveryMenuClient({
       })
       .catch(() => setProducts(initialProducts))
       .finally(() => setRefetching(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch when delivery date changes
-  }, [sessionReady, session.deliveryDate, items, pruneItems]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- refetch when delivery schedule changes
+  }, [sessionReady, session.deliveryDate, session.deliveryMode, items, pruneItems]);
 
   useEffect(() => {
     if (products.length === 0) return;
