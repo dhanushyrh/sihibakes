@@ -4,7 +4,7 @@ Use this checklist after deploying the WhatsApp chat integration.
 
 ## 1. Environment variables
 
-Set these in Vercel (or local `.env`):
+Set these in Vercel, the AWS Amplify Console, or local `.env`:
 
 | Variable | Purpose |
 | --- | --- |

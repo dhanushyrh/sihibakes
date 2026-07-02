@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import { Suspense } from "react";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Cormorant_Garamond, Sora } from "next/font/google";
 import "./globals.css";
 import { ScrollToTop } from "@/components/store/ScrollToTop";
+import { VercelInsights } from "@/components/VercelInsights";
 import { siteMetadata } from "@/lib/site-metadata";
 
 const sora = Sora({
@@ -37,8 +36,7 @@ export default function RootLayout({
           <ScrollToTop />
         </Suspense>
         {children}
-        <Analytics />
-        <SpeedInsights />
+        <VercelInsights />
       </body>
     </html>
   );

@@ -24,4 +24,6 @@ enabled = true
 [auth]
 enabled = true
 site_url = "http://localhost:3000"
+# Production redirect URLs (Vercel, Amplify, custom domain) are configured in
+# Supabase Dashboard → Authentication → URL configuration. See docs/amplify-deploy.md.
 additional_redirect_urls = ["http://localhost:3000/admin"]

@@ -230,11 +230,14 @@ npm run db:seed
 | --- | --- |
 | [`.env.example`](.env.example) | All environment variables with comments |
 | [`docs/whatsapp-meta-setup.md`](docs/whatsapp-meta-setup.md) | WhatsApp Cloud API templates and webhook setup |
+| [`docs/amplify-deploy.md`](docs/amplify-deploy.md) | AWS Amplify Hosting setup and verification |
 | [`supabase/migrations/`](supabase/migrations/) | Database schema history |
 
 ---
 
 ## Deploy
+
+### Vercel (production)
 
 The app is designed for [Vercel](https://vercel.com). Set the same environment variables in the Vercel project settings. Do **not** run `db:migrate` or `db:reset` against production unless you intend to change that database.
 
@@ -243,3 +246,9 @@ npm run build
 ```
 
 Push to your connected Git branch for automatic preview/production deploys.
+
+### AWS Amplify (additional environment)
+
+To deploy alongside Vercel, follow [`docs/amplify-deploy.md`](docs/amplify-deploy.md). The repo includes [`amplify.yml`](amplify.yml) for SSR builds in **ap-south-1**.
+
+Set `NEXT_PUBLIC_APP_URL` to your Amplify domain. Add that domain to Supabase **Authentication → Redirect URLs** for admin login. Webhooks can stay on Vercel until you switch production traffic.

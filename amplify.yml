@@ -1,0 +1,27 @@
+version: 1
+frontend:
+  phases:
+    preBuild:
+      commands:
+        - nvm use 20
+        - npm ci
+    build:
+      commands:
+        # SSR runtime: bake env vars into the server bundle at build time
+        - env | grep -E '^(NEXT_PUBLIC_|SUPABASE_|RAZORPAY_|WHATSAPP_|BORZO_|GMAIL_|ADMIN_|ACTIVITY_|SMTP_)' >> .env.production || true
+        - npm run build
+        # Next.js 16 proxy.ts compiles to middleware.js; Amplify Hosting may expect proxy.js
+        - if [ -f .next/server/middleware.js ] && [ ! -f .next/server/proxy.js ]; then cp .next/server/middleware.js .next/server/proxy.js; fi
+  artifacts:
+    baseDirectory: .next
+    files:
+      - '**/*'
+  cache:
+    paths:
+      - node_modules/**/*
+      - .next/cache/**/*
+customHeaders:
+  - pattern: '/api/*'
+    headers:
+      - key: Cache-Control
+        value: 'no-store, max-age=0'

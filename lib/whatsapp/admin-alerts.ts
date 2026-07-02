@@ -34,7 +34,7 @@ export async function alertOrderPlacedWhatsAppFailure(params: {
   if (params.isAuthError) {
     messageLines.push(
       "",
-      "Refresh WHATSAPP_ACCESS_TOKEN in Meta Developers and update Vercel/.env.local."
+      "Refresh WHATSAPP_ACCESS_TOKEN in Meta Developers and update Vercel, Amplify, or .env.local."
     );
   }
 
