@@ -91,10 +91,11 @@ export function calcOrderTotal(
   items: { product: Product; quantity: number }[],
   distanceKm: number,
   slabs: DeliveryFeeSlab[],
-  couponResult?: CouponValidation
+  couponResult?: CouponValidation,
+  deliveryFeeInr?: number
 ): OrderPricing {
   const { subtotal, productDiscount } = calcSubtotal(items);
-  let deliveryFee = lookupDeliveryFee(distanceKm, slabs);
+  let deliveryFee = deliveryFeeInr ?? lookupDeliveryFee(distanceKm, slabs);
   let couponDiscount = 0;
 
   if (couponResult?.valid) {

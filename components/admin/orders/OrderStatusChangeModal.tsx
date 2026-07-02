@@ -1,17 +1,17 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { DeliveryVendor, Order, OrderStatus } from "@/lib/types";
 import {
   requiresDeliveryDispatch,
-  requiresPartnerDispatchDetails,
-  requiresBorzoAutoDispatch,
   BORZO_VENDOR_NAME,
   statusChangeLabel,
   type DeliveryDispatchDetails,
   type DeliveryDispatchMode,
+  type DeliveryEtaInput,
   type OrderStatusUpdatePayload,
 } from "@/lib/order-status-update";
+import { formatDispatchEtaFromWindow } from "@/lib/whatsapp/template-components";
 import { ORDER_STATUS_COLORS } from "@/lib/order-badges";
 import { X } from "lucide-react";
 
@@ -30,6 +30,12 @@ const emptyDelivery = (): DeliveryDispatchDetails => ({
   delivery_partner_name: "",
 });
 
+const emptyEta = (): DeliveryEtaInput => ({
+  date: "",
+  window_start: "",
+  window_end: "",
+});
+
 export function OrderStatusChangeModal({
   order,
   targetStatus,
@@ -38,6 +44,7 @@ export function OrderStatusChangeModal({
   onConfirm,
 }: OrderStatusChangeModalProps) {
   const [delivery, setDelivery] = useState<DeliveryDispatchDetails>(emptyDelivery);
+  const [deliveryEta, setDeliveryEta] = useState<DeliveryEtaInput>(emptyEta);
   const [dispatchMode, setDispatchMode] = useState<DeliveryDispatchMode>("partner");
   const [vendors, setVendors] = useState<DeliveryVendor[]>([]);
   const [vendorsLoading, setVendorsLoading] = useState(false);
@@ -47,9 +54,6 @@ export function OrderStatusChangeModal({
     ? requiresDeliveryDispatch(targetStatus)
     : false;
   const needsPartnerDispatch = needsDispatch && dispatchMode === "partner";
-  const isBorzoDispatch = targetStatus
-    ? requiresBorzoAutoDispatch(targetStatus, dispatchMode, delivery.delivery_vendor)
-    : false;
 
   useEffect(() => {
     if (!open || !order) return;
@@ -59,6 +63,11 @@ export function OrderStatusChangeModal({
       delivery_vendor: order.delivery_vendor ?? "",
       delivery_otp: order.delivery_otp ?? "",
       delivery_partner_name: order.delivery_partner_name ?? "",
+    });
+    setDeliveryEta({
+      date: order.delivery_date,
+      window_start: order.delivery_window_start.slice(0, 5),
+      window_end: order.delivery_window_end.slice(0, 5),
     });
   }, [open, order]);
 
@@ -100,18 +109,34 @@ export function OrderStatusChangeModal({
     };
   }, [open, needsPartnerDispatch]);
 
+  const etaPreview = useMemo(() => {
+    if (!deliveryEta.date || !deliveryEta.window_start || !deliveryEta.window_end) {
+      return "";
+    }
+    return formatDispatchEtaFromWindow(
+      deliveryEta.date,
+      deliveryEta.window_start,
+      deliveryEta.window_end
+    );
+  }, [deliveryEta]);
+
   if (!open || !order || !targetStatus) return null;
+
+  const etaReady =
+    deliveryEta.date.trim() &&
+    deliveryEta.window_start.trim() &&
+    deliveryEta.window_end.trim();
 
   const partnerDispatchValid =
     delivery.delivery_vendor.trim() &&
-    (isBorzoDispatch ||
-      (delivery.delivery_partner_order_id.trim() &&
-        delivery.delivery_otp.trim() &&
-        delivery.delivery_partner_name.trim()));
+    delivery.delivery_partner_order_id.trim() &&
+    delivery.delivery_otp.trim() &&
+    delivery.delivery_partner_name.trim();
 
   const dispatchReady = needsDispatch
-    ? dispatchMode === "self" ||
-      (partnerDispatchValid && vendors.length > 0 && !vendorsLoading)
+    ? etaReady &&
+      (dispatchMode === "self" ||
+        (partnerDispatchValid && vendors.length > 0 && !vendorsLoading))
     : true;
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -120,6 +145,7 @@ export function OrderStatusChangeModal({
     onConfirm({
       status: targetStatus,
       dispatchMode: needsDispatch ? dispatchMode : undefined,
+      deliveryEta: needsDispatch ? deliveryEta : undefined,
       delivery: needsDispatch && dispatchMode === "partner"
         ? {
             delivery_partner_order_id: delivery.delivery_partner_order_id.trim(),
@@ -139,7 +165,7 @@ export function OrderStatusChangeModal({
         onClick={saving ? undefined : onClose}
         aria-label="Close"
       />
-      <div className="relative w-full max-w-md rounded-2xl bg-white p-5 shadow-xl ring-1 ring-[#4B2C20]/10">
+      <div className="relative max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl bg-white p-5 shadow-xl ring-1 ring-[#4B2C20]/10">
         <div className="flex items-start justify-between gap-3">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-[#4B2C20]/50">
@@ -236,24 +262,85 @@ export function OrderStatusChangeModal({
                 </div>
               </fieldset>
 
+              <fieldset className="rounded-xl border border-[#4B2C20]/10 p-3">
+                <legend className="px-1 text-xs font-medium text-[#4B2C20]">
+                  Customer ETA (WhatsApp)
+                </legend>
+                <p className="mb-3 text-xs text-[#4B2C20]/55">
+                  Prefilled from the booked delivery slot. Adjust if the handoff
+                  time changes.
+                </p>
+                <div className="space-y-3">
+                  <label className="block">
+                    <span className="text-xs font-medium text-[#4B2C20]">Date</span>
+                    <input
+                      type="date"
+                      required
+                      value={deliveryEta.date}
+                      onChange={(e) =>
+                        setDeliveryEta((current) => ({
+                          ...current,
+                          date: e.target.value,
+                        }))
+                      }
+                      className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
+                    />
+                  </label>
+                  <div className="grid grid-cols-2 gap-3">
+                    <label className="block">
+                      <span className="text-xs font-medium text-[#4B2C20]">
+                        From
+                      </span>
+                      <input
+                        type="time"
+                        required
+                        value={deliveryEta.window_start}
+                        onChange={(e) =>
+                          setDeliveryEta((current) => ({
+                            ...current,
+                            window_start: e.target.value,
+                          }))
+                        }
+                        className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
+                      />
+                    </label>
+                    <label className="block">
+                      <span className="text-xs font-medium text-[#4B2C20]">
+                        Until
+                      </span>
+                      <input
+                        type="time"
+                        required
+                        value={deliveryEta.window_end}
+                        onChange={(e) =>
+                          setDeliveryEta((current) => ({
+                            ...current,
+                            window_end: e.target.value,
+                          }))
+                        }
+                        className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
+                      />
+                    </label>
+                  </div>
+                  {etaPreview ? (
+                    <p className="text-xs text-[#4B2C20]/60">
+                      WhatsApp ETA:{" "}
+                      <span className="font-medium text-[#4B2C20]">{etaPreview}</span>
+                    </p>
+                  ) : null}
+                </div>
+              </fieldset>
+
               {dispatchMode === "self" ? (
                 <p className="text-xs text-teal-800">
-                  Your team will deliver this order — no vendor, OTP, or partner
-                  name needed.
+                  Your team will deliver this order. The customer will be notified
+                  with the ETA above.
                 </p>
               ) : (
                 <>
-                  {isBorzoDispatch ? (
-                    <p className="text-xs text-[#4B2C20]/60">
-                      Borzo will create a two-wheeler delivery from the store to the
-                      customer, set the handoff OTP, and notify the customer on
-                      WhatsApp with the ETA.
-                    </p>
-                  ) : (
-                    <p className="text-xs text-[#4B2C20]/50">
-                      Enter delivery partner details before dispatching.
-                    </p>
-                  )}
+                  <p className="text-xs text-[#4B2C20]/50">
+                    Enter delivery partner details before dispatching.
+                  </p>
                   <label className="block">
                     <span className="text-xs font-medium text-[#4B2C20]">Vendor</span>
                     <select
@@ -275,8 +362,6 @@ export function OrderStatusChangeModal({
                       ))}
                     </select>
                   </label>
-                  {!isBorzoDispatch && (
-                    <>
                   <label className="block">
                     <span className="text-xs font-medium text-[#4B2C20]">Order ID</span>
                     <input
@@ -300,7 +385,7 @@ export function OrderStatusChangeModal({
                       onChange={(e) =>
                         setDelivery((d) => ({ ...d, delivery_otp: e.target.value }))
                       }
-                      placeholder="Delivery OTP"
+                      placeholder="Delivery OTP for handoff"
                       className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
                     />
                   </label>
@@ -321,8 +406,6 @@ export function OrderStatusChangeModal({
                       className="mt-1 w-full rounded-xl border border-[#4B2C20]/10 px-3 py-2 text-sm"
                     />
                   </label>
-                    </>
-                  )}
                 </>
               )}
             </>

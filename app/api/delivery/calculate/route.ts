@@ -1,14 +1,10 @@
 import { NextResponse } from "next/server";
-import {
-  getAvailableDeliverySlots,
-  getDeliveryFeeSlabs,
-  getShopSettings,
-} from "@/lib/data";
+import { getAvailableDeliverySlots, getShopSettings } from "@/lib/data";
 import { getDefaultDeliverySelection } from "@/lib/customer-delivery-slots";
-import { haversineDistanceKm, lookupDeliveryFee } from "@/lib/delivery";
+import { haversineDistanceKm } from "@/lib/delivery";
+import { resolveDeliveryQuote } from "@/lib/delivery-quote";
 import { getDeliveryFence, isWithinDeliveryFence } from "@/lib/delivery-fence";
 import { isBorzoConfigured } from "@/lib/borzo/config";
-import { borzoDistanceKm, quoteBorzoDelivery } from "@/lib/borzo/delivery";
 import {
   buildBorzoQuoteSlotFromDeliverySlot,
   buildBorzoQuoteSlotFromWindow,
@@ -62,71 +58,61 @@ export async function POST(request: Request) {
       });
     }
 
-    const borzoConfigured = isBorzoConfigured();
-
-    if (borzoConfigured) {
-      try {
-        let borzoSlot;
-        if (delivery_date && window_start) {
-          borzoSlot = buildBorzoQuoteSlotFromWindow(delivery_date, window_start);
-        } else {
-          const slots = await getAvailableDeliverySlots();
-          const defaultSelection = getDefaultDeliverySelection(slots);
-          const nextSlot = slots.find((slot) => slot.id === defaultSelection.slotId);
-          borzoSlot = nextSlot
-            ? buildBorzoQuoteSlotFromDeliverySlot(nextSlot)
-            : buildDefaultBorzoQuoteSlot();
-        }
-
-        const quote = await quoteBorzoDelivery({
-          settings,
-          customerLat: lat,
-          customerLng: lng,
-          customerAddress: "Customer delivery location",
-          slot: borzoSlot,
-        });
-
-        return NextResponse.json({
-          distance_km: borzoDistanceKm(settings, lat, lng),
-          delivery_fee_inr: quote.delivery_fee_inr,
-          reachable: true,
-          provider: "borzo",
-        });
-      } catch (err) {
-        console.error("Borzo delivery quote failed:", err);
-
-        const message =
-          err instanceof BorzoApiError
-            ? formatBorzoError(err)
-            : err instanceof Error
-              ? err.message
-              : "Borzo delivery quote failed";
-
-        return NextResponse.json(
-          {
-            error: message,
-            provider: "borzo",
-            borzo_configured: true,
-          },
-          { status: err instanceof BorzoApiError && err.status < 500 ? 400 : 502 }
-        );
-      }
+    let borzoSlot;
+    if (delivery_date && window_start) {
+      borzoSlot = buildBorzoQuoteSlotFromWindow(delivery_date, window_start);
+    } else {
+      const slots = await getAvailableDeliverySlots();
+      const defaultSelection = getDefaultDeliverySelection(slots);
+      const nextSlot = slots.find((slot) => slot.id === defaultSelection.slotId);
+      borzoSlot = nextSlot
+        ? buildBorzoQuoteSlotFromDeliverySlot(nextSlot)
+        : buildDefaultBorzoQuoteSlot();
     }
 
-    const slabs = await getDeliveryFeeSlabs();
-    const fee = lookupDeliveryFee(distance, slabs);
+    try {
+      const quote = await resolveDeliveryQuote({
+        settings,
+        customerLat: lat,
+        customerLng: lng,
+        customerAddress: "Customer delivery location",
+        borzoSlot,
+      });
 
-    return NextResponse.json({
-      distance_km: distance,
-      delivery_fee_inr: fee,
-      reachable: true,
-      provider: "slab",
-      borzo_configured: false,
-      message:
-        process.env.NODE_ENV === "development"
-          ? "Using distance slabs — set BORZO_AUTH_TOKEN for live Borzo quotes"
-          : undefined,
-    });
+      return NextResponse.json({
+        distance_km: quote.distance_km,
+        delivery_fee_inr: quote.delivery_fee_inr,
+        reachable: true,
+        provider: quote.provider,
+        borzo_configured: isBorzoConfigured(),
+        message:
+          quote.provider === "slab" && process.env.NODE_ENV === "development"
+            ? "Using distance slabs — set BORZO_AUTH_TOKEN for live Borzo quotes"
+            : undefined,
+      });
+    } catch (err) {
+      if (!isBorzoConfigured()) {
+        throw err;
+      }
+
+      console.error("Borzo delivery quote failed:", err);
+
+      const message =
+        err instanceof BorzoApiError
+          ? formatBorzoError(err)
+          : err instanceof Error
+            ? err.message
+            : "Borzo delivery quote failed";
+
+      return NextResponse.json(
+        {
+          error: message,
+          provider: "borzo",
+          borzo_configured: true,
+        },
+        { status: err instanceof BorzoApiError && err.status < 500 ? 400 : 502 }
+      );
+    }
   } catch {
     return NextResponse.json({ error: "Calculation failed" }, { status: 500 });
   }

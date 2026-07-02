@@ -14,10 +14,17 @@ export interface DeliveryDispatchDetails {
   delivery_partner_name: string;
 }
 
+export interface DeliveryEtaInput {
+  date: string;
+  window_start: string;
+  window_end: string;
+}
+
 export interface OrderStatusUpdatePayload {
   status: OrderStatus;
   dispatchMode?: DeliveryDispatchMode;
   delivery?: DeliveryDispatchDetails;
+  deliveryEta?: DeliveryEtaInput;
 }
 
 export function statusChangeLabel(status: OrderStatus): string {
@@ -45,16 +52,9 @@ export function isSelfDeliveryOrder(
 
 export function requiresPartnerDispatchDetails(
   status: OrderStatus,
-  dispatchMode: DeliveryDispatchMode = "partner",
-  vendor?: string
+  dispatchMode: DeliveryDispatchMode = "partner"
 ): boolean {
-  if (!requiresDeliveryDispatch(status) || dispatchMode !== "partner") {
-    return false;
-  }
-  if (vendor && isBorzoVendorName(vendor)) {
-    return false;
-  }
-  return true;
+  return requiresDeliveryDispatch(status) && dispatchMode === "partner";
 }
 
 export function requiresBorzoAutoDispatch(

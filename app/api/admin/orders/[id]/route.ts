@@ -14,6 +14,7 @@ import {
   fulfillPaidOrder,
   shouldFulfillOnStatusChange,
 } from "@/lib/order-payment";
+import { formatDispatchEtaFromWindow } from "@/lib/whatsapp/template-components";
 import { notifyOrderStatusChange } from "@/lib/whatsapp/notifications";
 import {
   listActiveDeliveryVendors,
@@ -27,6 +28,18 @@ import { BorzoApiError } from "@/lib/borzo/client";
 import { BORZO_VENDOR_NAME } from "@/lib/order-status-update";
 
 const VALID_STATUSES = new Set(ORDER_STATUS_OPTIONS.map((s) => s.key));
+
+function parseDeliveryEtaDisplay(body: {
+  delivery_eta_date?: string;
+  delivery_eta_window_start?: string;
+  delivery_eta_window_end?: string;
+}): string | null {
+  const date = body.delivery_eta_date?.trim();
+  const windowStart = body.delivery_eta_window_start?.trim();
+  const windowEnd = body.delivery_eta_window_end?.trim();
+  if (!date || !windowStart || !windowEnd) return null;
+  return formatDispatchEtaFromWindow(date, windowStart, windowEnd);
+}
 
 export async function GET(
   _request: Request,
@@ -69,6 +82,9 @@ export async function PATCH(
     delivery_vendor,
     delivery_otp,
     delivery_partner_name,
+    delivery_eta_date,
+    delivery_eta_window_start,
+    delivery_eta_window_end,
   } = body as {
     status?: OrderStatus;
     dispatch_mode?: "partner" | "self";
@@ -76,6 +92,9 @@ export async function PATCH(
     delivery_vendor?: string;
     delivery_otp?: string;
     delivery_partner_name?: string;
+    delivery_eta_date?: string;
+    delivery_eta_window_start?: string;
+    delivery_eta_window_end?: string;
   };
 
   if (!status || !VALID_STATUSES.has(status)) {
@@ -131,6 +150,19 @@ export async function PATCH(
   }
 
   if (requiresDeliveryDispatch(status)) {
+    const deliveryEtaDisplay = parseDeliveryEtaDisplay({
+      delivery_eta_date,
+      delivery_eta_window_start,
+      delivery_eta_window_end,
+    });
+
+    if (!deliveryEtaDisplay) {
+      return NextResponse.json(
+        { error: "Delivery ETA date and time window are required" },
+        { status: 400 }
+      );
+    }
+
     const isSelfDispatch = dispatch_mode === "self";
 
     if (isSelfDispatch) {
@@ -142,6 +174,7 @@ export async function PATCH(
           delivery_partner_order_id: null,
           delivery_otp: null,
           delivery_partner_name: null,
+          delivery_eta_display: deliveryEtaDisplay,
           out_for_delivery_at: new Date().toISOString(),
         })
         .eq("id", id)
@@ -153,7 +186,9 @@ export async function PATCH(
       }
 
       if (order.status !== status) {
-        void notifyOrderStatusChange(id, status);
+        void notifyOrderStatusChange(id, status, {
+          estimatedArrival: deliveryEtaDisplay,
+        });
       }
 
       return NextResponse.json(data);
@@ -177,6 +212,20 @@ export async function PATCH(
       );
     }
 
+    const partnerOrderId = delivery_partner_order_id?.trim();
+    const otp = delivery_otp?.trim();
+    const partnerName = delivery_partner_name?.trim();
+
+    if (!partnerOrderId || !otp || !partnerName) {
+      return NextResponse.json(
+        {
+          error:
+            "Order ID, OTP, and delivery partner name are required for out for delivery",
+        },
+        { status: 400 }
+      );
+    }
+
     if (isBorzoVendorName(vendor.name)) {
       if (!isBorzoConfigured()) {
         return NextResponse.json(
@@ -192,7 +241,10 @@ export async function PATCH(
 
       let borzoDispatch;
       try {
-        borzoDispatch = await dispatchBorzoDelivery(order, settings);
+        borzoDispatch = await dispatchBorzoDelivery(order, settings, {
+          deliveryOtp: otp,
+          partnerName,
+        });
       } catch (err) {
         console.error("Borzo dispatch failed:", err);
         const message =
@@ -210,8 +262,9 @@ export async function PATCH(
           status,
           delivery_partner_order_id: borzoDispatch.borzo_order_id,
           delivery_vendor: BORZO_VENDOR_NAME,
-          delivery_otp: borzoDispatch.delivery_otp,
-          delivery_partner_name: borzoDispatch.delivery_partner_name,
+          delivery_otp: otp,
+          delivery_partner_name: partnerName,
+          delivery_eta_display: deliveryEtaDisplay,
           out_for_delivery_at: new Date().toISOString(),
         })
         .eq("id", id)
@@ -224,25 +277,11 @@ export async function PATCH(
 
       if (order.status !== status) {
         void notifyOrderStatusChange(id, status, {
-          estimatedArrival: borzoDispatch.estimated_arrival_display,
+          estimatedArrival: deliveryEtaDisplay,
         });
       }
 
       return NextResponse.json(data);
-    }
-
-    const partnerOrderId = delivery_partner_order_id?.trim();
-    const otp = delivery_otp?.trim();
-    const partnerName = delivery_partner_name?.trim();
-
-    if (!partnerOrderId || !otp || !partnerName) {
-      return NextResponse.json(
-        {
-          error:
-            "Order ID, OTP, and delivery partner name are required for out for delivery",
-        },
-        { status: 400 }
-      );
     }
 
     const { data, error } = await admin
@@ -253,6 +292,7 @@ export async function PATCH(
         delivery_vendor: vendor.name,
         delivery_otp: otp,
         delivery_partner_name: partnerName,
+        delivery_eta_display: deliveryEtaDisplay,
         out_for_delivery_at: new Date().toISOString(),
       })
       .eq("id", id)
@@ -264,7 +304,9 @@ export async function PATCH(
     }
 
     if (order.status !== status) {
-      void notifyOrderStatusChange(id, status);
+      void notifyOrderStatusChange(id, status, {
+        estimatedArrival: deliveryEtaDisplay,
+      });
     }
 
     return NextResponse.json(data);

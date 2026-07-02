@@ -152,6 +152,11 @@ export default function AdminOrdersPage() {
     if (payload.delivery) {
       Object.assign(body, payload.delivery);
     }
+    if (payload.deliveryEta) {
+      body.delivery_eta_date = payload.deliveryEta.date;
+      body.delivery_eta_window_start = payload.deliveryEta.window_start;
+      body.delivery_eta_window_end = payload.deliveryEta.window_end;
+    }
 
     const res = await fetch(`/api/admin/orders/${orderId}`, {
       method: "PATCH",

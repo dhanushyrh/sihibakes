@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
-  getDeliveryFeeSlabs,
   getProductsByIds,
   getShopSettings,
   isDeliveryDayClosed,
@@ -10,7 +9,7 @@ import {
 } from "@/lib/data";
 import { isValidIndianPhone, isValidIndianPincode, isValidEmail, normalizeEmail } from "@/lib/checkout-validation";
 import { requireVerifiedPhoneWithConsent } from "@/lib/legal-consent";
-import { haversineDistanceKm } from "@/lib/delivery";
+import { resolveDeliveryQuote } from "@/lib/delivery-quote";
 import {
   applyCoupon,
   calcOrderTotal,
@@ -25,6 +24,10 @@ import {
   markActivityOrderCreated,
 } from "@/lib/customer-activity";
 import { parseRequestClientInfo } from "@/lib/request-client-info";
+import { isBorzoConfigured } from "@/lib/borzo/config";
+import { formatCustomerAddress } from "@/lib/borzo/delivery";
+import { buildBorzoQuoteSlotFromDeliverySlot } from "@/lib/borzo/quote-slot";
+import { BorzoApiError, formatBorzoError } from "@/lib/borzo/client";
 import type { Coupon, DeliverySlot } from "@/lib/types";
 
 export async function POST(request: Request) {
@@ -150,13 +153,6 @@ export async function POST(request: Request) {
       );
     }
 
-    const distance = haversineDistanceKm(
-      settings.kitchen_lat,
-      settings.kitchen_lng,
-      delivery_lat,
-      delivery_lng
-    );
-
     const fence = getDeliveryFence(settings);
 
     if (
@@ -188,7 +184,37 @@ export async function POST(request: Request) {
       }
     }
 
-    const slabs = await getDeliveryFeeSlabs();
+    let deliveryQuote;
+    try {
+      deliveryQuote = await resolveDeliveryQuote({
+        settings,
+        customerLat: delivery_lat,
+        customerLng: delivery_lng,
+        customerAddress: formatCustomerAddress({
+          house,
+          street,
+          landmark: landmark || null,
+          pincode,
+        }),
+        borzoSlot: buildBorzoQuoteSlotFromDeliverySlot(slot as DeliverySlot),
+      });
+    } catch (err) {
+      if (isBorzoConfigured()) {
+        console.error("Borzo delivery quote failed during order create:", err);
+        const message =
+          err instanceof BorzoApiError
+            ? formatBorzoError(err)
+            : err instanceof Error
+              ? err.message
+              : "Could not calculate delivery fee";
+        return NextResponse.json(
+          { error: message },
+          { status: err instanceof BorzoApiError && err.status < 500 ? 400 : 502 }
+        );
+      }
+      throw err;
+    }
+
     const { subtotal } = calcSubtotal(cartItems);
 
     let couponResult;
@@ -206,7 +232,7 @@ export async function POST(request: Request) {
         couponResult = applyCoupon(
           coupon as Coupon,
           subtotal,
-          0,
+          deliveryQuote.delivery_fee_inr,
           firstOrder
         );
         if (!couponResult.valid) {
@@ -216,7 +242,13 @@ export async function POST(request: Request) {
       }
     }
 
-    const pricing = calcOrderTotal(cartItems, distance, slabs, couponResult);
+    const pricing = calcOrderTotal(
+      cartItems,
+      deliveryQuote.distance_km,
+      [],
+      couponResult,
+      deliveryQuote.delivery_fee_inr
+    );
     const orderNumber = generateOrderNumber();
 
     const { data: customer } = await admin
@@ -242,7 +274,7 @@ export async function POST(request: Request) {
         pincode,
         delivery_lat,
         delivery_lng,
-        distance_km: distance,
+        distance_km: deliveryQuote.distance_km,
         delivery_fee_inr: pricing.delivery_fee_inr,
         subtotal_inr: pricing.subtotal_inr,
         discount_inr: pricing.coupon_discount_inr,
@@ -280,7 +312,7 @@ export async function POST(request: Request) {
       customerId: customer?.id ?? null,
       lat: delivery_lat,
       lng: delivery_lng,
-      deliveryDistanceKm: distance,
+      deliveryDistanceKm: deliveryQuote.distance_km,
       deliveryFeeInr: pricing.delivery_fee_inr,
       totalInr: pricing.total_inr,
       cartItems: activityCartItems,

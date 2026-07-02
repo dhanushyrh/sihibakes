@@ -216,9 +216,10 @@ export async function quoteBorzoDelivery(params: {
 
 export async function dispatchBorzoDelivery(
   order: Order,
-  settings: ShopSettings
+  settings: ShopSettings,
+  options?: { deliveryOtp?: string; partnerName?: string }
 ): Promise<BorzoDispatchResult> {
-  const deliveryOtp = generateDeliveryOtp();
+  const deliveryOtp = options?.deliveryOtp?.trim() || generateDeliveryOtp();
   const customerAddress = formatCustomerAddress(order);
 
   const points = buildPoints({
@@ -248,14 +249,16 @@ export async function dispatchBorzoDelivery(
   const customerPoint = borzoOrder.points[borzoOrder.points.length - 1];
   const otp = customerPoint?.checkin_code?.trim() || deliveryOtp;
 
-  let partnerName = courierDisplayName(borzoOrder.courier);
-  try {
-    const courier = await getBorzoCourier(borzoOrder.order_id);
-    if (courier) {
-      partnerName = courierDisplayName(courier);
+  let partnerName = options?.partnerName?.trim() || courierDisplayName(borzoOrder.courier);
+  if (!options?.partnerName?.trim()) {
+    try {
+      const courier = await getBorzoCourier(borzoOrder.order_id);
+      if (courier) {
+        partnerName = courierDisplayName(courier);
+      }
+    } catch {
+      // Courier may not be assigned yet.
     }
-  } catch {
-    // Courier may not be assigned yet.
   }
 
   return {

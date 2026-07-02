@@ -92,10 +92,33 @@ function formatTime12h(time: string): string {
   return `${hour12}:${minute} ${ampm}`;
 }
 
+export function formatDispatchEtaFromWindow(
+  date: string,
+  windowStart: string,
+  windowEnd: string
+): string {
+  return formatDispatchEta({
+    delivery_date: date,
+    delivery_window_start: windowStart,
+    delivery_window_end: windowEnd,
+    delivery_eta_display: null,
+  });
+}
+
 /** ETA line for out-for-delivery WhatsApp, e.g. "4 Jul, 6:00–8:00 PM". */
 export function formatDispatchEta(
-  order: Pick<Order, "delivery_date" | "delivery_window_start" | "delivery_window_end">
+  order: Pick<
+    Order,
+    | "delivery_date"
+    | "delivery_window_start"
+    | "delivery_window_end"
+    | "delivery_eta_display"
+  >
 ): string {
+  if (order.delivery_eta_display?.trim()) {
+    return order.delivery_eta_display.trim();
+  }
+
   const date = new Date(`${order.delivery_date}T12:00:00`);
   const dateLabel = Number.isNaN(date.getTime())
     ? order.delivery_date

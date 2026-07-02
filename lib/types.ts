@@ -155,6 +155,7 @@ export interface Order {
   delivery_partner_order_id: string | null;
   delivery_otp: string | null;
   delivery_partner_name: string | null;
+  delivery_eta_display: string | null;
   out_for_delivery_at: string | null;
   created_at: string;
   customer?: Customer;

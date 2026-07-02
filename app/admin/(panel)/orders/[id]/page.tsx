@@ -110,6 +110,11 @@ export default function AdminOrderDetailPage() {
     if (payload.delivery) {
       Object.assign(body, payload.delivery);
     }
+    if (payload.deliveryEta) {
+      body.delivery_eta_date = payload.deliveryEta.date;
+      body.delivery_eta_window_start = payload.deliveryEta.window_start;
+      body.delivery_eta_window_end = payload.deliveryEta.window_end;
+    }
 
     const res = await fetch(`/api/admin/orders/${order.id}`, {
       method: "PATCH",
@@ -370,9 +375,19 @@ export default function AdminOrderDetailPage() {
         <section className="mt-4 rounded-2xl bg-white p-5 ring-1 ring-[#4B2C20]/10">
           <h2 className="text-sm font-semibold text-[#4B2C20]">Delivery dispatch</h2>
           {order.delivery_vendor === SELF_DELIVERY_VENDOR ? (
-            <p className="mt-3 text-sm text-teal-800">
-              Dispatched for self delivery by your team.
-            </p>
+            <div className="mt-3 space-y-2 text-sm">
+              <p className="text-teal-800">
+                Dispatched for self delivery by your team.
+              </p>
+              {order.delivery_eta_display ? (
+                <p className="text-[#4B2C20]/70">
+                  ETA sent:{" "}
+                  <span className="font-medium text-[#4B2C20]">
+                    {order.delivery_eta_display}
+                  </span>
+                </p>
+              ) : null}
+            </div>
           ) : (
           <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
             {order.delivery_partner_order_id && (
@@ -402,6 +417,14 @@ export default function AdminOrderDetailPage() {
                 <dt className="text-[#4B2C20]/50">OTP</dt>
                 <dd className="font-medium tabular-nums text-[#4B2C20]">
                   {order.delivery_otp}
+                </dd>
+              </div>
+            )}
+            {order.delivery_eta_display && (
+              <div>
+                <dt className="text-[#4B2C20]/50">ETA sent</dt>
+                <dd className="font-medium text-[#4B2C20]">
+                  {order.delivery_eta_display}
                 </dd>
               </div>
             )}
