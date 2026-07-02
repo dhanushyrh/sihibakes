@@ -197,6 +197,7 @@ export const getShopSettings = cache(async (): Promise<ShopSettings | null> => {
     phone: row.phone ?? "",
     alt_phone: row.alt_phone ?? "",
     whatsapp_notifications_enabled: row.whatsapp_notifications_enabled ?? true,
+    payment_skip_enabled: row.payment_skip_enabled ?? false,
   };
 });
 

@@ -19,6 +19,7 @@ export const MOCK_SETTINGS: ShopSettings = {
   delivery_fence_west_km: 15,
   orders_accepting: true,
   whatsapp_notifications_enabled: true,
+  payment_skip_enabled: false,
   closed_dates: [],
   store_address: "",
   fssai_license_no: "",

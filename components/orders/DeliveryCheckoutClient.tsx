@@ -58,6 +58,7 @@ type PlacedOrder = {
   order_number: string;
   total_inr: number;
   phone: string;
+  payment_skip_enabled: boolean;
   razorpay_order_id: string | null;
   razorpay_key: string | null;
 };
@@ -68,12 +69,14 @@ export function DeliveryCheckoutClient({
   kitchenLat,
   kitchenLng,
   deliveryFence,
+  paymentSkipEnabled,
 }: {
   initialSlots: DeliverySlot[];
   storeOpen: boolean;
   kitchenLat: number;
   kitchenLng: number;
   deliveryFence: DeliveryFenceKm;
+  paymentSkipEnabled: boolean;
 }) {
   const router = useRouter();
   const { items, clearCart, itemCount, pruneItems } = useCart();
@@ -533,9 +536,34 @@ export function DeliveryCheckoutClient({
       order_number: data.order_number as string,
       total_inr: data.total_inr as number,
       phone,
+      payment_skip_enabled: Boolean(data.payment_skip_enabled),
       razorpay_order_id: (data.razorpay_order_id as string | null) ?? null,
       razorpay_key: (data.razorpay_key as string | null) ?? null,
     } satisfies PlacedOrder;
+  };
+
+  const completeSkipPayment = async (order: {
+    order_id: string;
+    order_number: string;
+    phone: string;
+  }) => {
+    const res = await fetch("/api/orders/skip-payment", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        order_id: order.order_id,
+        order_number: order.order_number,
+        phone: order.phone,
+      }),
+    });
+    const data = (await res.json()) as {
+      error?: string;
+      whatsapp_sent?: boolean;
+    };
+    if (!res.ok) {
+      throw new Error(data.error || "Could not confirm order");
+    }
+    return data;
   };
 
   const finishOrder = (orderNumber: string, phone: string) => {
@@ -634,6 +662,13 @@ export function DeliveryCheckoutClient({
     setPlacingOrder(true);
     try {
       const placed = await createOrder();
+      const skipPayment = placed.payment_skip_enabled || paymentSkipEnabled;
+
+      if (skipPayment) {
+        await completeSkipPayment(placed);
+        finishOrder(placed.order_number, placed.phone);
+        return;
+      }
 
       if (!placed.razorpay_order_id || !placed.razorpay_key) {
         throw new Error("Payment is not configured. Contact support.");
@@ -1002,7 +1037,14 @@ export function DeliveryCheckoutClient({
 
           {error && <p className="text-sm text-red-600">{error}</p>}
 
-          {!razorpayReady && (
+          {paymentSkipEnabled && (
+            <p className="rounded-2xl bg-amber-50 px-4 py-3 text-xs text-amber-900 ring-1 ring-amber-200">
+              Payment bypass is on — orders will be placed without Razorpay. Turn
+              this off in Admin → Settings before going live.
+            </p>
+          )}
+
+          {!paymentSkipEnabled && !razorpayReady && (
             <div className="flex items-center gap-2 text-xs text-chocolate/50">
               <Spinner size="sm" label="Loading secure payment" />
               <span>Loading secure payment…</span>
@@ -1015,7 +1057,7 @@ export function DeliveryCheckoutClient({
         <div className="mx-auto max-w-lg px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <button
             type="button"
-            disabled={placingOrder || !razorpayReady}
+            disabled={placingOrder || (!paymentSkipEnabled && !razorpayReady)}
             onClick={() => void payWithRazorpay()}
             className="flex w-full items-center justify-center gap-2 rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-40"
           >
@@ -1024,6 +1066,8 @@ export function DeliveryCheckoutClient({
                 <Spinner size="sm" className="!text-cream/80" label="Processing payment" />
                 <span>Processing…</span>
               </>
+            ) : paymentSkipEnabled ? (
+              `Place order (skip payment) · ${formatCurrency(total)}`
             ) : (
               `Pay ${formatCurrency(total)}`
             )}

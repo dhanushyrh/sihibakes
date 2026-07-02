@@ -5,6 +5,7 @@ import {
 } from "@/lib/data";
 import { DEFAULT_KITCHEN } from "@/lib/constants";
 import { getDeliveryFence } from "@/lib/delivery-fence";
+import { isPaymentSkipEnabled } from "@/lib/payment-skip";
 import { ShopStatusBannerView } from "@/components/store/ShopStatusBanner";
 import CheckoutClient from "./CheckoutClient";
 
@@ -25,6 +26,7 @@ export default async function CheckoutPage() {
       deliveryFence={getDeliveryFence(settings)}
       storeOpen={storefront.isOpen}
       storeClosedMessage={storefront.bannerMessage}
+      paymentSkipEnabled={isPaymentSkipEnabled(settings)}
       />
     </>
   );

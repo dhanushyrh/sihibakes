@@ -34,6 +34,7 @@ interface CheckoutPageProps {
   deliveryFence: DeliveryFenceKm;
   storeOpen: boolean;
   storeClosedMessage: string | null;
+  paymentSkipEnabled: boolean;
 }
 
 const STEPS = ["Location", "Address", "Delivery", "Coupon", "Pay"];
@@ -45,6 +46,7 @@ export default function CheckoutPage({
   deliveryFence,
   storeOpen,
   storeClosedMessage,
+  paymentSkipEnabled,
 }: CheckoutPageProps) {
   const router = useRouter();
   const { items, clearCart, itemCount } = useCart();
@@ -224,6 +226,27 @@ export default function CheckoutPage({
       const data = await res.json();
       if (!res.ok) {
         setError(data.error || "Order failed");
+        return;
+      }
+
+      const skipPayment = Boolean(data.payment_skip_enabled) || paymentSkipEnabled;
+      if (skipPayment) {
+        const skipRes = await fetch("/api/orders/skip-payment", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            order_id: data.order_id,
+            order_number: data.order_number,
+            phone,
+          }),
+        });
+        const skipData = await skipRes.json();
+        if (!skipRes.ok) {
+          setError(skipData.error || "Could not confirm order");
+          return;
+        }
+        clearCart();
+        router.push(`/order/${data.order_number}?phone=${phone}`);
         return;
       }
 
@@ -544,6 +567,11 @@ export default function CheckoutPage({
               )}
               <p className="pt-2 text-lg font-semibold">{formatCurrency(total)}</p>
             </div>
+            {paymentSkipEnabled && (
+              <p className="rounded-xl bg-amber-50 px-4 py-3 text-xs text-amber-900 ring-1 ring-amber-200">
+                Payment bypass is on — this order will be placed without Razorpay.
+              </p>
+            )}
             {error && <p className="text-sm text-red-600">{error}</p>}
             <div className="flex gap-2">
               <button type="button" onClick={() => setStep(3)} className="flex-1 rounded-full border py-3 text-sm">
@@ -551,7 +579,7 @@ export default function CheckoutPage({
               </button>
               <button
                 type="button"
-                disabled={submitting || !razorpayReady}
+                disabled={submitting || (!paymentSkipEnabled && !razorpayReady)}
                 onClick={placeOrder}
                 className="flex flex-1 items-center justify-center gap-2 rounded-full bg-[#4B2C20] py-3 text-sm font-medium text-white disabled:opacity-50"
               >
@@ -560,6 +588,8 @@ export default function CheckoutPage({
                     <Spinner size="sm" className="!text-white/80" label="Processing payment" />
                     <span>Processing…</span>
                   </>
+                ) : paymentSkipEnabled ? (
+                  `Place order (skip payment) · ${formatCurrency(total)}`
                 ) : (
                   `Pay ${formatCurrency(total)}`
                 )}

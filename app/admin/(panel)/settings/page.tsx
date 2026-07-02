@@ -129,6 +129,7 @@ export default function AdminSettingsPage() {
     kitchen_lng: 0,
     delivery_fence: DEFAULT_DELIVERY_FENCE,
     orders_accepting: true,
+    payment_skip_enabled: false,
   });
   const [slabsDraft, setSlabsDraft] = useState<DeliveryFeeSlab[]>([]);
   const [newClosedDate, setNewClosedDate] = useState("");
@@ -177,6 +178,7 @@ export default function AdminSettingsPage() {
           row.delivery_fence_east_km ?? row.max_delivery_radius_km ?? 15,
         delivery_fence_west_km:
           row.delivery_fence_west_km ?? row.max_delivery_radius_km ?? 15,
+        payment_skip_enabled: row.payment_skip_enabled ?? false,
       });
     }
     setSlabs((sl ?? []) as DeliveryFeeSlab[]);
@@ -219,6 +221,7 @@ export default function AdminSettingsPage() {
       kitchen_lng: settings.kitchen_lng,
       delivery_fence: getDeliveryFence(settings),
       orders_accepting: settings.orders_accepting,
+      payment_skip_enabled: settings.payment_skip_enabled ?? false,
     });
     setEditingSection("shop");
   };
@@ -336,6 +339,7 @@ export default function AdminSettingsPage() {
         delivery_fence_west_km: fence.west,
         max_delivery_radius_km: maxFenceKm(fence),
         orders_accepting: shopDraft.orders_accepting,
+        payment_skip_enabled: shopDraft.payment_skip_enabled,
         updated_at: new Date().toISOString(),
       })
       .eq("id", settings.id);
@@ -779,6 +783,30 @@ export default function AdminSettingsPage() {
                     Accepting orders
                   </label>
                 </div>
+                <div className="sm:col-span-2">
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={shopDraft.payment_skip_enabled}
+                      onChange={(e) =>
+                        setShopDraft({
+                          ...shopDraft,
+                          payment_skip_enabled: e.target.checked,
+                        })
+                      }
+                      className="mt-0.5"
+                    />
+                    <span>
+                      <span className="font-medium text-[#4B2C20]">
+                        Skip payment (test mode)
+                      </span>
+                      <span className="mt-1 block text-xs text-[#4B2C20]/55">
+                        Place orders without Razorpay while testing live keys.
+                        Turn off before accepting real payments.
+                      </span>
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
             <SectionActions
@@ -818,6 +846,14 @@ export default function AdminSettingsPage() {
               <ViewField
                 label="Orders"
                 value={settings.orders_accepting ? "Accepting" : "Paused"}
+              />
+              <ViewField
+                label="Payment"
+                value={
+                  settings.payment_skip_enabled
+                    ? "Skip payment (test mode)"
+                    : "Razorpay checkout"
+                }
               />
             </div>
           </div>

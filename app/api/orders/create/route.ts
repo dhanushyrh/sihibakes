@@ -18,6 +18,7 @@ import {
   getUnitPrice,
 } from "@/lib/pricing";
 import { createRazorpayOrder, getRazorpayPublicKey } from "@/lib/razorpay";
+import { isPaymentSkipEnabled } from "@/lib/payment-skip";
 import { isSlotBookableWithLeadTime, isWithinOrderBookingWindow } from "@/lib/customer-delivery-slots";
 import { getDeliveryFence, isWithinDeliveryFence } from "@/lib/delivery-fence";
 import {
@@ -331,60 +332,64 @@ export async function POST(request: Request) {
 
     let razorpayOrderId: string | null = null;
     const razorpayKey = getRazorpayPublicKey();
+    const paymentSkipEnabled = isPaymentSkipEnabled(settings);
 
-    if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
-      return NextResponse.json({ error: "Payment not configured" }, { status: 503 });
-    }
+    if (!paymentSkipEnabled) {
+      if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
+        return NextResponse.json({ error: "Payment not configured" }, { status: 503 });
+      }
 
-    if (!razorpayKey) {
-      return NextResponse.json(
-        { error: "Payment not configured (missing public key)" },
-        { status: 503 }
-      );
-    }
-
-    if (razorpayKey !== process.env.RAZORPAY_KEY_ID.trim()) {
-      console.warn(
-        "Razorpay key mismatch: NEXT_PUBLIC_RAZORPAY_KEY_ID should equal RAZORPAY_KEY_ID"
-      );
-    }
-
-    const amountPaise = Math.round(pricing.total_inr * 100);
-    if (amountPaise < 100) {
-      return NextResponse.json(
-        { error: "Minimum order amount is ₹1" },
-        { status: 400 }
-      );
-    }
-
-    try {
-      const rzOrder = await createRazorpayOrder(pricing.total_inr, orderNumber);
-      razorpayOrderId = rzOrder.id;
-      await admin
-        .from("orders")
-        .update({ razorpay_order_id: rzOrder.id })
-        .eq("id", order.id);
-    } catch (rzErr) {
-      console.error("Razorpay order creation error:", rzErr);
-      const statusCode = (rzErr as { statusCode?: number })?.statusCode;
-      if (statusCode === 401) {
+      if (!razorpayKey) {
         return NextResponse.json(
-          { error: "Payment gateway authentication failed" },
-          { status: 401 }
+          { error: "Payment not configured (missing public key)" },
+          { status: 503 }
         );
       }
-      return NextResponse.json(
-        { error: "Could not initiate payment. Check Razorpay keys and try again." },
-        { status: 500 }
-      );
+
+      if (razorpayKey !== process.env.RAZORPAY_KEY_ID.trim()) {
+        console.warn(
+          "Razorpay key mismatch: NEXT_PUBLIC_RAZORPAY_KEY_ID should equal RAZORPAY_KEY_ID"
+        );
+      }
+
+      const amountPaise = Math.round(pricing.total_inr * 100);
+      if (amountPaise < 100) {
+        return NextResponse.json(
+          { error: "Minimum order amount is ₹1" },
+          { status: 400 }
+        );
+      }
+
+      try {
+        const rzOrder = await createRazorpayOrder(pricing.total_inr, orderNumber);
+        razorpayOrderId = rzOrder.id;
+        await admin
+          .from("orders")
+          .update({ razorpay_order_id: rzOrder.id })
+          .eq("id", order.id);
+      } catch (rzErr) {
+        console.error("Razorpay order creation error:", rzErr);
+        const statusCode = (rzErr as { statusCode?: number })?.statusCode;
+        if (statusCode === 401) {
+          return NextResponse.json(
+            { error: "Payment gateway authentication failed" },
+            { status: 401 }
+          );
+        }
+        return NextResponse.json(
+          { error: "Could not initiate payment. Check Razorpay keys and try again." },
+          { status: 500 }
+        );
+      }
     }
 
     return NextResponse.json({
       order_id: order.id,
       order_number: orderNumber,
       total_inr: pricing.total_inr,
+      payment_skip_enabled: paymentSkipEnabled,
       razorpay_order_id: razorpayOrderId,
-      razorpay_key: razorpayKey,
+      razorpay_key: paymentSkipEnabled ? null : razorpayKey,
     });
   } catch (err) {
     console.error("Order creation error:", err);
