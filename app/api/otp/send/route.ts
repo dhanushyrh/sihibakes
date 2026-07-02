@@ -10,6 +10,8 @@ import { sendCheckoutOtp } from "@/lib/whatsapp/notifications";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+const isDev = process.env.NODE_ENV !== "production";
+
 export async function POST(request: Request) {
   try {
     const { phone } = await request.json();
@@ -25,6 +27,7 @@ export async function POST(request: Request) {
         ok: true,
         already_verified: true,
         demo_mode: demoMode,
+        whatsapp_sent: false,
         message: "Phone number already verified",
       });
     }
@@ -36,7 +39,7 @@ export async function POST(request: Request) {
     } catch (err) {
       if (err instanceof OtpResendCooldownError) {
         return NextResponse.json(
-          { error: "Please wait a minute before requesting another OTP" },
+          { error: "Please wait a minute before requesting another code" },
           { status: 429 }
         );
       }
@@ -51,22 +54,28 @@ export async function POST(request: Request) {
       const result = await sendCheckoutOtp(normalizedPhone, code);
       whatsappSent = result.ok;
       if (!result.ok) {
-        console.warn("WhatsApp OTP send failed:", result.error);
+        console.warn("WhatsApp reach_confirmation send failed:", result.error);
       }
     }
 
+    const showOnScreenFallback =
+      demoMode || !whatsappSent || !whatsappConfigured || !notificationsEnabled;
+
     return NextResponse.json({
       ok: true,
-      demo_mode: demoMode || (!whatsappSent && (!whatsappConfigured || !notificationsEnabled)),
+      demo_mode: showOnScreenFallback,
+      whatsapp_sent: whatsappSent,
       message: whatsappSent
-        ? "OTP sent to your WhatsApp number"
-        : demoMode
-          ? "Enter the verification code shown below"
-          : "OTP generated but WhatsApp delivery failed — try again or contact support",
-      ...(!whatsappSent ? { debug_otp: code } : {}),
+        ? "Check WhatsApp — we sent your verification id there"
+        : showOnScreenFallback
+          ? isDev
+            ? "Enter the verification code shown below"
+            : "Could not deliver via WhatsApp — tap Resend or contact support"
+          : "Could not deliver via WhatsApp — try again or contact support",
+      ...(showOnScreenFallback && isDev ? { debug_otp: code } : {}),
     });
   } catch (err) {
     console.error("OTP send error:", err);
-    return NextResponse.json({ error: "Could not send OTP" }, { status: 500 });
+    return NextResponse.json({ error: "Could not send verification code" }, { status: 500 });
   }
 }

@@ -26,9 +26,17 @@ export async function POST(request: Request) {
       enquiryId: result.id,
       name: result.name,
       phone: result.phone,
+    }).then((whatsapp) => {
+      if (!whatsapp.ok) {
+        console.warn("Enquiry WhatsApp ack:", whatsapp.error ?? "send failed");
+      }
     });
 
-    return NextResponse.json({ ok: true, id: result.id });
+    return NextResponse.json({
+      ok: true,
+      id: result.id,
+      reference: result.id.slice(0, 8).toUpperCase(),
+    });
   } catch (err) {
     console.error("Enquiry submit error:", err);
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 });

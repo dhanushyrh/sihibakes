@@ -61,7 +61,7 @@ export function ContactForm() {
           Message sent!
         </h3>
         <p className="mt-2 text-sm text-chocolate/60">
-          Thank you for reaching out. We&apos;ll get back to you soon.
+          Thank you for reaching out. We&apos;ve sent a confirmation to your WhatsApp — our team will get back to you soon.
         </p>
         <button
           type="button"

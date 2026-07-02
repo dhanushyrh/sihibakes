@@ -141,10 +141,10 @@ export function CheckoutAuthSheet({
             <div className="space-y-4">
               <div>
                 <h2 className="font-display text-lg font-semibold text-chocolate">
-                  Enter verification code
+                  Enter verification id
                 </h2>
                 <p className="mt-1 text-sm text-chocolate/60">
-                  Sent to {maskPhone(phone)}
+                  We&apos;ll send your id to {maskPhone(phone)} on WhatsApp
                   <button
                     type="button"
                     onClick={() => {

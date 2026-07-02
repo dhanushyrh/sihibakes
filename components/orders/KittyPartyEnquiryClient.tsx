@@ -190,7 +190,7 @@ export function KittyPartyEnquiryClient({
       <EnquirySuccess
         store={store}
         title="Kitty party enquiry sent"
-        description="Thanks for submitting. Our team will get back to you over WhatsApp."
+        description="Thanks for submitting. Check WhatsApp for your enquiry reference — our team will get back to you shortly."
       />
     );
   }

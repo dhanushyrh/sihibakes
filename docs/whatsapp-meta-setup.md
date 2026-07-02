@@ -53,7 +53,7 @@ Ensure these templates exist in WhatsApp Manager (names must match env vars). Al
 
 | Template | Env var | Locale | Body params | Sent when |
 | --- | --- | --- | --- | --- |
-| `reach_confirmation` | `WHATSAPP_TEMPLATE_OTP` | `en_US` | `{{1}}` id, `{{2}}` support phone | Checkout phone verify |
+| `reach_confirmation` | `WHATSAPP_TEMPLATE_OTP` | `en_US` | `{{1}}` id, `{{2}}` support phone | Checkout phone verify — **live** |
 | `checkout_otp` | `WHATSAPP_TEMPLATE_OTP` | `en` | `{{1}}` code (+ copy button) | Auth OTP (TIER_2K+ only) |
 | `order_confirmed_v2` | `WHATSAPP_TEMPLATE_ORDER_PLACED` / `ORDER_CONFIRMED` | `en_US` | name, order #, total, slot | Payment success |
 | `order_confirmed` | — | `en_US` | name, order #, total, slot | Legacy |
@@ -62,14 +62,14 @@ Ensure these templates exist in WhatsApp Manager (names must match env vars). Al
 | `order_status_update` | `WHATSAPP_TEMPLATE_ORDER_STATUS` | `en_US` | order #, status label, note | Admin manual status |
 | `order_on_the_way_v2` | `WHATSAPP_TEMPLATE_ORDER_DISPATCH` | `en_US` | order #, partner, ref, ETA | Out for delivery |
 | `order_cancelled` | `WHATSAPP_TEMPLATE_ORDER_CANCELLED` | `en_US` | order #, reason | Order cancelled |
-| `enquiry_received` | `WHATSAPP_TEMPLATE_ENQUIRY_RECEIVED` | `en_US` | first name, reference | Enquiry submitted |
+| `enquiry_received` | `WHATSAPP_TEMPLATE_ENQUIRY_RECEIVED` | `en_US` | first name, reference | Enquiry submitted — **live** |
 
 The app validates body parameter counts and normalizes `en` → `en_US` for utility templates before each send.
 
 Template list:
 
-- `enquiry_received` (UTILITY — sent when a customer submits an enquiry)
-- `reach_confirmation` (UTILITY — default for checkout id messages; works on lower messaging tiers)
+- `reach_confirmation` (UTILITY — **approved**; checkout phone verify via `/api/otp/send`)
+- `enquiry_received` (UTILITY — **approved**; sent from `/api/enquiries` after submit)
 - `checkout_otp` (AUTHENTICATION — optional; see tier requirement below)
 - `order_confirmed_v2` (order placed on payment — confirmation with total and slot)
 - `order_confirmed` (legacy)

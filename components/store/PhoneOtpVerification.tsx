@@ -32,7 +32,7 @@ export function PhoneOtpVerification({
   const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
   const [otpHint, setOtpHint] = useState("");
-  const [otpDemoMode, setOtpDemoMode] = useState(true);
+  const [otpDemoMode, setOtpDemoMode] = useState(false);
   const [locallyVerified, setLocallyVerified] = useState(false);
   const [alreadyVerified, setAlreadyVerified] = useState(false);
   const [consentAccepted, setConsentAccepted] = useState(false);
@@ -75,11 +75,17 @@ export function PhoneOtpVerification({
       setAlreadyVerified(false);
       setOtpDemoMode(Boolean(data.demo_mode));
       setOtpSent(true);
-      setOtpHint(
-        data.debug_otp
-          ? `Your verification code: ${data.debug_otp}`
-          : data.message || "Code sent to your WhatsApp number"
-      );
+      if (data.whatsapp_sent) {
+        setOtpHint(
+          data.message || "Check WhatsApp — your verification id was sent there. Enter the 6-digit code below."
+        );
+      } else {
+        setOtpHint(
+          data.debug_otp
+            ? `Your verification code: ${data.debug_otp}`
+            : data.message || "Enter the 6-digit code below"
+        );
+      }
       return true;
     } catch {
       const msg = "Could not send OTP";
@@ -160,7 +166,7 @@ export function PhoneOtpVerification({
   return (
     <div className={`space-y-4 ${className}`}>
       <p className="text-sm text-chocolate/60">
-        Enter the verification code for +91 {phone}
+        Enter the 6-digit verification id for +91 {phone}
       </p>
 
       {alreadyVerified && (
@@ -178,8 +184,8 @@ export function PhoneOtpVerification({
       {!otpHint && !alreadyVerified && (
         <p className="text-xs text-chocolate/50">
           {otpDemoMode
-            ? "Tap Resend to generate a verification code."
-            : "Waiting for code… If nothing arrives, tap Resend below."}
+            ? "Tap Resend to get your verification id."
+            : "Waiting for WhatsApp… If nothing arrives, tap Resend below."}
         </p>
       )}
 
@@ -190,7 +196,7 @@ export function PhoneOtpVerification({
             maxLength={6}
             value={otp}
             onChange={(e) => setOtp(e.target.value.replace(/\D/g, ""))}
-            placeholder="6-digit code"
+            placeholder="6-digit id"
             className="w-full rounded-xl border border-chocolate/10 bg-white px-3 py-4 text-center text-2xl tracking-[0.4em] outline-none focus:border-chocolate/30"
           />
 

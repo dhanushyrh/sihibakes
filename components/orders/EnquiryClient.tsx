@@ -27,7 +27,7 @@ const TYPE_LABELS: Record<string, { title: string; description: string }> = {
 };
 
 const GENERAL_ENQUIRY_SUCCESS_MESSAGE =
-  "Thanks for submitting — our team will get back to you over WhatsApp.";
+  "Thanks for submitting — check WhatsApp for your enquiry reference. Our team will get back to you shortly.";
 
 const ENQUIRY_TYPE_OPTIONS = [
   {

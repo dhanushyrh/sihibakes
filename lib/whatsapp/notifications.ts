@@ -1,4 +1,5 @@
 import { BRAND } from "@/lib/constants";
+import { enquiryShortId } from "@/lib/enquiries";
 import type { Order, OrderStatus } from "@/lib/types";
 import {
   getWhatsAppConfig,
@@ -30,9 +31,14 @@ export async function sendCheckoutOtp(phone: string, code: string) {
     return { ok: false, messageId: null, error };
   }
 
+  const messageType =
+    templateName.trim().toLowerCase() === WHATSAPP_REACH_CONFIRMATION_TEMPLATE
+      ? "reach_confirmation"
+      : "checkout_otp";
+
   return sendWhatsAppTemplate({
     phone,
-    messageType: "checkout_otp",
+    messageType,
     templateName,
     components: resolved.components,
     languageCode: resolved.languageCode,
@@ -43,9 +49,13 @@ export async function notifyEnquiryReceived(params: {
   enquiryId: string;
   name: string;
   phone: string;
-}) {
-  if (!isWhatsAppConfigured()) return;
-  if (!(await isWhatsAppNotificationsEnabled())) return;
+}): Promise<{ ok: boolean; error?: string | null }> {
+  if (!isWhatsAppConfigured()) {
+    return { ok: false, error: "WhatsApp not configured" };
+  }
+  if (!(await isWhatsAppNotificationsEnabled())) {
+    return { ok: false, error: "WhatsApp notifications disabled" };
+  }
 
   const config = getWhatsAppConfig();
   const templateName =
@@ -54,14 +64,13 @@ export async function notifyEnquiryReceived(params: {
   const resolved = resolveTemplateComponents(templateName, {
     enquiry: {
       name: params.name,
-      reference: params.enquiryId.slice(0, 8).toUpperCase(),
+      reference: enquiryShortId(params.enquiryId),
     },
   });
   if (!resolved) {
-    console.warn(
-      `WhatsApp enquiry acknowledgment skipped — could not build "${templateName}"`
-    );
-    return;
+    const error = `Could not build template parameters for "${templateName}"`;
+    console.warn(`WhatsApp enquiry acknowledgment skipped — ${error}`);
+    return { ok: false, error };
   }
 
   const result = await sendWhatsAppTemplate({
@@ -75,6 +84,8 @@ export async function notifyEnquiryReceived(params: {
   if (!result.ok) {
     console.warn("WhatsApp enquiry acknowledgment failed:", result.error);
   }
+
+  return { ok: result.ok, error: result.error };
 }
 
 /** Order placed (payment success) — uses approved Sihi utility template. */
