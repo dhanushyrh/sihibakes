@@ -6,7 +6,6 @@ import { CalendarDays, Clock3, Sparkles, type LucideIcon } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
 import {
-  formatDeliveryDateLabel,
   formatSlotTime,
   getSameDayBlockMessage,
   type DeliveryModeAvailability,
@@ -142,37 +141,41 @@ function PreOrderModeCard({
           <p className={`mt-1 text-xs ${disabled ? "text-chocolate/50" : "opacity-80"}`}>
             Choose from the next 3 available dates
           </p>
-          {disabled && disabledMessage ? (
+          {disabled && disabledMessage && (
             <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-800 ring-1 ring-red-200">
               {disabledMessage}
             </p>
-          ) : (
-            <div className="mt-4 flex flex-wrap gap-2">
-              {dates.map((date) => {
-                const meta = preOrderDateChipMeta(date);
-                return (
-                  <button
-                    key={date}
-                    type="button"
-                    onClick={() => onSelectDate(date)}
-                    className="min-w-[5.5rem] rounded-xl bg-black/10 px-3 py-2.5 text-left transition hover:bg-black/15 active:scale-[0.98]"
-                  >
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-70">
-                      {meta.headline}
-                    </p>
-                    <p className="font-display text-lg font-semibold leading-none">
-                      {meta.day} {meta.month}
-                    </p>
-                    <p className="mt-1 text-[11px] opacity-75">
-                      {formatDeliveryDateLabel(date)}
-                    </p>
-                  </button>
-                );
-              })}
-            </div>
           )}
         </div>
       </div>
+      {!disabled && dates.length > 0 && (
+        <div
+          className="-mx-1 mt-4 flex gap-2 overflow-x-auto px-1 py-1 [scrollbar-width:none] snap-x snap-mandatory [&::-webkit-scrollbar]:hidden"
+          role="list"
+          aria-label="Pre-order dates"
+        >
+          {dates.map((date) => {
+            const meta = preOrderDateChipMeta(date);
+            return (
+              <button
+                key={date}
+                type="button"
+                role="listitem"
+                onClick={() => onSelectDate(date)}
+                className="flex min-w-[5.25rem] shrink-0 snap-center flex-col items-center rounded-2xl bg-black/10 px-3.5 py-3 text-center transition hover:bg-black/15 active:scale-[0.98]"
+              >
+                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-70">
+                  {meta.headline}
+                </span>
+                <span className="font-display text-[1.65rem] font-semibold leading-none">
+                  {meta.day}
+                </span>
+                <span className="mt-0.5 text-[11px] opacity-75">{meta.month}</span>
+              </button>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }

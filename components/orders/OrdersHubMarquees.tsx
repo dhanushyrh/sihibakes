@@ -3,19 +3,11 @@
 import Image from "next/image";
 import Link from "next/link";
 import { HorizontalMarquee } from "@/components/store/HorizontalMarquee";
-import { formatCurrency } from "@/lib/delivery";
 import { formatReviewDate } from "@/lib/reviews";
-import { getUnitPrice } from "@/lib/pricing";
 import type { HubMarqueeProduct } from "@/lib/data";
 import type { CustomerReview } from "@/lib/types";
 
 function ProductMarqueeCard({ product }: { product: HubMarqueeProduct }) {
-  const unitPrice = getUnitPrice({
-    price_inr: product.price_inr,
-    discount_percent: product.discount_percent,
-  } as Parameters<typeof getUnitPrice>[0]);
-  const hasDiscount = (product.discount_percent ?? 0) > 0;
-
   return (
     <Link
       href="/orders/delivery"
@@ -33,14 +25,6 @@ function ProductMarqueeCard({ product }: { product: HubMarqueeProduct }) {
       <div className="px-2.5 py-2">
         <p className="line-clamp-2 font-display text-xs font-semibold leading-tight text-chocolate">
           {product.title}
-        </p>
-        <p className="mt-1 text-[11px] font-medium text-chocolate/75">
-          {formatCurrency(unitPrice)}
-          {hasDiscount && (
-            <span className="ml-1 text-[10px] font-normal text-chocolate/40 line-through">
-              {formatCurrency(product.price_inr)}
-            </span>
-          )}
         </p>
       </div>
     </Link>

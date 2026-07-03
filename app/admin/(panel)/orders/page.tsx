@@ -276,8 +276,8 @@ export default function AdminOrdersPage() {
         </div>
       )}
 
-      <div className="mt-4 flex flex-wrap items-end gap-3">
-        <div className="relative min-w-[12rem] flex-1">
+      <div className="mt-4 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
+        <div className="col-span-2 min-w-0 sm:col-span-1 sm:min-w-[12rem] sm:flex-1">
           <label
             htmlFor="orders-search"
             className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
@@ -299,15 +299,17 @@ export default function AdminOrdersPage() {
             />
           </div>
         </div>
-        <OrderStatusMultiSelect
-          compact
-          selected={statusFilters}
-          onChange={(next) => {
-            setStatusFilters(next);
-            setPage(1);
-          }}
-        />
-        <div>
+        <div className="col-span-2 sm:col-span-1">
+          <OrderStatusMultiSelect
+            compact
+            selected={statusFilters}
+            onChange={(next) => {
+              setStatusFilters(next);
+              setPage(1);
+            }}
+          />
+        </div>
+        <div className="col-span-1 min-w-0">
           <label
             htmlFor="orders-date-type"
             className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
@@ -321,13 +323,13 @@ export default function AdminOrdersPage() {
               setDateFilterType(e.target.value as DateFilterType);
               setPage(1);
             }}
-            className="mt-1 block h-[42px] rounded-xl border border-[#4B2C20]/10 bg-white px-3 text-sm text-[#4B2C20]"
+            className="mt-1 block h-[42px] w-full min-w-0 rounded-xl border border-[#4B2C20]/10 bg-white px-3 text-sm text-[#4B2C20]"
           >
             <option value="delivery">Delivery</option>
             <option value="placed">Placed</option>
           </select>
         </div>
-        <div>
+        <div className="col-span-1 min-w-0">
           <label
             htmlFor="orders-date-from"
             className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
@@ -343,10 +345,10 @@ export default function AdminOrdersPage() {
               setDateFrom(e.target.value);
               setPage(1);
             }}
-            className="mt-1 block h-[42px] rounded-xl border border-[#4B2C20]/10 bg-white px-3 text-sm text-[#4B2C20]"
+            className="mt-1 block h-[42px] w-full min-w-0 rounded-xl border border-[#4B2C20]/10 bg-white px-3 text-sm text-[#4B2C20]"
           />
         </div>
-        <div>
+        <div className="col-span-1 min-w-0">
           <label
             htmlFor="orders-date-to"
             className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
@@ -362,14 +364,14 @@ export default function AdminOrdersPage() {
               setDateTo(e.target.value);
               setPage(1);
             }}
-            className="mt-1 block h-[42px] rounded-xl border border-[#4B2C20]/10 bg-white px-3 text-sm text-[#4B2C20]"
+            className="mt-1 block h-[42px] w-full min-w-0 rounded-xl border border-[#4B2C20]/10 bg-white px-3 text-sm text-[#4B2C20]"
           />
         </div>
         {(dateFrom || dateTo) && (
           <button
             type="button"
             onClick={clearDateRange}
-            className="h-[42px] shrink-0 rounded-xl px-3 text-xs text-[#4B2C20]/60 hover:text-[#4B2C20]"
+            className="col-span-2 h-[42px] shrink-0 rounded-xl px-3 text-xs text-[#4B2C20]/60 hover:text-[#4B2C20] sm:col-span-1"
           >
             Clear dates
           </button>

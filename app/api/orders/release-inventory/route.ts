@@ -5,16 +5,17 @@ import { releaseOrderInventory } from "@/lib/inventory-server";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-export async function POST(
-  request: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(request: Request) {
   try {
-    const { id: orderId } = await params;
     const body = await request.json();
+    const orderId = String(body.order_id ?? "").trim();
     const phone = String(body.phone ?? "")
       .replace(/\D/g, "")
       .slice(-10);
+
+    if (!orderId) {
+      return NextResponse.json({ error: "Order id is required" }, { status: 400 });
+    }
 
     if (!phone) {
       return NextResponse.json({ error: "Phone is required" }, { status: 400 });

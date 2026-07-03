@@ -15,7 +15,7 @@ export default function AdminPanelLayout({
         <AdminSidebar />
         <AdminTopBar />
         <main className="min-h-screen md:ml-64">
-          <div className="overflow-y-auto p-4 pt-16 md:p-8 md:pt-8">{children}</div>
+          <div className="overflow-y-auto overflow-x-hidden p-4 pt-16 md:p-8 md:pt-8">{children}</div>
         </main>
       </div>
     </AdminNotificationProvider>

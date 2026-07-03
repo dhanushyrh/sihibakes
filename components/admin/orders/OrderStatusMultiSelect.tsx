@@ -57,7 +57,7 @@ export function OrderStatusMultiSelect({
   return (
     <div
       ref={rootRef}
-      className={`relative shrink-0 ${compact ? "w-[9.5rem]" : "min-w-[11rem]"}`}
+      className={`relative w-full shrink-0 sm:w-auto ${compact ? "sm:w-[9.5rem]" : "sm:min-w-[11rem]"}`}
     >
       <label className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50">
         {compact ? "Status" : "Order status"}
