@@ -1,4 +1,5 @@
 import Razorpay from "razorpay";
+import { INVENTORY_HOLD_MINUTES } from "@/lib/inventory";
 
 /** Temporary: charge ₹1 on Razorpay while validating live keys (order total is stored separately). */
 export const RAZORPAY_CHECKOUT_AMOUNT_INR = 1;
@@ -36,7 +37,8 @@ export async function createRazorpayOrder(receipt: string) {
     amount: amountPaise,
     currency: "INR",
     receipt,
-  });
+    expire_by: Math.floor(Date.now() / 1000) + INVENTORY_HOLD_MINUTES * 60,
+  } as Parameters<typeof razorpay.orders.create>[0]);
 }
 
 export type RazorpayCheckoutBuildParams = {

@@ -30,7 +30,7 @@ import {
 } from "@/lib/inventory-server";
 import { ORDER_BOOKING_WINDOW_DAYS } from "@/lib/constants";
 import { getDeliveryFence, isWithinDeliveryFence } from "@/lib/delivery-fence";
-import { PRE_ORDER_MAX_QUANTITY_PER_ITEM } from "@/lib/inventory";
+import { PRE_ORDER_MAX_QUANTITY_PER_ITEM, formatStockAvailabilityError } from "@/lib/inventory";
 import { shopDateKey } from "@/lib/shop-timezone";
 import {
   markActivityOrderCreated,
@@ -227,7 +227,7 @@ export async function POST(request: Request) {
       if (!avail.ok) {
         return NextResponse.json(
           {
-            error: `${product.title}: ${avail.message}`,
+            error: formatStockAvailabilityError(product.title, avail.remaining),
             code: "INSUFFICIENT_STOCK",
             product_id: product.id,
           },
@@ -393,7 +393,7 @@ export async function POST(request: Request) {
         {
           error: failedProduct
             ? formatInventoryStockError(failedProduct.title, reserveResult)
-            : reserveResult.error ?? "Not enough stock left for today",
+            : reserveResult.error ?? "Sorry, this item is sold out for the day.",
           code: reserveResult.code ?? "INSUFFICIENT_STOCK",
           product_id: reserveResult.product_id ?? null,
         },

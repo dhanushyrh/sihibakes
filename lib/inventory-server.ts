@@ -1,5 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { INVENTORY_HOLD_MINUTES } from "@/lib/inventory";
+import { INVENTORY_HOLD_MINUTES, formatStockAvailabilityError } from "@/lib/inventory";
 
 export type InventoryRpcResult = {
   ok: boolean;
@@ -138,6 +138,8 @@ export function formatInventoryStockError(
   productTitle: string,
   rpc: InventoryRpcResult
 ): string {
-  const detail = rpc.error ?? "Not enough stock left for today";
-  return `${productTitle}: ${detail}`;
+  if (typeof rpc.remaining === "number") {
+    return formatStockAvailabilityError(productTitle, rpc.remaining);
+  }
+  return formatStockAvailabilityError(productTitle, 0);
 }

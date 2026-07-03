@@ -22,6 +22,17 @@ export function getNextDeliveryDate(closedDates: string[] = []): string {
   return getTomorrowDate();
 }
 
+/** Customer-facing stock error when checkout cannot proceed. */
+export function formatStockAvailabilityError(
+  productTitle: string,
+  remaining: number
+): string {
+  if (remaining <= 0) {
+    return `Sorry ${productTitle} is sold out for the day.`;
+  }
+  return `Only ${remaining} ${productTitle} available to order.`;
+}
+
 export function getRemaining(
   quantityLimit: number,
   orderCount: number,
