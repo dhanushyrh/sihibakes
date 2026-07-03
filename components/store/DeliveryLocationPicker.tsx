@@ -10,7 +10,7 @@ import {
   LocationUnreachableBanner,
 } from "@/components/store/LocationUnreachableBanner";
 import { SelectedLocationMap } from "@/components/store/SelectedLocationMap";
-import { formatCurrency, formatDistance } from "@/lib/delivery";
+import { formatDeliveryFee, formatDistance } from "@/lib/delivery";
 import { Spinner } from "@/components/ui/Spinner";
 import {
   geolocationErrorMessage,
@@ -385,7 +385,7 @@ export function DeliveryLocationPicker({
                   </p>
                   <p className="mt-1 text-chocolate/65">
                     {formatDistance(delivery.distance_km)} away · Delivery fee{" "}
-                    {formatCurrency(delivery.delivery_fee_inr)}
+                    {formatDeliveryFee(delivery.delivery_fee_inr)}
                   </p>
                 </div>
               </div>
@@ -478,7 +478,7 @@ export function DeliveryLocationPicker({
                 </p>
                 <p className="mt-1 text-chocolate/65">
                   {formatDistance(delivery.distance_km)} away · Delivery fee{" "}
-                  {formatCurrency(delivery.delivery_fee_inr)}
+                  {formatDeliveryFee(delivery.delivery_fee_inr)}
                 </p>
               </div>
             </div>

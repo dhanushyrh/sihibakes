@@ -1,11 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { ConfirmSwitch } from "@/components/admin/ConfirmSwitch";
+import { useState } from "react";
+import Link from "next/link";
 import { WhatsAppChatPanel } from "@/components/admin/whatsapp/WhatsAppChatPanel";
 import { WhatsAppTemplatesPanel } from "@/components/admin/whatsapp/WhatsAppTemplatesPanel";
-import { createClient } from "@/lib/supabase/client";
-import type { ShopSettings } from "@/lib/types";
 
 type Tab = "chat" | "templates";
 
@@ -17,61 +15,17 @@ export function AdminWhatsAppPageClient({
   whatsappConfigured,
 }: AdminWhatsAppPageClientProps) {
   const [tab, setTab] = useState<Tab>("chat");
-  const [settings, setSettings] = useState<ShopSettings | null>(null);
-  const [toggleSaving, setToggleSaving] = useState(false);
-
-  const loadSettings = useCallback(async () => {
-    const supabase = createClient();
-    const { data } = await supabase.from("shop_settings").select("*").limit(1).single();
-    if (data) {
-      setSettings(data as ShopSettings);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadSettings();
-  }, [loadSettings]);
-
-  const notificationsEnabled = settings?.whatsapp_notifications_enabled ?? true;
-
-  const handleToggleNotifications = async (next: boolean) => {
-    if (!settings?.id) return;
-    setToggleSaving(true);
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("shop_settings")
-      .update({
-        whatsapp_notifications_enabled: next,
-        updated_at: new Date().toISOString(),
-      })
-      .eq("id", settings.id);
-
-    setToggleSaving(false);
-    if (!error) {
-      setSettings({ ...settings, whatsapp_notifications_enabled: next });
-    }
-  };
 
   return (
     <div className="-mx-4 -mb-4 flex h-[calc(100dvh-8rem)] flex-col overflow-hidden md:-mx-8 md:-mb-8 md:h-[calc(100dvh-6rem)]">
       <div className="shrink-0 border-b border-[#4B2C20]/10 bg-[#F5E6D3]/20 px-4 pt-4 md:px-6">
-        <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <ConfirmSwitch
-            active={notificationsEnabled}
-            label="Automated WhatsApp messages"
-            description="OTP, order updates, welcome auto-reply"
-            confirmOn="Enable automated WhatsApp messages (OTP, order updates, welcome auto-reply)?"
-            confirmOff="Pause automated WhatsApp messages? Manual replies and templates will still work."
-            onToggle={(next) => void handleToggleNotifications(next)}
-            disabled={toggleSaving || !whatsappConfigured || !settings}
-          />
-        </div>
-
-        {!notificationsEnabled && whatsappConfigured && (
-          <div className="mb-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm text-amber-900">
-            Automated WhatsApp messages are paused. Manual replies and templates still work.
-          </div>
-        )}
+        <p className="mb-3 text-xs text-[#4B2C20]/65">
+          Message and alert toggles are in{" "}
+          <Link href="/admin/settings" className="font-medium text-[#4B2C20] underline">
+            Settings → Features & notifications
+          </Link>
+          .
+        </p>
 
         {!whatsappConfigured && (
           <div className="mb-3 rounded-xl border border-[#4B2C20]/10 bg-white px-4 py-2.5 text-sm text-[#4B2C20]/70">

@@ -5,6 +5,7 @@ import { ALLERGEN_OPTIONS } from "@/lib/constants";
 import { formatCurrency } from "@/lib/delivery";
 import { getUnitPrice } from "@/lib/pricing";
 import { useCart } from "@/components/store/CartProvider";
+import { useLockBodyScroll } from "@/hooks/useLockBodyScroll";
 import Image from "next/image";
 import { Minus, Plus, X } from "lucide-react";
 
@@ -32,6 +33,7 @@ export function ProductDetailModal({
   maxQuantityPerItem,
 }: ProductDetailModalProps) {
   const cart = useCart();
+  useLockBodyScroll(!!product);
 
   if (!product) return null;
 

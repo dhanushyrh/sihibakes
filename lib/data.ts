@@ -211,7 +211,9 @@ export const getShopSettings = cache(async (): Promise<ShopSettings | null> => {
     phone: row.phone ?? "",
     alt_phone: row.alt_phone ?? "",
     whatsapp_notifications_enabled: row.whatsapp_notifications_enabled ?? true,
+    admin_new_order_whatsapp_enabled: row.admin_new_order_whatsapp_enabled ?? true,
     payment_skip_enabled: row.payment_skip_enabled ?? false,
+    free_delivery_km: row.free_delivery_km ?? 5,
   };
 });
 

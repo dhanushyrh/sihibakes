@@ -67,7 +67,9 @@ export interface ShopSettings {
   delivery_fence_west_km: number;
   orders_accepting: boolean;
   whatsapp_notifications_enabled: boolean;
+  admin_new_order_whatsapp_enabled: boolean;
   payment_skip_enabled: boolean;
+  free_delivery_km: number;
   closed_dates: string[];
   store_address: string;
   fssai_license_no: string;

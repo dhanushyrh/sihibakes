@@ -45,6 +45,13 @@ export async function isWhatsAppNotificationsEnabled(): Promise<boolean> {
   return settings?.whatsapp_notifications_enabled ?? true;
 }
 
+export async function isAdminNewOrderWhatsAppEnabled(): Promise<boolean> {
+  if (!isWhatsAppConfigured()) return false;
+  const { getShopSettings } = await import("@/lib/data");
+  const settings = await getShopSettings();
+  return settings?.admin_new_order_whatsapp_enabled ?? true;
+}
+
 /** True when checkout shows the OTP on-screen instead of sending via WhatsApp. */
 export async function isPhoneOtpDemoMode(): Promise<boolean> {
   if (!isWhatsAppConfigured()) return true;

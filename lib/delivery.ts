@@ -32,10 +32,23 @@ export function lookupDeliveryFee(
   return first?.fee_inr ?? 0;
 }
 
+export function applyFreeDeliveryKm(
+  distanceKm: number,
+  feeInr: number,
+  freeDeliveryKm: number
+): number {
+  if (freeDeliveryKm <= 0) return feeInr;
+  return distanceKm <= freeDeliveryKm ? 0 : feeInr;
+}
+
 export function formatDistance(km: number): string {
   return `${km.toFixed(1)} km`;
 }
 
 export function formatCurrency(amount: number): string {
   return `₹${Math.round(amount).toLocaleString("en-IN")}`;
+}
+
+export function formatDeliveryFee(amount: number): string {
+  return amount === 0 ? "Free delivery" : formatCurrency(amount);
 }

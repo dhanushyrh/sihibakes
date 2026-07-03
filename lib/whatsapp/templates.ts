@@ -451,7 +451,8 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
       components: [
         {
           type: "BODY",
-          text: "New order received from {{1}} for {{2}} for {{3}}.",
+          text:
+            "Sihi Bakes — new paid order alert. Customer name: {{1}}. Order items: {{2}}. Delivery date and slot: {{3}}. Please open the admin panel to review and confirm this order.",
           example: {
             body_text: [
               [

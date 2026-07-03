@@ -1,5 +1,9 @@
 import { getDeliveryFeeSlabs } from "@/lib/data";
-import { haversineDistanceKm, lookupDeliveryFee } from "@/lib/delivery";
+import {
+  applyFreeDeliveryKm,
+  haversineDistanceKm,
+  lookupDeliveryFee,
+} from "@/lib/delivery";
 import { isBorzoConfigured } from "@/lib/borzo/config";
 import { borzoDistanceKm, quoteBorzoDelivery } from "@/lib/borzo/delivery";
 import type { BorzoQuoteSlot } from "@/lib/borzo/quote-slot";
@@ -34,21 +38,32 @@ export async function resolveDeliveryQuote(params: {
       slot: params.borzoSlot,
     });
 
+    const borzoDistance = borzoDistanceKm(
+      params.settings,
+      params.customerLat,
+      params.customerLng
+    );
+
     return {
-      distance_km: borzoDistanceKm(
-        params.settings,
-        params.customerLat,
-        params.customerLng
+      distance_km: borzoDistance,
+      delivery_fee_inr: applyFreeDeliveryKm(
+        borzoDistance,
+        quote.delivery_fee_inr,
+        params.settings.free_delivery_km
       ),
-      delivery_fee_inr: quote.delivery_fee_inr,
       provider: "borzo",
     };
   }
 
   const slabs = await getDeliveryFeeSlabs();
+  const slabFee = lookupDeliveryFee(distance, slabs);
   return {
     distance_km: distance,
-    delivery_fee_inr: lookupDeliveryFee(distance, slabs),
+    delivery_fee_inr: applyFreeDeliveryKm(
+      distance,
+      slabFee,
+      params.settings.free_delivery_km
+    ),
     provider: "slab",
   };
 }

@@ -29,7 +29,7 @@ import { isMenuProduct } from "@/lib/cart-products";
 import { CHECKOUT_LOCATION_PATH } from "@/lib/checkout-routing";
 import { scrollToFirstCheckoutError } from "@/lib/scroll";
 import { BRAND } from "@/lib/constants";
-import { formatCurrency, formatDistance } from "@/lib/delivery";
+import { formatCurrency, formatDeliveryFee, formatDistance } from "@/lib/delivery";
 import { normalizePhone } from "@/lib/storefront";
 import { getUnitPrice } from "@/lib/pricing";
 import {
@@ -879,7 +879,7 @@ export function DeliveryCheckoutClient({
             {session.delivery?.reachable && (
               <p className="mt-2 text-center text-xs text-chocolate/55">
                 {formatDistance(session.delivery.distance_km)} away · Delivery fee{" "}
-                {formatCurrency(session.delivery.delivery_fee_inr)}
+                {formatDeliveryFee(session.delivery.delivery_fee_inr)}
               </p>
             )}
             {fieldErrors.location && (

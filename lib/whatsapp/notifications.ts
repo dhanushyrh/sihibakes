@@ -6,6 +6,7 @@ import type { Order, OrderItem, OrderStatus, Product } from "@/lib/types";
 import {
   getAdminOrderAlertPhone,
   getWhatsAppConfig,
+  isAdminNewOrderWhatsAppEnabled,
   isWhatsAppConfigured,
   isWhatsAppNotificationsEnabled,
 } from "@/lib/whatsapp/config";
@@ -247,6 +248,10 @@ export async function notifyOrderConfirmed(orderId: string) {
 
 /** Staff WhatsApp alert when a customer order is paid. */
 export async function notifyAdminNewOrder(orderId: string) {
+  if (!(await isAdminNewOrderWhatsAppEnabled())) {
+    return { ok: false, messageId: null, error: "Admin new-order WhatsApp alerts disabled" };
+  }
+
   const alertPhone = getAdminOrderAlertPhone();
   if (!alertPhone) {
     return { ok: false, messageId: null, error: "Admin alert phone not configured" };
