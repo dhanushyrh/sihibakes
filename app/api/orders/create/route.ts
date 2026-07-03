@@ -6,7 +6,7 @@ import {
   isDeliveryDayClosed,
   isFirstOrder,
   checkProductAvailability,
-  getAvailableDeliverySlots,
+  getCustomerDeliverySlotsBase,
 } from "@/lib/data";
 import { isValidIndianPhone, isValidIndianPincode, isValidEmail, normalizeEmail } from "@/lib/checkout-validation";
 import { requireVerifiedPhoneWithConsent } from "@/lib/legal-consent";
@@ -20,7 +20,15 @@ import {
 } from "@/lib/pricing";
 import { createRazorpayOrder, getRazorpayPublicKey } from "@/lib/razorpay";
 import { isPaymentSkipEnabled } from "@/lib/payment-skip";
-import { isSlotBookableWithLeadTime, isWithinOrderBookingWindow, getPreOrderDates, type DeliveryMode } from "@/lib/customer-delivery-slots";
+import {
+  isSlotBookableForOrder,
+  isWithinOrderBookingWindow,
+  getPreOrderDates,
+  resolveUsesReadyStock,
+  buildReadyStockMap,
+  getNextSameDaySlot,
+  type DeliveryMode,
+} from "@/lib/customer-delivery-slots";
 import { normalizeDateKey } from "@/lib/shop-closed-days";
 import {
   reserveOrderInventory,
@@ -133,16 +141,6 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!isSlotBookableWithLeadTime(slot as DeliverySlot)) {
-      return NextResponse.json(
-        {
-          error:
-            "This delivery slot is no longer available — please choose a later time",
-        },
-        { status: 400 }
-      );
-    }
-
     const deliveryMode: DeliveryMode =
       delivery_mode === "same_day" || delivery_mode === "pre_order"
         ? delivery_mode
@@ -150,9 +148,10 @@ export async function POST(request: Request) {
           ? "same_day"
           : "pre_order";
 
+    const allSlots = await getCustomerDeliverySlotsBase();
+
     if (deliveryMode === "pre_order") {
-      const bookableSlots = await getAvailableDeliverySlots();
-      const preOrderDates = getPreOrderDates(bookableSlots);
+      const preOrderDates = getPreOrderDates(allSlots);
       if (!preOrderDates.includes(normalizeDateKey(slot.slot_date))) {
         return NextResponse.json(
           {
@@ -199,6 +198,38 @@ export async function POST(request: Request) {
         { status: 400 }
       );
     }
+
+    const cart = cartItems.map(({ product, quantity }) => ({
+      productId: product.id,
+      quantity,
+    }));
+    const readyStockByProduct = buildReadyStockMap(products);
+    const nextSlot =
+      deliveryMode === "same_day" ? getNextSameDaySlot(allSlots) : null;
+    const { bookable } = isSlotBookableForOrder({
+      slot: slot as DeliverySlot,
+      nextSlot,
+      cart,
+      readyStockByProduct,
+    });
+
+    if (!bookable) {
+      return NextResponse.json(
+        {
+          error:
+            "This delivery slot is no longer available — please choose a later time",
+        },
+        { status: 400 }
+      );
+    }
+
+    const usesReadyStock = resolveUsesReadyStock({
+      deliveryMode,
+      slot: slot as DeliverySlot,
+      allSlots,
+      cart,
+      readyStockByProduct,
+    });
 
     const fence = getDeliveryFence(settings);
 
@@ -336,6 +367,7 @@ export async function POST(request: Request) {
         delivery_window_start: slot.window_start,
         delivery_window_end: slot.window_end,
         delivery_slot_id: slot.id,
+        uses_ready_stock: usesReadyStock,
         payment_status: "pending",
         status: "pending",
       })

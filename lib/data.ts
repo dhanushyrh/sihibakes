@@ -22,7 +22,11 @@ import {
 } from "@/lib/mock-data";
 import { normalizeClosedDates, normalizeDateKey } from "@/lib/shop-closed-days";
 import { ORDER_BOOKING_WINDOW_DAYS, PRE_ORDER_SCAN_DAYS } from "@/lib/constants";
-import { filterCustomerDeliverySlots } from "@/lib/customer-delivery-slots";
+import {
+  filterCustomerDeliverySlots,
+  filterCustomerDeliverySlotsBase,
+  getReadyAvailable,
+} from "@/lib/customer-delivery-slots";
 import { computeDeliveryModeAvailability } from "@/lib/delivery-mode-availability";
 import { shopDateKey, shopDatePlusDays } from "@/lib/shop-timezone";
 
@@ -131,11 +135,13 @@ async function enrichProductsWithInventory(
   if (!isSupabaseConfigured()) {
     return products.map((p) => {
       const remaining = 12;
+      const readyAvailable = deliveryMode === "pre_order" ? 0 : 3;
       return {
         ...p,
         is_sold_out: p.is_sold_out ?? false,
         next_delivery_date: nextDate,
         remaining_next_day: remaining,
+        ready_available: readyAvailable,
         low_stock: includeLowStockBadge && showLowStockBadge(remaining),
         sold_out_today: resolveProductSoldOut(p, remaining, deliveryMode),
       };
@@ -149,28 +155,45 @@ async function enrichProductsWithInventory(
   const [{ data: availability }, { data: counts }] = await Promise.all([
     supabase
       .from("product_daily_availability")
-      .select("product_id, avail_date, quantity_limit")
+      .select("product_id, avail_date, quantity_limit, ready_quantity")
       .in("product_id", productIds)
       .eq("avail_date", nextDate),
     supabase
       .from("product_daily_counts")
-      .select("product_id, order_count, reserved_count")
+      .select(
+        "product_id, order_count, reserved_count, ready_reserved, ready_fulfilled"
+      )
       .in("product_id", productIds)
       .eq("count_date", nextDate),
   ]);
 
   const limitMap = new Map<string, number>();
+  const readyQuantityMap = new Map<string, number>();
   for (const row of availability ?? []) {
     limitMap.set(row.product_id as string, row.quantity_limit as number);
+    readyQuantityMap.set(
+      row.product_id as string,
+      (row.ready_quantity as number | undefined) ?? 0
+    );
   }
 
   const countMap = new Map<string, number>();
   const reservedMap = new Map<string, number>();
+  const readyReservedMap = new Map<string, number>();
+  const readyFulfilledMap = new Map<string, number>();
   for (const row of counts ?? []) {
     countMap.set(row.product_id as string, row.order_count as number);
     reservedMap.set(
       row.product_id as string,
       (row.reserved_count as number | undefined) ?? 0
+    );
+    readyReservedMap.set(
+      row.product_id as string,
+      (row.ready_reserved as number | undefined) ?? 0
+    );
+    readyFulfilledMap.set(
+      row.product_id as string,
+      (row.ready_fulfilled as number | undefined) ?? 0
     );
   }
 
@@ -187,10 +210,19 @@ async function enrichProductsWithInventory(
     const reserved =
       deliveryMode === "pre_order" ? 0 : (reservedMap.get(p.id) ?? 0);
     const remaining = getRemaining(limit, sold, reserved);
+    const readyAvailable =
+      deliveryMode === "pre_order"
+        ? 0
+        : getReadyAvailable(
+            readyQuantityMap.get(p.id) ?? 0,
+            readyReservedMap.get(p.id) ?? 0,
+            readyFulfilledMap.get(p.id) ?? 0
+          );
     return {
       ...p,
       next_delivery_date: nextDate,
       remaining_next_day: remaining,
+      ready_available: readyAvailable,
       low_stock: p.is_active && includeLowStockBadge && showLowStockBadge(remaining),
       sold_out_today: resolveProductSoldOut(p, remaining, deliveryMode),
     };
@@ -341,6 +373,42 @@ export const getAvailableDeliverySlots = cache(async (): Promise<DeliverySlot[]>
     PRE_ORDER_SCAN_DAYS
   );
 });
+
+/** Slots for checkout — lead-time rules applied client-side with cart context. */
+export const getCustomerDeliverySlotsBase = cache(
+  async (): Promise<DeliverySlot[]> => {
+    const closedDates = await getEffectiveClosedDates();
+
+    if (!isSupabaseConfigured()) {
+      return filterCustomerDeliverySlotsBase(
+        getMockSlots(),
+        closedDates,
+        undefined,
+        PRE_ORDER_SCAN_DAYS
+      );
+    }
+
+    const supabase = await createClient();
+    const today = shopDateKey();
+    const maxSlotDate = shopDatePlusDays(PRE_ORDER_SCAN_DAYS - 1);
+
+    const { data } = await supabase
+      .from("delivery_slots")
+      .select("*")
+      .eq("is_active", true)
+      .gte("slot_date", today)
+      .lte("slot_date", maxSlotDate)
+      .order("slot_date")
+      .order("window_start");
+
+    return filterCustomerDeliverySlotsBase(
+      (data ?? []) as DeliverySlot[],
+      closedDates,
+      undefined,
+      PRE_ORDER_SCAN_DAYS
+    );
+  }
+);
 
 export async function getDeliveryModeAvailability() {
   const settings = await getShopSettings();

@@ -8,8 +8,23 @@ import {
   shopDatePlusDays,
 } from "./shop-timezone";
 
-/** Minimum notice before a same-day slot start time. */
-export const SLOT_BOOKING_LEAD_MINUTES = 60;
+/** Minimum notice before a same-day slot when items need kitchen prep. */
+export const SAME_DAY_PREP_LEAD_MINUTES = 180;
+
+/** Minimum notice for the next slot when cart is fully covered by ready stock. */
+export const READY_SLOT_LEAD_MINUTES = 30;
+
+/** @deprecated Use {@link SAME_DAY_PREP_LEAD_MINUTES} */
+export const SLOT_BOOKING_LEAD_MINUTES = SAME_DAY_PREP_LEAD_MINUTES;
+
+export type CartLine = { productId: string; quantity: number };
+
+export type SlotBookableVia = "ready" | "prep";
+
+export type SlotBookability = {
+  bookable: boolean;
+  via: SlotBookableVia | null;
+};
 
 /** Customer can book while the delivery window has not ended yet. */
 export function isSlotStillBookable(
@@ -26,16 +41,118 @@ export function isSlotStillBookable(
   return now < windowEnd;
 }
 
-function slotWindowStart(slot: DeliverySlot): Date {
+export function slotWindowStart(slot: DeliverySlot): Date {
   const dateKey = normalizeDateKey(slot.slot_date);
   return shopWallClockToDate(dateKey, slot.window_start);
 }
 
-/** Same-day slots need at least {@link SLOT_BOOKING_LEAD_MINUTES} before the window opens. */
+export function getReadyAvailable(
+  readyQuantity: number,
+  readyReserved = 0,
+  readyFulfilled = 0
+): number {
+  return Math.max(0, readyQuantity - readyReserved - readyFulfilled);
+}
+
+export function buildReadyStockMap(
+  products: { id: string; ready_available?: number }[]
+): ReadonlyMap<string, number> {
+  return new Map(
+    products.map((p) => [p.id, Math.max(0, p.ready_available ?? 0)])
+  );
+}
+
+export function cartQualifiesForReadyPath(
+  cart: CartLine[],
+  readyStockByProduct: ReadonlyMap<string, number>
+): boolean {
+  if (!cart.length) return false;
+  return cart.every(
+    (item) => item.quantity <= (readyStockByProduct.get(item.productId) ?? 0)
+  );
+}
+
+/** Earliest same-day slot whose window has not started yet (rolls forward automatically). */
+export function getNextSameDaySlot(
+  slots: DeliverySlot[],
+  now = new Date()
+): DeliverySlot | null {
+  const today = shopDateKey(now);
+  const todaySlots = getSlotsForBookableDate(slots, today).filter(
+    (s) => s.is_active && isSlotStillBookable(s, now)
+  );
+
+  for (const slot of todaySlots) {
+    if (now < slotWindowStart(slot)) return slot;
+  }
+
+  return null;
+}
+
+function meetsPrepLead(slot: DeliverySlot, now: Date): boolean {
+  const windowStart = slotWindowStart(slot);
+  const earliestBookable = new Date(
+    now.getTime() + SAME_DAY_PREP_LEAD_MINUTES * 60 * 1000
+  );
+  return earliestBookable <= windowStart;
+}
+
+function meetsReadyLead(slot: DeliverySlot, now: Date): boolean {
+  const windowStart = slotWindowStart(slot);
+  const earliestBookable = new Date(
+    now.getTime() + READY_SLOT_LEAD_MINUTES * 60 * 1000
+  );
+  return earliestBookable <= windowStart;
+}
+
+export function isSlotBookableForOrder(params: {
+  slot: DeliverySlot;
+  nextSlot: DeliverySlot | null;
+  cart: CartLine[];
+  readyStockByProduct: ReadonlyMap<string, number>;
+  now?: Date;
+}): SlotBookability {
+  const {
+    slot,
+    nextSlot,
+    cart,
+    readyStockByProduct,
+    now = new Date(),
+  } = params;
+
+  if (!isSlotStillBookable(slot, now)) {
+    return { bookable: false, via: null };
+  }
+
+  const dateKey = normalizeDateKey(slot.slot_date);
+  const todayKey = shopDateKey(now);
+
+  if (dateKey !== todayKey) {
+    return { bookable: true, via: "prep" };
+  }
+
+  const readyOk =
+    nextSlot != null &&
+    slot.id === nextSlot.id &&
+    cartQualifiesForReadyPath(cart, readyStockByProduct) &&
+    meetsReadyLead(slot, now);
+
+  if (readyOk) {
+    return { bookable: true, via: "ready" };
+  }
+
+  if (meetsPrepLead(slot, now)) {
+    return { bookable: true, via: "prep" };
+  }
+
+  return { bookable: false, via: null };
+}
+
+/** Same-day prep lead only — used when cart context is unavailable. */
 export function isSlotBookableWithLeadTime(
   slot: DeliverySlot,
   now = new Date(),
-  leadMinutes = SLOT_BOOKING_LEAD_MINUTES
+  leadMinutes = SAME_DAY_PREP_LEAD_MINUTES
 ): boolean {
   if (!isSlotStillBookable(slot, now)) return false;
 
@@ -46,6 +163,31 @@ export function isSlotBookableWithLeadTime(
   const windowStart = slotWindowStart(slot);
   const earliestBookable = new Date(now.getTime() + leadMinutes * 60 * 1000);
   return earliestBookable <= windowStart;
+}
+
+export function resolveUsesReadyStock(params: {
+  deliveryMode: DeliveryMode;
+  slot: DeliverySlot;
+  allSlots: DeliverySlot[];
+  cart: CartLine[];
+  readyStockByProduct: ReadonlyMap<string, number>;
+  now?: Date;
+}): boolean {
+  const { deliveryMode, slot, allSlots, cart, readyStockByProduct, now } =
+    params;
+
+  if (deliveryMode !== "same_day") return false;
+
+  const nextSlot = getNextSameDaySlot(allSlots, now);
+  const { via } = isSlotBookableForOrder({
+    slot,
+    nextSlot,
+    cart,
+    readyStockByProduct,
+    now,
+  });
+
+  return via === "ready";
 }
 
 /** Last bookable calendar date (inclusive) in the shop timezone. */
@@ -77,11 +219,86 @@ export function filterCustomerDeliverySlots(
 
   return slots.filter((slot) => {
     if (!slot.is_active) return false;
-    if (!isWithinOrderBookingWindow(slot.slot_date, now, bookingWindowDays)) return false;
+    if (!isWithinOrderBookingWindow(slot.slot_date, now, bookingWindowDays)) {
+      return false;
+    }
     if (closed.has(normalizeDateKey(slot.slot_date))) return false;
     if (!isSlotBookableWithLeadTime(slot, now)) return false;
     return true;
   });
+}
+
+/** Active slots in the booking window — lead-time filtering applied separately at checkout. */
+export function filterCustomerDeliverySlotsBase(
+  slots: DeliverySlot[],
+  closedDates: string[],
+  now = new Date(),
+  bookingWindowDays = ORDER_BOOKING_WINDOW_DAYS
+): DeliverySlot[] {
+  const closed = new Set(normalizeClosedDates(closedDates));
+
+  return slots.filter((slot) => {
+    if (!slot.is_active) return false;
+    if (!isWithinOrderBookingWindow(slot.slot_date, now, bookingWindowDays)) {
+      return false;
+    }
+    if (closed.has(normalizeDateKey(slot.slot_date))) return false;
+    return true;
+  });
+}
+
+export function filterCustomerDeliverySlotsForOrder(
+  slots: DeliverySlot[],
+  closedDates: string[],
+  cart: CartLine[],
+  readyStockByProduct: ReadonlyMap<string, number>,
+  now = new Date(),
+  bookingWindowDays = ORDER_BOOKING_WINDOW_DAYS
+): DeliverySlot[] {
+  const closed = new Set(normalizeClosedDates(closedDates));
+  const nextSlot = getNextSameDaySlot(slots, now);
+
+  return slots.filter((slot) => {
+    if (!slot.is_active) return false;
+    if (!isWithinOrderBookingWindow(slot.slot_date, now, bookingWindowDays)) {
+      return false;
+    }
+    if (closed.has(normalizeDateKey(slot.slot_date))) return false;
+
+    const { bookable } = isSlotBookableForOrder({
+      slot,
+      nextSlot,
+      cart,
+      readyStockByProduct,
+      now,
+    });
+    return bookable;
+  });
+}
+
+export function getSlotBookabilityMap(
+  slots: DeliverySlot[],
+  cart: CartLine[],
+  readyStockByProduct: ReadonlyMap<string, number>,
+  now = new Date()
+): Map<string, SlotBookableVia> {
+  const nextSlot = getNextSameDaySlot(slots, now);
+  const map = new Map<string, SlotBookableVia>();
+
+  for (const slot of slots) {
+    const { bookable, via } = isSlotBookableForOrder({
+      slot,
+      nextSlot,
+      cart,
+      readyStockByProduct,
+      now,
+    });
+    if (bookable && via) {
+      map.set(slot.id, via);
+    }
+  }
+
+  return map;
 }
 
 export function getBookableDates(slots: DeliverySlot[]): string[] {

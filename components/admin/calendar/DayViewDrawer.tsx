@@ -5,6 +5,7 @@ import Image from "next/image";
 import type { DeliverySlot, Product } from "@/lib/types";
 import { DEFAULT_DAILY_QUANTITY } from "@/lib/inventory";
 import { getRemaining, minAvailableStock } from "@/lib/inventory";
+import { getReadyAvailable } from "@/lib/customer-delivery-slots";
 import { isDayClosed } from "@/lib/delivery-day";
 import { ConfirmSwitch } from "@/components/admin/ConfirmSwitch";
 import { formatDayFull } from "@/lib/calendar-week";
@@ -15,12 +16,19 @@ interface DayViewDrawerProps {
   products: Product[];
   slots: DeliverySlot[];
   quantities: Record<string, number>;
+  readyQuantities: Record<string, number>;
+  readyCounts: Record<string, { reserved: number; fulfilled: number }>;
   orderCounts: Record<string, number>;
   closedDates: string[];
   onClose: () => void;
   onQtyChange: (productId: string, date: string, qty: number) => void;
+  onReadyChange: (productId: string, date: string, qty: number) => void;
   onSlotToggle: (slot: DeliverySlot, active: boolean) => void;
-  onSaveDay: (date: string, dayLimits?: Record<string, number>) => void | Promise<void>;
+  onSaveDay: (
+    date: string,
+    dayLimits?: Record<string, number>,
+    dayReadyLimits?: Record<string, number>
+  ) => void | Promise<void>;
   onApplyDefault: (date: string) => void;
   onCloseDay: (date: string) => Promise<string | null>;
   onOpenDay: (date: string) => void;
@@ -34,10 +42,13 @@ export function DayViewDrawer({
   products,
   slots,
   quantities,
+  readyQuantities,
+  readyCounts,
   orderCounts,
   closedDates,
   onClose,
   onQtyChange,
+  onReadyChange,
   onSlotToggle,
   onSaveDay,
   onApplyDefault,
@@ -49,11 +60,13 @@ export function DayViewDrawer({
 }: DayViewDrawerProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [qtyDraft, setQtyDraft] = useState<Record<string, string>>({});
+  const [readyDraft, setReadyDraft] = useState<Record<string, string>>({});
   const [closeError, setCloseError] = useState<string | null>(null);
 
   useEffect(() => {
     setIsEditing(false);
     setQtyDraft({});
+    setReadyDraft({});
     setCloseError(null);
   }, [date]);
 
@@ -68,17 +81,21 @@ export function DayViewDrawer({
   const startEditing = () => {
     if (!date) return;
     const draft: Record<string, string> = {};
+    const ready: Record<string, string> = {};
     for (const p of products) {
       draft[p.id] = String(
         quantities[`${p.id}:${date}`] ?? DEFAULT_DAILY_QUANTITY
       );
+      ready[p.id] = String(readyQuantities[`${p.id}:${date}`] ?? 0);
     }
     setQtyDraft(draft);
+    setReadyDraft(ready);
     setIsEditing(true);
   };
 
   const cancelEditing = () => {
     setQtyDraft({});
+    setReadyDraft({});
     setIsEditing(false);
   };
 
@@ -98,17 +115,31 @@ export function DayViewDrawer({
   const handleSave = async () => {
     if (!date) return;
     const dayLimits: Record<string, number> = {};
+    const dayReadyLimits: Record<string, number> = {};
     for (const p of products) {
       const ordered = orderCounts[`${p.id}:${date}`] ?? 0;
       const minAvail = minAvailableStock(ordered);
       const fallback =
         quantities[`${p.id}:${date}`] ?? DEFAULT_DAILY_QUANTITY;
       const val = parseQty(qtyDraft[p.id] ?? String(fallback), minAvail, fallback);
+
+      const readyKey = `${p.id}:${date}`;
+      const committed =
+        (readyCounts[readyKey]?.reserved ?? 0) +
+        (readyCounts[readyKey]?.fulfilled ?? 0);
+      const readyFallback = readyQuantities[readyKey] ?? 0;
+      const readyRaw = readyDraft[p.id] ?? String(readyFallback);
+      const readyParsed = parseQty(readyRaw, committed, readyFallback);
+      const readyVal = Math.min(Math.max(committed, readyParsed), val);
+
       dayLimits[p.id] = val;
+      dayReadyLimits[p.id] = readyVal;
       onQtyChange(p.id, date, val);
+      onReadyChange(p.id, date, readyVal);
     }
-    await onSaveDay(date, dayLimits);
+    await onSaveDay(date, dayLimits, dayReadyLimits);
     setQtyDraft({});
+    setReadyDraft({});
     setIsEditing(false);
   };
 
@@ -122,10 +153,27 @@ export function DayViewDrawer({
   const dayClosed = isDayClosed(date, closedDates, slots);
 
   const productRows = products.map((p) => {
-    const available = quantities[`${p.id}:${date}`] ?? DEFAULT_DAILY_QUANTITY;
-    const ordered = orderCounts[`${p.id}:${date}`] ?? 0;
+    const key = `${p.id}:${date}`;
+    const available = quantities[key] ?? DEFAULT_DAILY_QUANTITY;
+    const ordered = orderCounts[key] ?? 0;
     const remaining = getRemaining(available, ordered);
-    return { product: p, available, ordered, remaining };
+    const readySet = readyQuantities[key] ?? 0;
+    const readyCommitted =
+      (readyCounts[key]?.reserved ?? 0) + (readyCounts[key]?.fulfilled ?? 0);
+    const readyLeft = getReadyAvailable(
+      readySet,
+      readyCounts[key]?.reserved ?? 0,
+      readyCounts[key]?.fulfilled ?? 0
+    );
+    return {
+      product: p,
+      available,
+      ordered,
+      remaining,
+      readySet,
+      readyCommitted,
+      readyLeft,
+    };
   });
 
   const totalAvailable = productRows.reduce((s, r) => s + r.available, 0);
@@ -304,7 +352,7 @@ export function DayViewDrawer({
                 </h3>
                 {isEditing && (
                   <p className="mt-0.5 text-[10px] text-[#4B2C20]/50">
-                    Edit available count per product
+                    Set daily availability and ready units for the next delivery window
                   </p>
                 )}
               </div>
@@ -323,9 +371,10 @@ export function DayViewDrawer({
               <p className="mt-2 text-xs text-[#4B2C20]/50">No products yet.</p>
             ) : isEditing ? (
               <div className="mt-3 overflow-hidden rounded-xl bg-white ring-1 ring-[#4B2C20]/10">
-                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-[#4B2C20]/10 bg-[#F5E6D3]/40 px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50">
+                <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 border-b border-[#4B2C20]/10 bg-[#F5E6D3]/40 px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50">
                   <span>Product</span>
                   <span className="w-14 text-center">Avail</span>
+                  <span className="w-14 text-center">Ready</span>
                   <span className="w-10 text-center">Sold</span>
                   <span className="w-10 text-center">Left</span>
                 </div>
@@ -343,10 +392,18 @@ export function DayViewDrawer({
                       draftAvailable,
                       ordered
                     );
+                    const readyKey = `${product.id}:${date}`;
+                    const readyCommitted =
+                      (readyCounts[readyKey]?.reserved ?? 0) +
+                      (readyCounts[readyKey]?.fulfilled ?? 0);
+                    const readyFallback = readyQuantities[readyKey] ?? 0;
+                    const readyRaw =
+                      readyDraft[product.id] ?? String(readyFallback);
+                    parseQty(readyRaw, readyCommitted, readyFallback);
                     return (
                       <li
                         key={product.id}
-                        className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 px-3 py-2.5"
+                        className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-2 px-3 py-2.5"
                       >
                         <div className="flex min-w-0 items-center gap-2">
                           <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-[#F5E6D3]">
@@ -378,6 +435,23 @@ export function DayViewDrawer({
                           aria-label={`Available count for ${product.title}`}
                           className="w-14 rounded-lg border border-[#4B2C20]/20 bg-[#F5E6D3]/30 px-1 py-1 text-center text-sm tabular-nums text-[#4B2C20] focus:border-[#4B2C20]/40 focus:outline-none focus:ring-1 focus:ring-[#4B2C20]/20"
                         />
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={readyRaw}
+                          onChange={(e) =>
+                            setReadyDraft((prev) => ({
+                              ...prev,
+                              [product.id]: e.target.value.replace(
+                                /[^\d]/g,
+                                ""
+                              ),
+                            }))
+                          }
+                          aria-label={`Ready count for ${product.title}`}
+                          className="w-14 rounded-lg border border-emerald-200 bg-emerald-50/50 px-1 py-1 text-center text-sm tabular-nums text-[#4B2C20] focus:border-emerald-400 focus:outline-none focus:ring-1 focus:ring-emerald-200"
+                        />
                         <span className="w-10 text-center text-sm tabular-nums text-[#4B2C20]/70">
                           {ordered}
                         </span>
@@ -396,7 +470,7 @@ export function DayViewDrawer({
                     );
                   })}
                 </ul>
-                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-t border-[#4B2C20]/10 bg-[#F5E6D3]/30 px-3 py-2 text-xs font-medium text-[#4B2C20]">
+                <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 border-t border-[#4B2C20]/10 bg-[#F5E6D3]/30 px-3 py-2 text-xs font-medium text-[#4B2C20]">
                   <span>Total</span>
                   <span className="w-14 text-center tabular-nums">
                     {productRows.reduce((sum, { product, available }) => {
@@ -409,6 +483,32 @@ export function DayViewDrawer({
                           minAvail,
                           available
                         )
+                      );
+                    }, 0)}
+                  </span>
+                  <span className="w-14 text-center tabular-nums">
+                    {productRows.reduce((sum, { product }) => {
+                      const readyKey = `${product.id}:${date}`;
+                      const readyCommitted =
+                        (readyCounts[readyKey]?.reserved ?? 0) +
+                        (readyCounts[readyKey]?.fulfilled ?? 0);
+                      const readyFallback = readyQuantities[readyKey] ?? 0;
+                      const ordered = orderCounts[readyKey] ?? 0;
+                      const minAvail = minAvailableStock(ordered);
+                      const avail = parseQty(
+                        qtyDraft[product.id] ??
+                          String(quantities[readyKey] ?? DEFAULT_DAILY_QUANTITY),
+                        minAvail,
+                        quantities[readyKey] ?? DEFAULT_DAILY_QUANTITY
+                      );
+                      const readyParsed = parseQty(
+                        readyDraft[product.id] ?? String(readyFallback),
+                        readyCommitted,
+                        readyFallback
+                      );
+                      return (
+                        sum +
+                        Math.min(Math.max(readyCommitted, readyParsed), avail)
                       );
                     }, 0)}
                   </span>
@@ -435,17 +535,26 @@ export function DayViewDrawer({
               </div>
             ) : (
               <div className="mt-3 overflow-hidden rounded-xl bg-white ring-1 ring-[#4B2C20]/10">
-                <div className="grid grid-cols-[1fr_auto_auto_auto] gap-2 border-b border-[#4B2C20]/10 bg-[#F5E6D3]/40 px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50">
+                <div className="grid grid-cols-[1fr_auto_auto_auto_auto] gap-2 border-b border-[#4B2C20]/10 bg-[#F5E6D3]/40 px-3 py-2 text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50">
                   <span>Product</span>
                   <span className="w-10 text-center">Avail</span>
+                  <span className="w-16 text-center">Ready</span>
                   <span className="w-10 text-center">Sold</span>
                   <span className="w-10 text-center">Left</span>
                 </div>
                 <ul className="divide-y divide-[#4B2C20]/5">
-                  {productRows.map(({ product, available, ordered, remaining }) => (
+                  {productRows.map(
+                    ({
+                      product,
+                      available,
+                      ordered,
+                      remaining,
+                      readySet,
+                      readyLeft,
+                    }) => (
                     <li
                       key={product.id}
-                      className="grid grid-cols-[1fr_auto_auto_auto] items-center gap-2 px-3 py-2.5"
+                      className="grid grid-cols-[1fr_auto_auto_auto_auto] items-center gap-2 px-3 py-2.5"
                     >
                       <div className="flex min-w-0 items-center gap-2">
                         <div className="relative h-8 w-8 shrink-0 overflow-hidden rounded-lg bg-[#F5E6D3]">
@@ -462,6 +571,9 @@ export function DayViewDrawer({
                       </div>
                       <span className="w-10 text-center text-sm tabular-nums text-[#4B2C20]">
                         {available}
+                      </span>
+                      <span className="w-16 text-center text-xs tabular-nums text-emerald-700">
+                        {readySet > 0 ? `${readyLeft}/${readySet}` : "—"}
                       </span>
                       <span className="w-10 text-center text-sm tabular-nums text-[#4B2C20]/70">
                         {ordered}

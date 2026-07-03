@@ -1,5 +1,5 @@
 import {
-  getAvailableDeliverySlots,
+  getCustomerDeliverySlotsBase,
   getProductsByIds,
   getShopSettings,
   getStorefrontStatus,
@@ -18,7 +18,7 @@ import {
 export default async function DeliveryCheckoutPage() {
   const [slots, storefront, settings, coupons, cartIds, schedule] =
     await Promise.all([
-      getAvailableDeliverySlots(),
+      getCustomerDeliverySlotsBase(),
       getStorefrontStatus(),
       getShopSettings(),
       getActivePublicCoupons(),

@@ -45,6 +45,7 @@ export interface Product {
   updated_at: string;
   sold_out_today?: boolean;
   remaining_next_day?: number;
+  ready_available?: number;
   low_stock?: boolean;
   next_delivery_date?: string;
 }
@@ -145,6 +146,7 @@ export interface Order {
   delivery_window_start: string;
   delivery_window_end: string;
   delivery_slot_id?: string | null;
+  uses_ready_stock?: boolean;
   payment_status: PaymentStatus;
   razorpay_order_id: string | null;
   razorpay_payment_id: string | null;

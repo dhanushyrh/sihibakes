@@ -8,10 +8,9 @@ import {
 } from "date-fns";
 
 export const DEFAULT_DELIVERY_WINDOWS = [
-  { start: "10:00", end: "12:00" },
-  { start: "12:00", end: "14:00" },
+  { start: "11:00", end: "13:00" },
   { start: "16:00", end: "18:00" },
-  { start: "18:00", end: "20:00" },
+  { start: "20:00", end: "22:00" },
 ] as const;
 
 /** Weeks ahead admin can plan (0 = current week starting today). */

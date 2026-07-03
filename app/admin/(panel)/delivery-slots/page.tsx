@@ -22,6 +22,10 @@ export default function AdminDeliverySlotsPage() {
   const [slots, setSlots] = useState<DeliverySlot[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+  const [readyQuantities, setReadyQuantities] = useState<Record<string, number>>({});
+  const [readyCounts, setReadyCounts] = useState<
+    Record<string, { reserved: number; fulfilled: number }>
+  >({});
   const [orderCounts, setOrderCounts] = useState<Record<string, number>>({});
   const [settings, setSettings] = useState<ShopSettings | null>(null);
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
@@ -55,7 +59,9 @@ export default function AdminDeliverySlotsPage() {
           .lte("avail_date", rangeEnd),
         supabase
           .from("product_daily_counts")
-          .select("product_id, count_date, order_count")
+          .select(
+            "product_id, count_date, order_count, ready_reserved, ready_fulfilled"
+          )
           .gte("count_date", rangeStart)
           .lte("count_date", rangeEnd),
         supabase.from("shop_settings").select("*").limit(1).single(),
@@ -74,10 +80,20 @@ export default function AdminDeliverySlotsPage() {
     setProducts((productData ?? []) as Product[]);
 
     const countMap: Record<string, number> = {};
+    const readyCountMap: Record<
+      string,
+      { reserved: number; fulfilled: number }
+    > = {};
     for (const row of countData ?? []) {
-      countMap[`${row.product_id}:${row.count_date}`] = row.order_count as number;
+      const key = `${row.product_id}:${row.count_date}`;
+      countMap[key] = row.order_count as number;
+      readyCountMap[key] = {
+        reserved: (row.ready_reserved as number | undefined) ?? 0,
+        fulfilled: (row.ready_fulfilled as number | undefined) ?? 0,
+      };
     }
     setOrderCounts((prev) => ({ ...prev, ...countMap }));
+    setReadyCounts((prev) => ({ ...prev, ...readyCountMap }));
 
     setQuantities((prev) => {
       const next = { ...prev };
@@ -88,6 +104,21 @@ export default function AdminDeliverySlotsPage() {
         for (const d of weekDates) {
           const key = `${p.id}:${d}`;
           if (!(key in next)) next[key] = DEFAULT_DAILY_QUANTITY;
+        }
+      }
+      return next;
+    });
+
+    setReadyQuantities((prev) => {
+      const next = { ...prev };
+      for (const row of availData ?? []) {
+        next[`${row.product_id}:${row.avail_date}`] =
+          (row.ready_quantity as number | undefined) ?? 0;
+      }
+      for (const p of productData ?? []) {
+        for (const d of weekDates) {
+          const key = `${p.id}:${d}`;
+          if (!(key in next)) next[key] = 0;
         }
       }
       return next;
@@ -315,9 +346,17 @@ export default function AdminDeliverySlotsPage() {
     });
   };
 
+  const setReadyQty = (productId: string, date: string, value: number) => {
+    setReadyQuantities((prev) => ({
+      ...prev,
+      [`${productId}:${date}`]: Math.max(0, value),
+    }));
+  };
+
   const saveDay = async (
     date: string,
-    dayLimits?: Record<string, number>
+    dayLimits?: Record<string, number>,
+    dayReadyLimits?: Record<string, number>
   ) => {
     setSaving(true);
     const rows = products.map((p) => ({
@@ -327,6 +366,10 @@ export default function AdminDeliverySlotsPage() {
         dayLimits?.[p.id] ??
         quantities[`${p.id}:${date}`] ??
         DEFAULT_DAILY_QUANTITY,
+      ready_quantity:
+        dayReadyLimits?.[p.id] ??
+        readyQuantities[`${p.id}:${date}`] ??
+        0,
     }));
     const { error } = await supabase.from("product_daily_availability").upsert(rows, {
       onConflict: "product_id,avail_date",
@@ -393,10 +436,13 @@ export default function AdminDeliverySlotsPage() {
         products={products}
         slots={slots}
         quantities={quantities}
+        readyQuantities={readyQuantities}
+        readyCounts={readyCounts}
         orderCounts={orderCounts}
         closedDates={settings?.closed_dates ?? []}
         onClose={() => setSelectedDate(null)}
         onQtyChange={setQty}
+        onReadyChange={setReadyQty}
         onSlotToggle={toggleSlot}
         onSaveDay={saveDay}
         onApplyDefault={applyDefaultForDay}

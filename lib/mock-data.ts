@@ -108,10 +108,9 @@ export function getMockSlots(): DeliverySlot[] {
   for (let d = 0; d < ORDER_BOOKING_WINDOW_DAYS; d++) {
     const slotDate = shopDatePlusDays(d);
     for (const [start, end] of [
-      ["10:00:00", "12:00:00"],
-      ["12:00:00", "14:00:00"],
+      ["11:00:00", "13:00:00"],
       ["16:00:00", "18:00:00"],
-      ["18:00:00", "20:00:00"],
+      ["20:00:00", "22:00:00"],
     ]) {
       slots.push({
         id: `mock-${slotDate}-${start}`,

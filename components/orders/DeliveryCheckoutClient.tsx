@@ -34,6 +34,9 @@ import { normalizePhone } from "@/lib/storefront";
 import { getUnitPrice } from "@/lib/pricing";
 import {
   filterSlotsForDeliveryMode,
+  filterCustomerDeliverySlotsForOrder,
+  buildReadyStockMap,
+  getSlotBookabilityMap,
   resolveDeliverySelection,
   type DeliveryMode,
 } from "@/lib/customer-delivery-slots";
@@ -190,10 +193,31 @@ export function DeliveryCheckoutClient({
 
   const deliveryMode = session.deliveryMode as DeliveryMode | null;
 
+  const cartForSlots = useMemo(
+    () => items.map((i) => ({ productId: i.productId, quantity: i.quantity })),
+    [items]
+  );
+
+  const readyStockMap = useMemo(
+    () => buildReadyStockMap(products),
+    [products]
+  );
+
   const modeSlots = useMemo(() => {
-    if (!deliveryMode) return bookableSlots;
-    return filterSlotsForDeliveryMode(bookableSlots, deliveryMode);
-  }, [bookableSlots, deliveryMode]);
+    if (!deliveryMode) return [];
+    const base = filterSlotsForDeliveryMode(bookableSlots, deliveryMode);
+    return filterCustomerDeliverySlotsForOrder(
+      base,
+      [],
+      cartForSlots,
+      readyStockMap
+    );
+  }, [bookableSlots, deliveryMode, cartForSlots, readyStockMap]);
+
+  const slotBookability = useMemo(
+    () => getSlotBookabilityMap(modeSlots, cartForSlots, readyStockMap),
+    [modeSlots, cartForSlots, readyStockMap]
+  );
 
   useEffect(() => {
     setAppliedCoupon(readAppliedCoupon());
@@ -955,6 +979,7 @@ export function DeliveryCheckoutClient({
               onDateChange={handleDateChange}
               onSlotChange={setSelectedSlotId}
               deliveryMode={deliveryMode}
+              slotBookability={slotBookability}
               slotError={fieldErrors.slot}
             />
           </div>

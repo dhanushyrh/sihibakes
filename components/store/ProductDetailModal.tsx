@@ -102,6 +102,11 @@ export function ProductDetailModal({
                 : " for delivery"}
             </p>
           )}
+          {(product.ready_available ?? 0) > 0 && !soldOut && (
+            <p className="mt-2 rounded-full bg-emerald-700 px-3 py-1.5 text-center text-xs font-semibold text-white">
+              {product.ready_available} ready for the next delivery window
+            </p>
+          )}
           {activeAllergens.length > 0 && (
             <div className="mt-4">
               <p className="text-xs font-medium uppercase tracking-wide text-chocolate/50">

@@ -8,6 +8,7 @@ import {
   getDateStripEntries,
   getSlotsForBookableDate,
   type DeliveryMode,
+  type SlotBookableVia,
 } from "@/lib/customer-delivery-slots";
 import { isShopToday, isShopTomorrow } from "@/lib/shop-timezone";
 import type { DeliverySlot } from "@/lib/types";
@@ -19,6 +20,7 @@ type DeliverySlotSelectsProps = {
   onDateChange: (date: string) => void;
   onSlotChange: (slotId: string) => void;
   deliveryMode?: DeliveryMode | null;
+  slotBookability?: Map<string, SlotBookableVia>;
   dateError?: string;
   slotError?: string;
   emptyDatesMessage?: string;
@@ -77,6 +79,7 @@ export function DeliverySlotSelects({
   onDateChange,
   onSlotChange,
   deliveryMode = null,
+  slotBookability,
   dateError,
   slotError,
   emptyDatesMessage = "No delivery dates available right now.",
@@ -248,6 +251,7 @@ export function DeliverySlotSelects({
             >
               {slotsForDate.map((slot) => {
                 const selected = selectedSlotId === slot.id;
+                const via = slotBookability?.get(slot.id);
                 return (
                   <button
                     key={slot.id}
@@ -271,6 +275,17 @@ export function DeliverySlotSelects({
                     >
                       until {formatTime12(slot.window_end)}
                     </span>
+                    {via === "ready" && (
+                      <span
+                        className={`mt-1.5 inline-block rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                          selected
+                            ? "bg-gold text-chocolate"
+                            : "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200"
+                        }`}
+                      >
+                        Ready now
+                      </span>
+                    )}
                     {selected && (
                       <span className="absolute right-2.5 top-2.5 flex h-5 w-5 items-center justify-center rounded-full bg-gold text-chocolate">
                         <Check size={12} strokeWidth={3} />
