@@ -1,5 +1,8 @@
 import Razorpay from "razorpay";
 
+/** Temporary: charge ₹1 on Razorpay while validating live keys (order total is stored separately). */
+export const RAZORPAY_CHECKOUT_AMOUNT_INR = 1;
+
 export function getRazorpayPublicKey(): string | null {
   return (
     process.env.NEXT_PUBLIC_RAZORPAY_KEY_ID?.trim() ||
@@ -25,11 +28,8 @@ export function getRazorpayInstance() {
   });
 }
 
-export async function createRazorpayOrder(amountInr: number, receipt: string) {
-  const amountPaise = Math.round(amountInr * 100);
-  if (amountPaise < 100) {
-    throw new Error("Minimum order amount is 100 paise (₹1)");
-  }
+export async function createRazorpayOrder(receipt: string) {
+  const amountPaise = RAZORPAY_CHECKOUT_AMOUNT_INR * 100;
 
   const razorpay = getRazorpayInstance();
   return razorpay.orders.create({

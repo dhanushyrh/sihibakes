@@ -378,16 +378,8 @@ export async function POST(request: Request) {
         );
       }
 
-      const amountPaise = Math.round(pricing.total_inr * 100);
-      if (amountPaise < 100) {
-        return NextResponse.json(
-          { error: "Minimum order amount is ₹1" },
-          { status: 400 }
-        );
-      }
-
       try {
-        const rzOrder = await createRazorpayOrder(pricing.total_inr, orderNumber);
+        const rzOrder = await createRazorpayOrder(orderNumber);
         razorpayOrderId = rzOrder.id;
         await admin
           .from("orders")

@@ -34,7 +34,7 @@ export function formatRazorpayVerifyError(error?: string, code?: string): string
   if (code === "INVALID_SIGNATURE") {
     return (
       "Payment went through on Razorpay but verification failed. " +
-      "Check that RAZORPAY_KEY_SECRET matches the same test key pair as NEXT_PUBLIC_RAZORPAY_KEY_ID."
+      "Check that RAZORPAY_KEY_SECRET matches the same key pair as NEXT_PUBLIC_RAZORPAY_KEY_ID."
     );
   }
   return error || "Payment verification failed. Please contact support with your order number.";
