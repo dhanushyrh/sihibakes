@@ -16,6 +16,7 @@ import {
   formatRazorpayPaymentError,
   formatRazorpayVerifyError,
 } from "@/lib/razorpay-errors";
+import { releaseOrderInventoryHold } from "@/lib/inventory-client";
 import { formatDeliveryFenceShort } from "@/lib/delivery-fence";
 import type { DeliveryCalculation, DeliveryFenceKm, DeliverySlot, Product } from "@/lib/types";
 import {
@@ -259,6 +260,10 @@ export default function CheckoutPage({
         return;
       }
 
+      const releaseHold = () => {
+        void releaseOrderInventoryHold(data.order_id as string, phone);
+      };
+
       const rzp = new window.Razorpay({
         ...buildRazorpayCheckoutOptions({
           key: data.razorpay_key,
@@ -284,6 +289,7 @@ export default function CheckoutPage({
           });
           const verifyData = await verifyRes.json();
           if (!verifyRes.ok) {
+            releaseHold();
             setError(formatRazorpayVerifyError(verifyData.error, verifyData.code));
             return;
           }
@@ -291,10 +297,14 @@ export default function CheckoutPage({
           router.push(`/order/${data.order_number}?phone=${phone}`);
         },
         modal: {
-          ondismiss: () => setError("Payment was cancelled. You can try again."),
+          ondismiss: () => {
+            releaseHold();
+            setError("Payment was cancelled. You can try again.");
+          },
         },
       });
       rzp.on("payment.failed", (response) => {
+        releaseHold();
         setError(formatRazorpayPaymentError(response.error));
       });
       rzp.open();

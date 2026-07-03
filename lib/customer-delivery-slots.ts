@@ -1,5 +1,5 @@
 import { addDays, format, parseISO } from "date-fns";
-import { ORDER_BOOKING_WINDOW_DAYS, PRE_ORDER_MAX_DATES } from "./constants";
+import { ORDER_BOOKING_WINDOW_DAYS, PRE_ORDER_MAX_DATES, PRE_ORDER_SCAN_DAYS } from "./constants";
 import type { DeliverySlot } from "./types";
 import { normalizeClosedDates, normalizeDateKey } from "./shop-closed-days";
 import {
@@ -49,30 +49,35 @@ export function isSlotBookableWithLeadTime(
 }
 
 /** Last bookable calendar date (inclusive) in the shop timezone. */
-export function getMaxBookableDateKey(now = new Date()): string {
-  return shopDatePlusDays(ORDER_BOOKING_WINDOW_DAYS - 1, now);
+export function getMaxBookableDateKey(
+  now = new Date(),
+  bookingWindowDays = ORDER_BOOKING_WINDOW_DAYS
+): string {
+  return shopDatePlusDays(bookingWindowDays - 1, now);
 }
 
 export function isWithinOrderBookingWindow(
   dateKey: string,
-  now = new Date()
+  now = new Date(),
+  bookingWindowDays = ORDER_BOOKING_WINDOW_DAYS
 ): boolean {
   const key = normalizeDateKey(dateKey);
   const today = shopDateKey(now);
-  const max = getMaxBookableDateKey(now);
+  const max = getMaxBookableDateKey(now, bookingWindowDays);
   return key >= today && key <= max;
 }
 
 export function filterCustomerDeliverySlots(
   slots: DeliverySlot[],
   closedDates: string[],
-  now = new Date()
+  now = new Date(),
+  bookingWindowDays = ORDER_BOOKING_WINDOW_DAYS
 ): DeliverySlot[] {
   const closed = new Set(normalizeClosedDates(closedDates));
 
   return slots.filter((slot) => {
     if (!slot.is_active) return false;
-    if (!isWithinOrderBookingWindow(slot.slot_date, now)) return false;
+    if (!isWithinOrderBookingWindow(slot.slot_date, now, bookingWindowDays)) return false;
     if (closed.has(normalizeDateKey(slot.slot_date))) return false;
     if (!isSlotBookableWithLeadTime(slot, now)) return false;
     return true;
@@ -166,9 +171,19 @@ export function getPreOrderDates(
   now = new Date()
 ): string[] {
   const today = shopDateKey(now);
-  return getBookableDates(slots)
-    .filter((date) => date > today)
-    .slice(0, PRE_ORDER_MAX_DATES);
+  const bookable = new Set(getBookableDates(slots));
+  const dates: string[] = [];
+  const maxScanDate = getMaxBookableDateKey(now, PRE_ORDER_SCAN_DAYS);
+
+  for (let offset = 1; dates.length < PRE_ORDER_MAX_DATES; offset++) {
+    const key = shopDatePlusDays(offset, now);
+    if (key > maxScanDate) break;
+    if (bookable.has(key)) {
+      dates.push(key);
+    }
+  }
+
+  return dates;
 }
 
 /** Slots limited to a delivery mode. */

@@ -1,5 +1,8 @@
 import { createAdminClient } from "@/lib/supabase/admin";
-import { incrementProductCountsForOrder } from "@/lib/inventory-server";
+import {
+  commitOrderInventory,
+  incrementProductCountsForOrder,
+} from "@/lib/inventory-server";
 import { notifyOrderPlaced } from "@/lib/whatsapp/notifications";
 import { markActivityOrderCompleted } from "@/lib/customer-activity";
 import type { OrderStatus } from "@/lib/types";
@@ -18,7 +21,7 @@ export async function markOrderPaid(
 
   const { data: order } = await admin
     .from("orders")
-    .select("payment_status, status")
+    .select("payment_status, status, inventory_hold_status")
     .eq("id", orderId)
     .single();
 
@@ -29,6 +32,14 @@ export async function markOrderPaid(
   const newlyPaid = order.payment_status !== "paid";
 
   if (newlyPaid) {
+    const commitResult = await commitOrderInventory(orderId);
+    if (!commitResult.ok && !commitResult.skipped) {
+      console.error(
+        `commit_order_inventory failed for order ${orderId}:`,
+        commitResult.error
+      );
+    }
+
     await admin
       .from("orders")
       .update({
@@ -63,6 +74,17 @@ export async function markOrderPaid(
 
 /** Reserve daily inventory when admin accepts a paid order for fulfillment. */
 export async function fulfillPaidOrder(orderId: string): Promise<void> {
+  const admin = createAdminClient();
+  const { data: order } = await admin
+    .from("orders")
+    .select("inventory_hold_status")
+    .eq("id", orderId)
+    .single();
+
+  if (order?.inventory_hold_status === "committed") {
+    return;
+  }
+
   await incrementProductCountsForOrder(orderId);
 }
 

@@ -24,10 +24,14 @@ export function getNextDeliveryDate(closedDates: string[] = []): string {
 
 export function getRemaining(
   quantityLimit: number,
-  orderCount: number
+  orderCount: number,
+  reservedCount = 0
 ): number {
-  return Math.max(0, quantityLimit - orderCount);
+  return Math.max(0, quantityLimit - orderCount - reservedCount);
 }
+
+/** Minutes a same-day stock hold lasts while payment is in progress. */
+export const INVENTORY_HOLD_MINUTES = 20;
 
 /** Minimum available stock: can't go below units already sold. */
 export function minAvailableStock(ordered: number): number {

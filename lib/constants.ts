@@ -71,6 +71,9 @@ export const ORDER_BOOKING_WINDOW_DAYS = 4;
 /** Max future dates shown in the pre-order flow (excludes today). */
 export const PRE_ORDER_MAX_DATES = 3;
 
+/** How far ahead to scan delivery slots when picking pre-order dates. */
+export const PRE_ORDER_SCAN_DAYS = 14;
+
 export const ENQUIRY_TYPE_OPTIONS = [
   { key: "kitty_party" as const, label: "Kitty Party" },
   { key: "general" as const, label: "General" },

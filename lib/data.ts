@@ -21,7 +21,7 @@ import {
   MOCK_SLABS,
 } from "@/lib/mock-data";
 import { normalizeClosedDates, normalizeDateKey } from "@/lib/shop-closed-days";
-import { ORDER_BOOKING_WINDOW_DAYS } from "@/lib/constants";
+import { ORDER_BOOKING_WINDOW_DAYS, PRE_ORDER_SCAN_DAYS } from "@/lib/constants";
 import { filterCustomerDeliverySlots } from "@/lib/customer-delivery-slots";
 import { computeDeliveryModeAvailability } from "@/lib/delivery-mode-availability";
 import { shopDateKey, shopDatePlusDays } from "@/lib/shop-timezone";
@@ -154,7 +154,7 @@ async function enrichProductsWithInventory(
       .eq("avail_date", nextDate),
     supabase
       .from("product_daily_counts")
-      .select("product_id, order_count")
+      .select("product_id, order_count, reserved_count")
       .in("product_id", productIds)
       .eq("count_date", nextDate),
   ]);
@@ -165,8 +165,13 @@ async function enrichProductsWithInventory(
   }
 
   const countMap = new Map<string, number>();
+  const reservedMap = new Map<string, number>();
   for (const row of counts ?? []) {
     countMap.set(row.product_id as string, row.order_count as number);
+    reservedMap.set(
+      row.product_id as string,
+      (row.reserved_count as number | undefined) ?? 0
+    );
   }
 
   const availLookup = new Map<string, number>();
@@ -179,7 +184,9 @@ async function enrichProductsWithInventory(
   return products.map((p) => {
     const limit = limitMap.get(p.id) ?? getQuantityLimit(availLookup, p.id, nextDate);
     const sold = countMap.get(p.id) ?? 0;
-    const remaining = getRemaining(limit, sold);
+    const reserved =
+      deliveryMode === "pre_order" ? 0 : (reservedMap.get(p.id) ?? 0);
+    const remaining = getRemaining(limit, sold, reserved);
     return {
       ...p,
       next_delivery_date: nextDate,
@@ -304,23 +311,33 @@ export const getAvailableDeliverySlots = cache(async (): Promise<DeliverySlot[]>
   const closedDates = await getEffectiveClosedDates();
 
   if (!isSupabaseConfigured()) {
-    return filterCustomerDeliverySlots(getMockSlots(), closedDates);
+    return filterCustomerDeliverySlots(
+      getMockSlots(),
+      closedDates,
+      undefined,
+      PRE_ORDER_SCAN_DAYS
+    );
   }
 
   const supabase = await createClient();
   const today = shopDateKey();
-  const maxBookableDate = shopDatePlusDays(ORDER_BOOKING_WINDOW_DAYS - 1);
+  const maxSlotDate = shopDatePlusDays(PRE_ORDER_SCAN_DAYS - 1);
 
   const { data } = await supabase
     .from("delivery_slots")
     .select("*")
     .eq("is_active", true)
     .gte("slot_date", today)
-    .lte("slot_date", maxBookableDate)
+    .lte("slot_date", maxSlotDate)
     .order("slot_date")
     .order("window_start");
 
-  return filterCustomerDeliverySlots((data ?? []) as DeliverySlot[], closedDates);
+  return filterCustomerDeliverySlots(
+    (data ?? []) as DeliverySlot[],
+    closedDates,
+    undefined,
+    PRE_ORDER_SCAN_DAYS
+  );
 });
 
 export async function getDeliveryModeAvailability() {
@@ -393,14 +410,15 @@ export async function checkProductAvailability(
 
   const { data: countRow } = await admin
     .from("product_daily_counts")
-    .select("order_count")
+    .select("order_count, reserved_count")
     .eq("product_id", productId)
     .eq("count_date", deliveryDate)
     .single();
 
   const limit = avail?.quantity_limit ?? 20;
   const sold = countRow?.order_count ?? 0;
-  const remaining = getRemaining(limit, sold);
+  const reserved = countRow?.reserved_count ?? 0;
+  const remaining = getRemaining(limit, sold, reserved);
 
   if (quantity > remaining) {
     return {
@@ -408,8 +426,8 @@ export async function checkProductAvailability(
       remaining,
       message:
         remaining === 0
-          ? "Sold out for this delivery date"
-          : `Only ${remaining} left for this date`,
+          ? "Sold out for today"
+          : `Only ${remaining} left for today`,
     };
   }
   return { ok: true, remaining };

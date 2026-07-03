@@ -45,6 +45,7 @@ import {
   formatRazorpayPaymentError,
   formatRazorpayVerifyError,
 } from "@/lib/razorpay-errors";
+import { releaseOrderInventoryHold } from "@/lib/inventory-client";
 import {
   getActivitySessionIdForOrder,
   trackActivity,
@@ -591,6 +592,10 @@ export function DeliveryCheckoutClient({
         return;
       }
 
+      const releaseHold = () => {
+        void releaseOrderInventoryHold(placed.order_id, placed.phone);
+      };
+
       const rzp = new window.Razorpay({
         ...buildRazorpayCheckoutOptions({
           key: placed.razorpay_key,
@@ -622,6 +627,7 @@ export function DeliveryCheckoutClient({
             });
             const verifyData = await verifyRes.json();
             if (!verifyRes.ok) {
+              releaseHold();
               throw new Error(
                 formatRazorpayVerifyError(verifyData.error, verifyData.code)
               );
@@ -633,11 +639,15 @@ export function DeliveryCheckoutClient({
           }
         },
         modal: {
-          ondismiss: () => reject(new Error("Payment cancelled")),
+          ondismiss: () => {
+            releaseHold();
+            reject(new Error("Payment cancelled"));
+          },
         },
       });
 
       rzp.on("payment.failed", (response) => {
+        releaseHold();
         reject(new Error(formatRazorpayPaymentError(response.error)));
       });
       rzp.open();
@@ -664,8 +674,9 @@ export function DeliveryCheckoutClient({
     }
 
     setPlacingOrder(true);
+    let placed: PlacedOrder | null = null;
     try {
-      const placed = await createOrder();
+      placed = await createOrder();
       const skipPayment = placed.payment_skip_enabled || paymentSkipEnabled;
 
       if (skipPayment) {
@@ -680,6 +691,9 @@ export function DeliveryCheckoutClient({
 
       await openRazorpayCheckout(placed);
     } catch (err) {
+      if (placed) {
+        void releaseOrderInventoryHold(placed.order_id, placed.phone);
+      }
       setError(err instanceof Error ? err.message : "Could not complete payment");
       setPlacingOrder(false);
     }

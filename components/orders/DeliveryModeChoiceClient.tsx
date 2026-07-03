@@ -1,6 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
+import { format, parseISO } from "date-fns";
 import { CalendarDays, Clock3, Sparkles, type LucideIcon } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
 import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
@@ -10,6 +11,7 @@ import {
   getSameDayBlockMessage,
   type DeliveryModeAvailability,
 } from "@/lib/delivery-mode-availability";
+import { isShopTomorrow } from "@/lib/shop-timezone";
 import { shopDateKey } from "@/lib/shop-timezone";
 
 function ModeCard({
@@ -90,6 +92,91 @@ function ModeCard({
   );
 }
 
+function preOrderDateChipMeta(dateKey: string) {
+  const date = parseISO(dateKey);
+  if (isShopTomorrow(dateKey)) {
+    return {
+      headline: "Tomorrow",
+      weekday: format(date, "EEE"),
+      day: format(date, "d"),
+      month: format(date, "MMM"),
+    };
+  }
+  return {
+    headline: format(date, "EEE"),
+    weekday: format(date, "EEE"),
+    day: format(date, "d"),
+    month: format(date, "MMM"),
+  };
+}
+
+function PreOrderModeCard({
+  dates,
+  disabled,
+  disabledMessage,
+  onSelectDate,
+}: {
+  dates: string[];
+  disabled?: boolean;
+  disabledMessage?: string;
+  onSelectDate: (date: string) => void;
+}) {
+  return (
+    <div
+      className={`w-full rounded-2xl p-4 ring-1 ${
+        disabled
+          ? "bg-white/70 opacity-75 ring-chocolate/10"
+          : "bg-gold text-chocolate shadow-sm ring-gold/30"
+      }`}
+    >
+      <div className="flex items-start gap-3.5">
+        <div
+          className={`flex h-12 w-12 shrink-0 items-center justify-center rounded-xl ${
+            disabled ? "bg-chocolate/8 text-chocolate/35" : "bg-black/10"
+          }`}
+        >
+          <CalendarDays size={22} strokeWidth={1.5} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="font-display text-lg font-semibold leading-tight">Pre-order</p>
+          <p className={`mt-1 text-xs ${disabled ? "text-chocolate/50" : "opacity-80"}`}>
+            Choose from the next 3 available dates
+          </p>
+          {disabled && disabledMessage ? (
+            <p className="mt-3 rounded-xl bg-red-50 px-3 py-2 text-xs leading-relaxed text-red-800 ring-1 ring-red-200">
+              {disabledMessage}
+            </p>
+          ) : (
+            <div className="mt-4 flex flex-wrap gap-2">
+              {dates.map((date) => {
+                const meta = preOrderDateChipMeta(date);
+                return (
+                  <button
+                    key={date}
+                    type="button"
+                    onClick={() => onSelectDate(date)}
+                    className="min-w-[5.5rem] rounded-xl bg-black/10 px-3 py-2.5 text-left transition hover:bg-black/15 active:scale-[0.98]"
+                  >
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.12em] opacity-70">
+                      {meta.headline}
+                    </p>
+                    <p className="font-display text-lg font-semibold leading-none">
+                      {meta.day} {meta.month}
+                    </p>
+                    <p className="mt-1 text-[11px] opacity-75">
+                      {formatDeliveryDateLabel(date)}
+                    </p>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function DeliveryModeChoiceClient({
   availability,
 }: {
@@ -104,22 +191,12 @@ export function DeliveryModeChoiceClient({
     ? `Earliest slot ${formatSlotTime(earliestSameDaySlot.window_start)} – ${formatSlotTime(earliestSameDaySlot.window_end)}`
     : "No slots available today";
 
-  const preOrderDetail =
-    availability.preOrderDates.length > 0
-      ? availability.preOrderDates
-          .slice(0, 3)
-          .map((d) => formatDeliveryDateLabel(d))
-          .join(" · ")
-      : "No future dates available";
-
   const handleSameDay = () => {
     setDeliverySchedule("same_day", today);
     router.push("/orders/delivery/menu");
   };
 
-  const handlePreOrder = () => {
-    const date = availability.defaultPreOrderDate;
-    if (!date) return;
+  const handlePreOrderDate = (date: string) => {
     setDeliverySchedule("pre_order", date);
     router.push("/orders/delivery/menu");
   };
@@ -158,20 +235,15 @@ export function DeliveryModeChoiceClient({
             cta="Order for today"
           />
 
-          <ModeCard
-            title="Pre-order"
-            subtitle="Choose from the next 3 available dates"
-            detail={preOrderDetail}
+          <PreOrderModeCard
+            dates={availability.preOrderDates}
             disabled={!availability.preOrderEnabled}
             disabledMessage={
               !availability.preOrderEnabled
                 ? "No pre-order dates available right now."
                 : undefined
             }
-            icon={CalendarDays}
-            accent="gold"
-            onSelect={handlePreOrder}
-            cta="Choose a future date"
+            onSelectDate={handlePreOrderDate}
           />
         </div>
 

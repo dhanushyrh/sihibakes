@@ -6,6 +6,7 @@ import {
   isDeliveryDayClosed,
   isFirstOrder,
   checkProductAvailability,
+  getAvailableDeliverySlots,
 } from "@/lib/data";
 import { isValidIndianPhone, isValidIndianPincode, isValidEmail, normalizeEmail } from "@/lib/checkout-validation";
 import { requireVerifiedPhoneWithConsent } from "@/lib/legal-consent";
@@ -19,7 +20,15 @@ import {
 } from "@/lib/pricing";
 import { createRazorpayOrder, getRazorpayPublicKey } from "@/lib/razorpay";
 import { isPaymentSkipEnabled } from "@/lib/payment-skip";
-import { isSlotBookableWithLeadTime, isWithinOrderBookingWindow, type DeliveryMode } from "@/lib/customer-delivery-slots";
+import { isSlotBookableWithLeadTime, isWithinOrderBookingWindow, getPreOrderDates, type DeliveryMode } from "@/lib/customer-delivery-slots";
+import { normalizeDateKey } from "@/lib/shop-closed-days";
+import {
+  reserveOrderInventory,
+  releaseOrderInventory,
+  cancelPendingOrder,
+  formatInventoryStockError,
+} from "@/lib/inventory-server";
+import { ORDER_BOOKING_WINDOW_DAYS } from "@/lib/constants";
 import { getDeliveryFence, isWithinDeliveryFence } from "@/lib/delivery-fence";
 import { PRE_ORDER_MAX_QUANTITY_PER_ITEM } from "@/lib/inventory";
 import { shopDateKey } from "@/lib/shop-timezone";
@@ -134,19 +143,31 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!isWithinOrderBookingWindow(slot.slot_date)) {
-      return NextResponse.json(
-        { error: "Delivery is only available for the next 4 days" },
-        { status: 400 }
-      );
-    }
-
     const deliveryMode: DeliveryMode =
       delivery_mode === "same_day" || delivery_mode === "pre_order"
         ? delivery_mode
         : slot.slot_date === shopDateKey()
           ? "same_day"
           : "pre_order";
+
+    if (deliveryMode === "pre_order") {
+      const bookableSlots = await getAvailableDeliverySlots();
+      const preOrderDates = getPreOrderDates(bookableSlots);
+      if (!preOrderDates.includes(normalizeDateKey(slot.slot_date))) {
+        return NextResponse.json(
+          {
+            error:
+              "That delivery date is no longer available. Please choose another date.",
+          },
+          { status: 400 }
+        );
+      }
+    } else if (!isWithinOrderBookingWindow(slot.slot_date, undefined, ORDER_BOOKING_WINDOW_DAYS)) {
+      return NextResponse.json(
+        { error: "Delivery is only available for the next 4 days" },
+        { status: 400 }
+      );
+    }
 
     if (deliveryMode === "pre_order") {
       for (const item of items as { productId: string; quantity: number }[]) {
@@ -205,8 +226,12 @@ export async function POST(request: Request) {
       );
       if (!avail.ok) {
         return NextResponse.json(
-          { error: `${product.title}: ${avail.message}` },
-          { status: 400 }
+          {
+            error: `${product.title}: ${avail.message}`,
+            code: "INSUFFICIENT_STOCK",
+            product_id: product.id,
+          },
+          { status: 409 }
         );
       }
     }
@@ -356,6 +381,26 @@ export async function POST(request: Request) {
 
     await admin.from("order_items").insert(orderItems);
 
+    const reserveResult = await reserveOrderInventory(order.id);
+    if (!reserveResult.ok) {
+      await releaseOrderInventory(order.id);
+      await cancelPendingOrder(order.id);
+      const failedProduct = reserveResult.product_id
+        ? cartItems.find((item) => item.product.id === reserveResult.product_id)
+            ?.product
+        : null;
+      return NextResponse.json(
+        {
+          error: failedProduct
+            ? formatInventoryStockError(failedProduct.title, reserveResult)
+            : reserveResult.error ?? "Not enough stock left for today",
+          code: reserveResult.code ?? "INSUFFICIENT_STOCK",
+          product_id: reserveResult.product_id ?? null,
+        },
+        { status: 409 }
+      );
+    }
+
     let razorpayOrderId: string | null = null;
     const razorpayKey = getRazorpayPublicKey();
     const paymentSkipEnabled = isPaymentSkipEnabled(settings);
@@ -387,6 +432,8 @@ export async function POST(request: Request) {
           .eq("id", order.id);
       } catch (rzErr) {
         console.error("Razorpay order creation error:", rzErr);
+        await releaseOrderInventory(order.id);
+        await cancelPendingOrder(order.id);
         const statusCode = (rzErr as { statusCode?: number })?.statusCode;
         if (statusCode === 401) {
           return NextResponse.json(

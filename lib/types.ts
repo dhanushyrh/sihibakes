@@ -159,6 +159,9 @@ export interface Order {
   delivery_partner_name: string | null;
   delivery_eta_display: string | null;
   out_for_delivery_at: string | null;
+  inventory_hold_status?: "held" | "committed" | "released" | null;
+  inventory_held_at?: string | null;
+  inventory_hold_expires_at?: string | null;
   created_at: string;
   customer?: Customer;
   order_items?: OrderItem[];

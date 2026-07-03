@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { markOrderPaid } from "@/lib/order-payment";
+import { releaseOrderInventory } from "@/lib/inventory-server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,6 +26,29 @@ export async function POST(request: Request) {
     }
 
     const event = JSON.parse(body);
+    const admin = createAdminClient();
+
+    if (event.event === "payment.failed") {
+      const payment = event.payload.payment.entity;
+      const razorpayOrderId = payment.order_id;
+
+      const { data: order } = await admin
+        .from("orders")
+        .select("id, payment_status, inventory_hold_status")
+        .eq("razorpay_order_id", razorpayOrderId)
+        .single();
+
+      if (
+        order &&
+        order.payment_status === "pending" &&
+        order.inventory_hold_status === "held"
+      ) {
+        await releaseOrderInventory(order.id);
+      }
+
+      return NextResponse.json({ received: true });
+    }
+
     if (event.event !== "payment.captured") {
       return NextResponse.json({ received: true });
     }
@@ -33,7 +57,6 @@ export async function POST(request: Request) {
     const razorpayOrderId = payment.order_id;
     const paymentId = payment.id;
 
-    const admin = createAdminClient();
     const { data: order } = await admin
       .from("orders")
       .select("id, payment_status")

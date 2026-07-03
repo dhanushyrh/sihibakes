@@ -87,6 +87,9 @@ export function DeliverySlotSelects({
   const availableDates = useMemo(() => getBookableDates(slots), [slots]);
   const dateStripEntries = useMemo(() => {
     if (deliveryMode === "same_day") return [];
+    if (deliveryMode === "pre_order") {
+      return availableDates.map((date) => ({ date, bookable: true }));
+    }
     const entries = getDateStripEntries(slots);
     const bookable = new Set(availableDates);
     return entries.filter((entry) => bookable.has(entry.date));
