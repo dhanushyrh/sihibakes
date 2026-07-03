@@ -1,7 +1,7 @@
 import { addDays, format } from "date-fns";
 import type { ShopSettings } from "./types";
 
-export const DEFAULT_DAILY_QUANTITY = 20;
+export const DEFAULT_DAILY_QUANTITY = 10;
 export const LOW_STOCK_THRESHOLD = 5;
 
 export function getTodayDate(): string {

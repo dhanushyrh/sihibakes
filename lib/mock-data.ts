@@ -52,7 +52,7 @@ export const MOCK_PRODUCTS: Product[] = [
     tags: ["bestseller", "must_try"],
     is_active: true,
     is_sold_out: false,
-    daily_order_limit: 20,
+    daily_order_limit: 10,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
     sold_out_today: false,
@@ -110,6 +110,7 @@ export function getMockSlots(): DeliverySlot[] {
     for (const [start, end] of [
       ["11:00:00", "13:00:00"],
       ["16:00:00", "18:00:00"],
+      ["18:00:00", "20:00:00"],
       ["20:00:00", "22:00:00"],
     ]) {
       slots.push({

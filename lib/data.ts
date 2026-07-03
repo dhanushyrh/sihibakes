@@ -11,6 +11,7 @@ import {
   PRE_ORDER_MAX_QUANTITY_PER_ITEM,
   resolveProductSoldOut,
   showLowStockBadge,
+  DEFAULT_DAILY_QUANTITY,
 } from "@/lib/inventory";
 import {
   getMockSlots,
@@ -555,7 +556,7 @@ export async function checkProductAvailability(
     .eq("count_date", deliveryDate)
     .single();
 
-  const limit = avail?.quantity_limit ?? 20;
+  const limit = avail?.quantity_limit ?? DEFAULT_DAILY_QUANTITY;
   const sold = countRow?.order_count ?? 0;
   const reserved = countRow?.reserved_count ?? 0;
   const remaining = getRemaining(limit, sold, reserved);

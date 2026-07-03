@@ -3,7 +3,7 @@ import { cache } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getUnacknowledgedAlerts } from "@/lib/alerts/notify-admin";
-import { getTodayDate, getRemaining, LOW_STOCK_THRESHOLD } from "@/lib/inventory";
+import { getTodayDate, getRemaining, LOW_STOCK_THRESHOLD, DEFAULT_DAILY_QUANTITY } from "@/lib/inventory";
 import type { Product } from "@/lib/types";
 
 export type DashboardProduct = Pick<
@@ -132,7 +132,7 @@ export const fetchDashboardProducts = cache(async (): Promise<{
 
   const lowStock = productList
     .filter((p) => {
-      const limit = limitMap.get(p.id) ?? 20;
+      const limit = limitMap.get(p.id) ?? DEFAULT_DAILY_QUANTITY;
       const sold = countMap.get(p.id) ?? 0;
       const remaining = getRemaining(limit, sold);
       return remaining > 0 && remaining <= LOW_STOCK_THRESHOLD;

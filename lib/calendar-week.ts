@@ -10,6 +10,7 @@ import {
 export const DEFAULT_DELIVERY_WINDOWS = [
   { start: "11:00", end: "13:00" },
   { start: "16:00", end: "18:00" },
+  { start: "18:00", end: "20:00" },
   { start: "20:00", end: "22:00" },
 ] as const;
 
