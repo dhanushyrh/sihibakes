@@ -17,8 +17,18 @@ import {
   type OrderCancelPayload,
 } from "@/lib/admin-order-cancel";
 import { ArrowLeft, Download, Search, ShoppingBag, X } from "lucide-react";
+import { shopDateKey, shopDatePlusDays } from "@/lib/shop-timezone";
 
 type DateFilterType = "delivery" | "placed";
+type QuickDeliveryFilter = "today" | "tomorrow";
+
+function quickFilterButtonClass(active: boolean) {
+  return `h-[42px] rounded-xl px-4 text-sm font-medium transition ${
+    active
+      ? "bg-[#4B2C20] text-white"
+      : "bg-white text-[#4B2C20] ring-1 ring-[#4B2C20]/10 hover:ring-[#4B2C20]/20"
+  }`;
+}
 
 export default function AdminOrdersPage() {
   const router = useRouter();
@@ -227,6 +237,31 @@ export default function AdminOrdersPage() {
     setPage(1);
   };
 
+  const shopToday = shopDateKey();
+  const shopTomorrow = shopDatePlusDays(1);
+
+  const activeQuickDeliveryFilter: QuickDeliveryFilter | null =
+    dateFilterType === "delivery" && dateFrom && dateFrom === dateTo
+      ? dateFrom === shopToday
+        ? "today"
+        : dateFrom === shopTomorrow
+          ? "tomorrow"
+          : null
+      : null;
+
+  const applyQuickDeliveryFilter = (filter: QuickDeliveryFilter) => {
+    if (activeQuickDeliveryFilter === filter) {
+      clearDateRange();
+      return;
+    }
+
+    const date = filter === "today" ? shopToday : shopTomorrow;
+    setDateFilterType("delivery");
+    setDateFrom(date);
+    setDateTo(date);
+    setPage(1);
+  };
+
   return (
     <div>
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
@@ -277,6 +312,22 @@ export default function AdminOrdersPage() {
       )}
 
       <div className="mt-4 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
+        <div className="col-span-2 flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={() => applyQuickDeliveryFilter("today")}
+            className={quickFilterButtonClass(activeQuickDeliveryFilter === "today")}
+          >
+            Today&apos;s orders
+          </button>
+          <button
+            type="button"
+            onClick={() => applyQuickDeliveryFilter("tomorrow")}
+            className={quickFilterButtonClass(activeQuickDeliveryFilter === "tomorrow")}
+          >
+            Tomorrow&apos;s orders
+          </button>
+        </div>
         <div className="col-span-2 min-w-0 sm:col-span-1 sm:min-w-[12rem] sm:flex-1">
           <label
             htmlFor="orders-search"
