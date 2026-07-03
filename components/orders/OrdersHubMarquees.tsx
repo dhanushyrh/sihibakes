@@ -58,7 +58,7 @@ export function OrdersHubProductMarquee({
 
   return (
     <div className="-mx-4 mt-4">
-      <HorizontalMarquee direction="left" durationSeconds={32}>
+      <HorizontalMarquee direction="left" durationSeconds={18}>
         {products.map((product) => (
           <ProductMarqueeCard key={product.id} product={product} />
         ))}
@@ -79,7 +79,7 @@ export function OrdersHubReviewMarquee({
       <p className="mb-2.5 px-4 text-center text-[10px] uppercase tracking-[0.2em] text-chocolate/40">
         Loved by customers
       </p>
-      <HorizontalMarquee direction="right" durationSeconds={40}>
+      <HorizontalMarquee direction="right" durationSeconds={22}>
         {reviews.map((review) => (
           <ReviewMarqueeCard key={review.id} review={review} />
         ))}

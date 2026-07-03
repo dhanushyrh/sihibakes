@@ -10,6 +10,10 @@ import { TableSkeleton } from "@/components/admin/ui/TableSkeleton";
 import { ArrowLeft, MessageSquare, Search } from "lucide-react";
 
 type TypeFilter = EnquiryType | "all";
+type StatusFilter = EnquiryStatus | "all";
+
+const filterSelectClass =
+  "mt-1 block h-[42px] w-full min-w-0 rounded-xl border border-[#4B2C20]/10 bg-white px-3 text-sm text-[#4B2C20]";
 
 export default function AdminEnquiriesPage() {
   const [enquiries, setEnquiries] = useState<ContactEnquiry[]>([]);
@@ -18,7 +22,7 @@ export default function AdminEnquiriesPage() {
   const [newCount, setNewCount] = useState(0);
   const [page, setPage] = useState(1);
   const [typeFilter, setTypeFilter] = useState<TypeFilter>("all");
-  const [statusFilters, setStatusFilters] = useState<EnquiryStatus[]>([]);
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [searchInput, setSearchInput] = useState("");
@@ -41,7 +45,7 @@ export default function AdminEnquiriesPage() {
     params.set("page", String(page));
     params.set("pageSize", String(ENQUIRIES_PAGE_SIZE));
     if (typeFilter !== "all") params.set("type", typeFilter);
-    if (statusFilters.length) params.set("status", statusFilters.join(","));
+    if (statusFilter !== "all") params.set("status", statusFilter);
     if (searchQuery) params.set("q", searchQuery);
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
@@ -59,7 +63,7 @@ export default function AdminEnquiriesPage() {
     }
 
     setLoading(false);
-  }, [typeFilter, statusFilters, searchQuery, dateFrom, dateTo, page]);
+  }, [typeFilter, statusFilter, searchQuery, dateFrom, dateTo, page]);
 
   useEffect(() => {
     void load();
@@ -76,14 +80,19 @@ export default function AdminEnquiriesPage() {
     })();
   }, [enquiries]);
 
-  const toggleStatus = (status: EnquiryStatus) => {
-    setStatusFilters((prev) =>
-      prev.includes(status) ? prev.filter((s) => s !== status) : [...prev, status]
-    );
+  const totalPages = Math.max(1, Math.ceil(totalCount / ENQUIRIES_PAGE_SIZE));
+  const hasFilters =
+    typeFilter !== "all" ||
+    statusFilter !== "all" ||
+    dateFrom !== "" ||
+    dateTo !== "" ||
+    searchQuery !== "";
+
+  const clearDateRange = () => {
+    setDateFrom("");
+    setDateTo("");
     setPage(1);
   };
-
-  const totalPages = Math.max(1, Math.ceil(totalCount / ENQUIRIES_PAGE_SIZE));
 
   return (
     <div className="p-4 md:p-8">
@@ -107,84 +116,131 @@ export default function AdminEnquiriesPage() {
             )}
           </div>
           <p className="mt-1 text-sm text-[#4B2C20]/50">
-            Kitty party, general, and contact form submissions
+            {totalCount} enquir{totalCount === 1 ? "y" : "ies"}
+            {hasFilters ? " matching filters" : ""}
+            {" · "}Kitty party, general, and contact form submissions
           </p>
         </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap gap-2">
-        {(["all", ...ENQUIRY_TYPE_OPTIONS.map((t) => t.key)] as TypeFilter[]).map(
-          (type) => (
-            <button
-              key={type}
-              type="button"
-              onClick={() => {
-                setTypeFilter(type);
-                setPage(1);
-              }}
-              className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-                typeFilter === type
-                  ? "bg-[#4B2C20] text-white"
-                  : "bg-white text-[#4B2C20] ring-1 ring-[#4B2C20]/10"
-              }`}
-            >
-              {type === "all"
-                ? "All"
-                : ENQUIRY_TYPE_OPTIONS.find((t) => t.key === type)?.label}
-            </button>
-          )
-        )}
-      </div>
-
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        {ENQUIRY_STATUS_OPTIONS.map((s) => (
-          <button
-            key={s.key}
-            type="button"
-            onClick={() => toggleStatus(s.key)}
-            className={`rounded-full px-3 py-1.5 text-xs font-medium transition ${
-              statusFilters.includes(s.key)
-                ? "bg-[#4B2C20] text-white"
-                : "bg-white text-[#4B2C20] ring-1 ring-[#4B2C20]/10"
-            }`}
+      <div className="mt-6 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
+        <div className="col-span-2 min-w-0 sm:col-span-1 sm:min-w-[12rem] sm:flex-1">
+          <label
+            htmlFor="enquiries-search"
+            className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
           >
-            {s.label}
-          </button>
-        ))}
-      </div>
-
-      <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-center">
-        <div className="relative flex-1">
-          <Search
-            size={16}
-            className="absolute left-3 top-1/2 -translate-y-1/2 text-[#4B2C20]/40"
-          />
+            Search
+          </label>
+          <div className="relative mt-1">
+            <Search
+              size={16}
+              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#4B2C20]/40"
+            />
+            <input
+              id="enquiries-search"
+              type="search"
+              value={searchInput}
+              onChange={(e) => setSearchInput(e.target.value)}
+              placeholder="Search name or phone…"
+              className="h-[42px] w-full rounded-xl border border-[#4B2C20]/10 bg-white py-0 pl-9 pr-4 text-sm text-[#4B2C20] placeholder:text-[#4B2C20]/40"
+            />
+          </div>
+        </div>
+        <div className="col-span-1 min-w-0">
+          <label
+            htmlFor="enquiries-type"
+            className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
+          >
+            Type
+          </label>
+          <select
+            id="enquiries-type"
+            value={typeFilter}
+            onChange={(e) => {
+              setTypeFilter(e.target.value as TypeFilter);
+              setPage(1);
+            }}
+            className={filterSelectClass}
+          >
+            <option value="all">All types</option>
+            {ENQUIRY_TYPE_OPTIONS.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="col-span-1 min-w-0">
+          <label
+            htmlFor="enquiries-status"
+            className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
+          >
+            Status
+          </label>
+          <select
+            id="enquiries-status"
+            value={statusFilter}
+            onChange={(e) => {
+              setStatusFilter(e.target.value as StatusFilter);
+              setPage(1);
+            }}
+            className={filterSelectClass}
+          >
+            <option value="all">All statuses</option>
+            {ENQUIRY_STATUS_OPTIONS.map((option) => (
+              <option key={option.key} value={option.key}>
+                {option.label}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="col-span-1 min-w-0">
+          <label
+            htmlFor="enquiries-date-from"
+            className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
+          >
+            From
+          </label>
           <input
-            type="search"
-            value={searchInput}
-            onChange={(e) => setSearchInput(e.target.value)}
-            placeholder="Search name or phone..."
-            className="w-full rounded-xl bg-white py-2.5 pl-9 pr-3 text-sm ring-1 ring-[#4B2C20]/10 outline-none focus:ring-[#4B2C20]/25"
+            id="enquiries-date-from"
+            type="date"
+            value={dateFrom}
+            max={dateTo || undefined}
+            onChange={(e) => {
+              setDateFrom(e.target.value);
+              setPage(1);
+            }}
+            className={filterSelectClass}
           />
         </div>
-        <input
-          type="date"
-          value={dateFrom}
-          onChange={(e) => {
-            setDateFrom(e.target.value);
-            setPage(1);
-          }}
-          className="rounded-xl bg-white px-3 py-2.5 text-sm ring-1 ring-[#4B2C20]/10"
-        />
-        <input
-          type="date"
-          value={dateTo}
-          onChange={(e) => {
-            setDateTo(e.target.value);
-            setPage(1);
-          }}
-          className="rounded-xl bg-white px-3 py-2.5 text-sm ring-1 ring-[#4B2C20]/10"
-        />
+        <div className="col-span-1 min-w-0">
+          <label
+            htmlFor="enquiries-date-to"
+            className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
+          >
+            To
+          </label>
+          <input
+            id="enquiries-date-to"
+            type="date"
+            value={dateTo}
+            min={dateFrom || undefined}
+            onChange={(e) => {
+              setDateTo(e.target.value);
+              setPage(1);
+            }}
+            className={filterSelectClass}
+          />
+        </div>
+        {(dateFrom || dateTo) && (
+          <button
+            type="button"
+            onClick={clearDateRange}
+            className="col-span-2 h-[42px] shrink-0 rounded-xl px-3 text-xs text-[#4B2C20]/60 hover:text-[#4B2C20] sm:col-span-1"
+          >
+            Clear dates
+          </button>
+        )}
       </div>
 
       {loadError && (
