@@ -7,6 +7,7 @@ import {
 } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCurrency } from "@/lib/delivery";
+import { getCachedAdminData } from "@/lib/admin-data-cache";
 
 export type AnalyticsPeriod = 7 | 30 | 90;
 
@@ -82,6 +83,14 @@ function pctChange(current: number, previous: number): number {
 }
 
 export async function fetchAnalytics(
+  period: AnalyticsPeriod = 30
+): Promise<AnalyticsData> {
+  return getCachedAdminData(`analytics-${period}`, () =>
+    fetchAnalyticsUncached(period)
+  );
+}
+
+async function fetchAnalyticsUncached(
   period: AnalyticsPeriod = 30
 ): Promise<AnalyticsData> {
   const admin = createAdminClient();

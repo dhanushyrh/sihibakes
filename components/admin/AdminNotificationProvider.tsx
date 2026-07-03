@@ -58,6 +58,18 @@ const EMPTY_COUNTS: AdminNotificationCounts = {
 
 const POLL_MS = 15_000;
 const TOAST_MS = 4_000;
+const INITIAL_COUNTS_DELAY_MS = 1_500;
+
+function scheduleDeferredCounts(refreshCounts: () => Promise<void>) {
+  const run = () => void refreshCounts();
+
+  if (typeof window !== "undefined" && "requestIdleCallback" in window) {
+    window.requestIdleCallback(run, { timeout: INITIAL_COUNTS_DELAY_MS });
+    return;
+  }
+
+  globalThis.setTimeout(run, INITIAL_COUNTS_DELAY_MS);
+}
 
 function shouldSkipWhatsAppAlert(conversationId?: string): boolean {
   if (!conversationId) return false;
@@ -89,11 +101,16 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
   const countsRef = useRef<AdminNotificationCounts>(EMPTY_COUNTS);
   const initializedRef = useRef(false);
   const pathnameRef = useRef(pathname);
+  const feedOpenRef = useRef(feedOpen);
   const toastTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     pathnameRef.current = pathname;
   }, [pathname]);
+
+  useEffect(() => {
+    feedOpenRef.current = feedOpen;
+  }, [feedOpen]);
 
   const showInAppToast = useCallback((toast: InAppToast) => {
     setInAppToast(toast);
@@ -182,8 +199,11 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
   }, [refreshCounts, refreshFeed]);
 
   const scheduleRefresh = useCallback(() => {
-    window.setTimeout(() => void refreshAll(), 400);
-  }, [refreshAll]);
+    window.setTimeout(() => {
+      if (feedOpenRef.current) void refreshAll();
+      else void refreshCounts();
+    }, 400);
+  }, [refreshAll, refreshCounts]);
 
   const dismissNotification = useCallback(
     async (item: AdminNotificationItem) => {
@@ -194,9 +214,14 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ id: alertId }),
       });
-      if (res.ok) await refreshAll();
+      if (res.ok) {
+        await Promise.all([
+          refreshCounts(),
+          feed.length > 0 ? refreshFeed() : Promise.resolve(),
+        ]);
+      }
     },
-    [refreshAll]
+    [refreshCounts, refreshFeed, feed.length]
   );
 
   const enableAlerts = useCallback(async () => {
@@ -237,7 +262,8 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
   }, []);
 
   useEffect(() => {
-    void refreshAll().then(() => {
+    scheduleDeferredCounts(async () => {
+      await refreshCounts();
       initializedRef.current = true;
     });
 
@@ -259,7 +285,7 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
         tag: `admin-wa-${row.id ?? row.wa_message_id}`,
         url: "/admin/whatsapp",
       });
-      void refreshAll();
+      void refreshCounts();
     };
 
     const channel = supabase
@@ -292,11 +318,11 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
       .subscribe();
 
     const poll = setInterval(() => {
-      void refreshAll();
+      void refreshCounts();
     }, POLL_MS);
 
     const onVisibilityChange = () => {
-      if (document.visibilityState === "visible") void refreshAll();
+      if (document.visibilityState === "visible") void refreshCounts();
     };
     document.addEventListener("visibilitychange", onVisibilityChange);
 
@@ -307,7 +333,7 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
       void supabase.removeChannel(channel);
       document.title = "Sihi Bakes Admin";
     };
-  }, [alertUser, refreshAll, scheduleRefresh]);
+  }, [alertUser, refreshCounts, refreshAll, scheduleRefresh]);
 
   const notificationsSupported = notificationPermission !== "unsupported";
 

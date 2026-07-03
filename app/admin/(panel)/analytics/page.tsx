@@ -17,8 +17,6 @@ import {
   Percent,
 } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
 function parsePeriod(raw: string | undefined): AnalyticsPeriod {
   const n = Number(raw);
   if (n === 7 || n === 30 || n === 90) return n;

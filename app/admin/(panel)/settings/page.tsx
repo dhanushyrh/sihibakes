@@ -8,7 +8,7 @@ import { format } from "date-fns";
 import { Eye, EyeOff, Pencil, Save } from "lucide-react";
 import { AdminPageSkeleton } from "@/components/admin/ui/AdminPageSkeleton";
 import { Spinner } from "@/components/admin/ui/Spinner";
-import { KitchenLocationMap } from "@/components/admin/settings/KitchenLocationMap";
+import { KitchenLocationMap } from "@/components/admin/settings/KitchenLocationMapLazy";
 import {
   DEFAULT_DELIVERY_FENCE,
   formatDeliveryFence,

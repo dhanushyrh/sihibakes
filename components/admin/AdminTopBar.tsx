@@ -35,8 +35,8 @@ function itemIcon(type: AdminNotificationItem["type"]) {
 export function AdminTopBar() {
   const router = useRouter();
   const {
+    counts,
     feed,
-    feedTotalCount,
     feedOpen,
     setFeedOpen,
     refreshFeed,
@@ -47,6 +47,11 @@ export function AdminTopBar() {
     notificationsSupported,
   } = useAdminNotifications();
   const panelRef = useRef<HTMLDivElement>(null);
+
+  const badgeTotal =
+    counts.pendingOrders + counts.whatsappUnread + counts.newEnquiries;
+  const badge =
+    badgeTotal > 99 ? "99+" : badgeTotal > 0 ? String(badgeTotal) : null;
 
   useEffect(() => {
     if (!feedOpen) return;
@@ -72,9 +77,6 @@ export function AdminTopBar() {
   useEffect(() => {
     if (feedOpen) void refreshFeed();
   }, [feedOpen, refreshFeed]);
-
-  const badge =
-    feedTotalCount > 99 ? "99+" : feedTotalCount > 0 ? String(feedTotalCount) : null;
 
   return (
     <div ref={panelRef} className="fixed right-4 top-4 z-40 md:right-8 md:top-8">

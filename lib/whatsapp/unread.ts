@@ -5,7 +5,8 @@ export async function getWhatsAppUnreadTotal(
 ): Promise<number> {
   const { data, error } = await admin
     .from("whatsapp_conversations")
-    .select("unread_count");
+    .select("unread_count")
+    .gt("unread_count", 0);
 
   if (error) {
     console.error("getWhatsAppUnreadTotal failed:", error);

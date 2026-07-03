@@ -119,8 +119,11 @@ export default function CheckoutPage({
   }, [items, products]);
 
   const subtotal = cartLines.reduce((s, l) => s + l.lineTotal, 0);
-  const deliveryFee = freeDelivery ? 0 : (delivery?.delivery_fee_inr ?? 0);
-  const total = Math.max(0, subtotal - couponDiscount + deliveryFee);
+  const baseDeliveryFee = delivery?.delivery_fee_inr ?? 0;
+  const deliveryFee = freeDelivery ? 0 : baseDeliveryFee;
+  // Free-delivery coupons only waive the delivery fee, never reduce the subtotal.
+  const effectiveCouponDiscount = freeDelivery ? 0 : couponDiscount;
+  const total = Math.max(0, subtotal - effectiveCouponDiscount + deliveryFee);
 
   const slotsForDate = useMemo(
     () => getSlotsForBookableDate(bookableSlots, selectedDate),
@@ -529,15 +532,28 @@ export default function CheckoutPage({
                 <span>Subtotal</span>
                 <span>{formatCurrency(subtotal)}</span>
               </div>
-              {couponDiscount > 0 && (
+              {effectiveCouponDiscount > 0 && (
                 <div className="flex justify-between text-green-700">
                   <span>Coupon discount</span>
-                  <span>-{formatCurrency(couponDiscount)}</span>
+                  <span>-{formatCurrency(effectiveCouponDiscount)}</span>
                 </div>
               )}
               <div className="flex justify-between">
                 <span>Delivery</span>
-                <span>{freeDelivery ? "FREE" : formatCurrency(deliveryFee)}</span>
+                <span>
+                  {freeDelivery ? (
+                    <>
+                      {baseDeliveryFee > 0 && (
+                        <span className="mr-1 text-[#4B2C20]/40 line-through">
+                          {formatCurrency(baseDeliveryFee)}
+                        </span>
+                      )}
+                      <span className="font-medium text-green-700">FREE</span>
+                    </>
+                  ) : (
+                    formatCurrency(deliveryFee)
+                  )}
+                </span>
               </div>
               <div className="mt-2 flex justify-between border-t border-[#4B2C20]/10 pt-2 font-semibold">
                 <span>Total</span>

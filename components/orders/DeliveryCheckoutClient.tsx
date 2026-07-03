@@ -350,10 +350,11 @@ export function DeliveryCheckoutClient({
     }
   }, [subtotal, appliedCoupon, availableCoupons]);
 
-  const deliveryFee = appliedCoupon?.free_delivery
-    ? 0
-    : (session.delivery?.delivery_fee_inr ?? 0);
-  const couponDiscount = appliedCoupon?.discount_inr ?? 0;
+  const baseDeliveryFee = session.delivery?.delivery_fee_inr ?? 0;
+  const isFreeDelivery = appliedCoupon?.free_delivery ?? false;
+  const deliveryFee = isFreeDelivery ? 0 : baseDeliveryFee;
+  // Free-delivery coupons discount the delivery fee only, never the subtotal.
+  const couponDiscount = isFreeDelivery ? 0 : (appliedCoupon?.discount_inr ?? 0);
   const total = Math.max(0, subtotal - couponDiscount + deliveryFee);
 
   useEffect(() => {
@@ -1040,11 +1041,27 @@ export function DeliveryCheckoutClient({
               </div>
             )}
             <div className="mt-1 flex justify-between">
-              <span>Delivery</span>
               <span>
-                {appliedCoupon?.free_delivery
-                  ? "FREE"
-                  : formatCurrency(session.delivery?.delivery_fee_inr ?? 0)}
+                Delivery
+                {isFreeDelivery && appliedCoupon?.code ? (
+                  <span className="ml-1 text-green-700">
+                    ({appliedCoupon.code})
+                  </span>
+                ) : null}
+              </span>
+              <span>
+                {isFreeDelivery ? (
+                  <>
+                    {baseDeliveryFee > 0 && (
+                      <span className="mr-1 text-chocolate/40 line-through">
+                        {formatCurrency(baseDeliveryFee)}
+                      </span>
+                    )}
+                    <span className="font-medium text-green-700">FREE</span>
+                  </>
+                ) : (
+                  formatCurrency(baseDeliveryFee)
+                )}
               </span>
             </div>
             <div className="mt-2 flex justify-between border-t border-chocolate/10 pt-2 font-semibold">

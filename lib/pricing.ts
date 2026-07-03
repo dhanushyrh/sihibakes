@@ -95,19 +95,23 @@ export function calcOrderTotal(
   deliveryFeeInr?: number
 ): OrderPricing {
   const { subtotal, productDiscount } = calcSubtotal(items);
-  let deliveryFee = deliveryFeeInr ?? lookupDeliveryFee(distanceKm, slabs);
+  const baseDeliveryFee = deliveryFeeInr ?? lookupDeliveryFee(distanceKm, slabs);
+  let deliveryFee = baseDeliveryFee;
   let couponDiscount = 0;
 
   if (couponResult?.valid) {
     if (couponResult.free_delivery) {
-      couponDiscount = deliveryFee;
+      couponDiscount = baseDeliveryFee;
       deliveryFee = 0;
     } else {
       couponDiscount = couponResult.discount_inr;
     }
   }
 
-  const total = Math.max(0, subtotal - couponDiscount + deliveryFee);
+  // Free-delivery savings are realised by waiving the delivery fee, so they must
+  // not also be subtracted from the subtotal. Only non-delivery coupons reduce it.
+  const subtotalDiscount = couponResult?.free_delivery ? 0 : couponDiscount;
+  const total = Math.max(0, subtotal - subtotalDiscount + deliveryFee);
 
   return {
     subtotal_inr: Math.round(subtotal),

@@ -2,8 +2,6 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { AdminNotificationProvider } from "@/components/admin/AdminNotificationProvider";
 import { AdminTopBar } from "@/components/admin/AdminTopBar";
 
-export const dynamic = "force-dynamic";
-
 export default function AdminPanelLayout({
   children,
 }: {

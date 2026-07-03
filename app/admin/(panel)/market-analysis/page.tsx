@@ -7,7 +7,7 @@ import { isSupabaseConfigured } from "@/lib/mock-data";
 import { MetricCard } from "@/components/admin/analytics/MetricCard";
 import { MarketAnalysisPeriodTabs } from "@/components/admin/market-analysis/MarketAnalysisPeriodTabs";
 import { FunnelChart } from "@/components/admin/market-analysis/FunnelChart";
-import { LocationHeatMap } from "@/components/admin/market-analysis/LocationHeatMap";
+import { LocationHeatMap } from "@/components/admin/market-analysis/LocationHeatMapLazy";
 import { DropOffPanel } from "@/components/admin/market-analysis/DropOffPanel";
 import { DemandPocketsTable } from "@/components/admin/market-analysis/DemandPocketsTable";
 import { MarketingRecommendations } from "@/components/admin/market-analysis/MarketingRecommendations";
@@ -21,8 +21,6 @@ import {
   TrendingDown,
   Repeat,
 } from "lucide-react";
-
-export const dynamic = "force-dynamic";
 
 function parsePeriod(raw: string | undefined): MarketAnalysisPeriod {
   const n = Number(raw);

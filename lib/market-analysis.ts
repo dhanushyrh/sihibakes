@@ -2,6 +2,7 @@ import { subDays, subMinutes, format } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCurrency } from "@/lib/delivery";
 import { normalizeActivityCartItems } from "@/lib/activity-cart";
+import { getCachedAdminData } from "@/lib/admin-data-cache";
 
 export type MarketAnalysisPeriod = 7 | 30 | 90;
 
@@ -246,6 +247,14 @@ function buildRecommendations(data: {
 }
 
 export async function fetchMarketAnalysis(
+  period: MarketAnalysisPeriod = 30
+): Promise<MarketAnalysisData> {
+  return getCachedAdminData(`market-analysis-${period}`, () =>
+    fetchMarketAnalysisUncached(period)
+  );
+}
+
+async function fetchMarketAnalysisUncached(
   period: MarketAnalysisPeriod = 30
 ): Promise<MarketAnalysisData> {
   const admin = createAdminClient();
