@@ -14,6 +14,7 @@ import { getMaxQuantityPerItem } from "@/lib/inventory";
 import type { Product, ProductTag } from "@/lib/types";
 import { TAG_OPTIONS } from "@/lib/constants";
 import type { PublicCoupon } from "@/lib/public-coupons";
+import type { DeliveryMode } from "@/lib/customer-delivery-slots";
 import { MenuCouponsShowcase } from "@/components/orders/MenuCouponsShowcase";
 import { OrderFlowLoading } from "@/components/store/OrderFlowLoading";
 import { Spinner } from "@/components/ui/Spinner";
@@ -21,9 +22,13 @@ import { Spinner } from "@/components/ui/Spinner";
 export function DeliveryMenuClient({
   products: initialProducts,
   coupons,
+  ssrDeliveryMode = null,
+  ssrDeliveryDate = null,
 }: {
   products: Product[];
   coupons: PublicCoupon[];
+  ssrDeliveryMode?: DeliveryMode | null;
+  ssrDeliveryDate?: string | null;
 }) {
   const router = useRouter();
   const { session, sessionReady, isDeliveryModeReady } = useDeliverySession();
@@ -43,6 +48,25 @@ export function DeliveryMenuClient({
 
   useEffect(() => {
     if (!sessionReady || !session.deliveryDate || !session.deliveryMode) return;
+
+    // SSR already fetched products for this exact schedule via cookies; skip the
+    // duplicate client fetch, but still prune the cart against SSR products.
+    const scheduleMatchesSsr =
+      session.deliveryDate === ssrDeliveryDate &&
+      session.deliveryMode === ssrDeliveryMode;
+    if (scheduleMatchesSsr) {
+      const validIds = new Set(
+        initialProducts.filter(isMenuProduct).map((p) => p.id)
+      );
+      const removedCount = items.filter((i) => !validIds.has(i.productId)).length;
+      pruneItems([...validIds]);
+      if (removedCount > 0) {
+        setUnavailableNotice(
+          "Some items in your cart are unavailable for this delivery date and were removed."
+        );
+      }
+      return;
+    }
 
     setRefetching(true);
     const params = new URLSearchParams({

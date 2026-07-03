@@ -19,6 +19,7 @@ import {
   isDeliveryModeReady,
 } from "@/lib/delivery-session";
 import type { DeliveryMode } from "@/lib/customer-delivery-slots";
+import { syncDeliveryScheduleCookies } from "@/lib/delivery-session-cookies";
 
 type DeliverySessionContextValue = {
   session: DeliverySession;
@@ -51,7 +52,11 @@ export function DeliverySessionProvider({
   const [hydrated, setHydrated] = useState(false);
 
   useEffect(() => {
-    setSession(readDeliverySession());
+    const session = readDeliverySession();
+    setSession(session);
+    if (session.deliveryMode && session.deliveryDate) {
+      syncDeliveryScheduleCookies(session.deliveryMode, session.deliveryDate);
+    }
     setHydrated(true);
   }, []);
 
@@ -67,6 +72,7 @@ export function DeliverySessionProvider({
   );
 
   const setDeliverySchedule = useCallback((mode: DeliveryMode, date: string) => {
+    syncDeliveryScheduleCookies(mode, date);
     setSession((prev) => {
       if (prev.deliveryMode === mode && prev.deliveryDate === date) {
         return prev;
@@ -85,12 +91,17 @@ export function DeliverySessionProvider({
     if (!hydrated) return;
     if (session.lat == null || session.lng == null) return;
     if (session.delivery != null) return;
+    if (!session.deliveryDate) return;
 
     let cancelled = false;
     fetch("/api/delivery/calculate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lat: session.lat, lng: session.lng }),
+      body: JSON.stringify({
+        lat: session.lat,
+        lng: session.lng,
+        delivery_date: session.deliveryDate,
+      }),
     })
       .then((r) => r.json())
       .then((data: DeliveryCalculation) => {
@@ -103,7 +114,7 @@ export function DeliverySessionProvider({
     return () => {
       cancelled = true;
     };
-  }, [hydrated, session.lat, session.lng, session.delivery]);
+  }, [hydrated, session.lat, session.lng, session.delivery, session.deliveryDate]);
 
   const setAddress = useCallback(
     (fields: Partial<Pick<DeliverySession, "house" | "street" | "landmark" | "pincode">>) => {

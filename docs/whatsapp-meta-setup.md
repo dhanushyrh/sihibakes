@@ -13,6 +13,8 @@ Set these in Vercel (or local `.env`):
 | `WHATSAPP_VERIFY_TOKEN` | Any secret string you choose for webhook verification |
 | `WHATSAPP_APP_SECRET` | App Secret from Meta App Dashboard → App settings → Basic |
 | `WHATSAPP_WABA_ID` | WhatsApp Business Account ID — required for template create/list API |
+| `WHATSAPP_ADMIN_ORDER_ALERT_PHONE` | 10-digit Indian mobile for staff new-order WhatsApp alerts (e.g. `9108930175`) |
+| `WHATSAPP_TEMPLATE_ADMIN_NEW_ORDER` | Template name for staff alerts (default `new_order_received`) |
 
 ## 2. Webhook callback URL
 
@@ -64,6 +66,7 @@ Ensure these templates exist in WhatsApp Manager (names must match env vars). Al
 | `order_self_on_the_way_v2` | `WHATSAPP_TEMPLATE_ORDER_SELF_DISPATCH` | `en_US` | order #, ETA | Self-delivery out for delivery |
 | `order_cancelled` | `WHATSAPP_TEMPLATE_ORDER_CANCELLED` | `en_US` | order #, reason | Order cancelled |
 | `enquiry_received` | `WHATSAPP_TEMPLATE_ENQUIRY_RECEIVED` | `en_US` | first name, reference | Enquiry submitted — **live** |
+| `new_order_received` | `WHATSAPP_TEMPLATE_ADMIN_NEW_ORDER` | `en_US` | name, items, slot | Paid order — staff alert to `WHATSAPP_ADMIN_ORDER_ALERT_PHONE` |
 
 The app validates body parameter counts and normalizes `en` → `en_US` for utility templates before each send.
 
@@ -81,6 +84,7 @@ Template list:
 - `order_self_on_the_way_v2` (self-delivery out for delivery — order # and ETA)
 - `order_out_for_delivery_v2` (legacy)
 - `order_cancelled`
+- `new_order_received` (staff alert to `WHATSAPP_ADMIN_ORDER_ALERT_PHONE` when payment succeeds)
 
 Admin chat can send the order-related templates from the inbox when the reply window is closed.
 
@@ -179,6 +183,18 @@ Sent automatically when a customer submits a general, kitty party, or landing en
 
 - `{{1}}` — customer first name
 - `{{2}}` — short enquiry reference (first 8 characters of enquiry id)
+
+### Staff new-order alert (`new_order_received`)
+
+Sent automatically to `WHATSAPP_ADMIN_ORDER_ALERT_PHONE` when a customer order is paid:
+
+> New order received from {{1}} for {{2}} for {{3}}.
+
+- `{{1}}` — customer name
+- `{{2}}` — items summary (e.g. `2× Tiramisu, 1× Brownie`)
+- `{{3}}` — delivery date and slot (e.g. `4 Jul, 6:00 PM – 8:00 PM`)
+
+Set `WHATSAPP_ADMIN_ORDER_ALERT_PHONE` (10-digit Indian mobile, no country code required). Create the template via **Admin → WhatsApp → Templates → Seed defaults**, then wait for Meta approval.
 
 ### Reach confirmation template (`reach_confirmation`)
 

@@ -11,6 +11,7 @@ import {
 import type { CartItem } from "@/lib/types";
 
 import { trackActivity } from "@/lib/activity-tracker";
+import { syncCartIdsCookie } from "@/lib/delivery-session-cookies";
 
 const CART_KEY = "sihi-cart";
 
@@ -43,6 +44,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (hydrated) {
       localStorage.setItem(CART_KEY, JSON.stringify(items));
+      syncCartIdsCookie(items.map((i) => i.productId));
     }
   }, [items, hydrated]);
 

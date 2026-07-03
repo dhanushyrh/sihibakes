@@ -343,22 +343,92 @@ export const getAvailableDeliverySlots = cache(async (): Promise<DeliverySlot[]>
 export async function getDeliveryModeAvailability() {
   const settings = await getShopSettings();
   const today = shopDateKey();
-  const [slots, todayClosed, productsForToday] = await Promise.all([
+  const [slots, todayClosed, hasTodayInventory] = await Promise.all([
     getAvailableDeliverySlots(),
     isDeliveryDayClosed(today),
-    getProducts(false, today, {
-      deliveryMode: "same_day",
-      includeLowStockBadge: true,
-    }),
+    hasActiveInventoryToday(today),
   ]);
 
   return computeDeliveryModeAvailability({
     ordersAccepting: settings?.orders_accepting ?? false,
     todayClosed,
     slots,
-    productsForToday,
+    hasTodayInventory,
   });
 }
+
+export const hasActiveInventoryToday = cache(
+  async (deliveryDate?: string): Promise<boolean> => {
+    const date = deliveryDate ?? shopDateKey();
+
+    if (!isSupabaseConfigured()) {
+      return MOCK_PRODUCTS.some(
+        (p) => p.is_active && !(p.is_sold_out ?? false)
+      );
+    }
+
+    const supabase = await createClient();
+    const { data: products } = await supabase
+      .from("products")
+      .select("id, is_active, is_sold_out")
+      .eq("is_active", true);
+
+    if (!products?.length) return false;
+
+    const productIds = products.map((p) => p.id as string);
+
+    const [{ data: availability }, { data: counts }] = await Promise.all([
+      supabase
+        .from("product_daily_availability")
+        .select("product_id, quantity_limit")
+        .in("product_id", productIds)
+        .eq("avail_date", date),
+      supabase
+        .from("product_daily_counts")
+        .select("product_id, order_count, reserved_count")
+        .in("product_id", productIds)
+        .eq("count_date", date),
+    ]);
+
+    const limitMap = new Map<string, number>();
+    for (const row of availability ?? []) {
+      limitMap.set(row.product_id as string, row.quantity_limit as number);
+    }
+
+    const countMap = new Map<string, number>();
+    const reservedMap = new Map<string, number>();
+    for (const row of counts ?? []) {
+      countMap.set(row.product_id as string, row.order_count as number);
+      reservedMap.set(
+        row.product_id as string,
+        (row.reserved_count as number | undefined) ?? 0
+      );
+    }
+
+    const availLookup = new Map<string, number>();
+    for (const p of products) {
+      const id = p.id as string;
+      const key = `${id}:${date}`;
+      const limit =
+        limitMap.get(id) ?? getQuantityLimit(availLookup, id, date);
+      availLookup.set(key, limit);
+    }
+
+    return products.some((p) => {
+      const id = p.id as string;
+      const limit =
+        limitMap.get(id) ?? getQuantityLimit(availLookup, id, date);
+      const sold = countMap.get(id) ?? 0;
+      const reserved = reservedMap.get(id) ?? 0;
+      const remaining = getRemaining(limit, sold, reserved);
+      return resolveProductSoldOut(
+        { ...p, is_sold_out: p.is_sold_out ?? false } as Product,
+        remaining,
+        "same_day"
+      ) === false;
+    });
+  }
+);
 
 export async function isFirstOrder(phone: string): Promise<boolean> {
   if (!isSupabaseConfigured()) return true;

@@ -3,7 +3,7 @@
 import { useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
-import { DeliveryLocationPicker } from "@/components/store/DeliveryLocationPicker";
+import { DeliveryLocationPicker } from "@/components/store/DeliveryLocationPickerLazy";
 import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
 import { isValidIndianPhone } from "@/lib/checkout-validation";
 import { trackActivity } from "@/lib/activity-tracker";

@@ -1,18 +1,7 @@
-import { getProducts, getShopSettings } from "@/lib/data";
-import { toStoreContact, getStorefrontDetails } from "@/lib/storefront";
-import { ShopStatusBanner } from "@/components/store/ShopStatusBanner";
-import MenuClient from "./MenuClient";
+import { redirect } from "next/navigation";
 
-export default async function MenuPage() {
-  const [products, settings] = await Promise.all([
-    getProducts(),
-    getShopSettings(),
-  ]);
-  const contact = toStoreContact(getStorefrontDetails(settings));
-  return (
-    <>
-      <ShopStatusBanner />
-      <MenuClient products={products} contact={contact} />
-    </>
-  );
+export const revalidate = 60;
+
+export default function MenuPage() {
+  redirect("/orders/delivery/menu");
 }

@@ -27,6 +27,9 @@ export const WHATSAPP_ORDER_ON_THE_WAY_TEMPLATE = "order_on_the_way_v2";
 /** Self-delivery out for delivery — order # and ETA only. */
 export const WHATSAPP_ORDER_SELF_DISPATCH_TEMPLATE = "order_self_on_the_way_v2";
 
+/** Staff alert when a new paid order is received. */
+export const WHATSAPP_ADMIN_NEW_ORDER_TEMPLATE = "new_order_received";
+
 /** Approved Meta body variable counts for each default Sihi template name. */
 export const WHATSAPP_TEMPLATE_BODY_PARAM_COUNTS: Record<string, number> = {
   [WHATSAPP_AUTH_OTP_TEMPLATE]: 1,
@@ -42,6 +45,7 @@ export const WHATSAPP_TEMPLATE_BODY_PARAM_COUNTS: Record<string, number> = {
   order_status_update: 3,
   order_out_for_delivery_v2: 4,
   order_cancelled: 2,
+  [WHATSAPP_ADMIN_NEW_ORDER_TEMPLATE]: 3,
 };
 
 /** Default Meta locale per template name (utility templates use en_US). */
@@ -59,6 +63,7 @@ export const WHATSAPP_TEMPLATE_DEFAULT_LANGUAGES: Record<string, string> = {
   order_status_update: "en_US",
   order_out_for_delivery_v2: "en_US",
   order_cancelled: "en_US",
+  [WHATSAPP_ADMIN_NEW_ORDER_TEMPLATE]: "en_US",
 };
 
 export function getTemplateLanguageCode(templateName: string): string {

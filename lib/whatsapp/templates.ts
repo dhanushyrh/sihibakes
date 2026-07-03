@@ -444,6 +444,28 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
       ],
     },
     {
+      name: "new_order_received",
+      language: "en_US",
+      category: "UTILITY",
+      allowCategoryChange: true,
+      components: [
+        {
+          type: "BODY",
+          text: "New order received from {{1}} for {{2}} for {{3}}.",
+          example: {
+            body_text: [
+              [
+                "Rahul Sharma",
+                "2× Tiramisu, 1× Brownie",
+                "4 Jul, 6:00 PM – 8:00 PM",
+              ],
+            ],
+          },
+        },
+        { type: "FOOTER", text: footer },
+      ],
+    },
+    {
       name: "reach_confirmation",
       language: "en_US",
       category: "UTILITY",

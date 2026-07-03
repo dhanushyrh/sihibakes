@@ -3,7 +3,7 @@ import {
   commitOrderInventory,
   incrementProductCountsForOrder,
 } from "@/lib/inventory-server";
-import { notifyOrderPlaced } from "@/lib/whatsapp/notifications";
+import { notifyAdminNewOrder, notifyOrderPlaced } from "@/lib/whatsapp/notifications";
 import { markActivityOrderCompleted } from "@/lib/customer-activity";
 import type { OrderStatus } from "@/lib/types";
 
@@ -68,6 +68,10 @@ export async function markOrderPaid(
   } catch (err) {
     console.error("WhatsApp order placed notification failed after payment:", err);
   }
+
+  void notifyAdminNewOrder(orderId).catch((err) => {
+    console.error("WhatsApp admin new-order alert failed after payment:", err);
+  });
 
   return { newlyPaid, whatsapp };
 }

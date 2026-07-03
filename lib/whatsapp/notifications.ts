@@ -1,8 +1,10 @@
+import { formatOrderItems } from "@/lib/order-roster";
 import { BRAND } from "@/lib/constants";
 import { enquiryShortId } from "@/lib/enquiries";
 import { isSelfDeliveryOrder } from "@/lib/order-status-update";
-import type { Order, OrderStatus } from "@/lib/types";
+import type { Order, OrderItem, OrderStatus, Product } from "@/lib/types";
 import {
+  getAdminOrderAlertPhone,
   getWhatsAppConfig,
   isWhatsAppConfigured,
   isWhatsAppNotificationsEnabled,
@@ -14,6 +16,7 @@ import {
   WHATSAPP_ORDER_SELF_DISPATCH_TEMPLATE,
   WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
 } from "@/lib/whatsapp/template-components";
+import { WHATSAPP_ADMIN_NEW_ORDER_TEMPLATE } from "@/lib/whatsapp/template-registry";
 
 export async function sendCheckoutOtp(phone: string, code: string) {
   const config = getWhatsAppConfig();
@@ -240,6 +243,79 @@ export async function notifyOrderPlaced(orderId: string) {
 
 export async function notifyOrderConfirmed(orderId: string) {
   return notifyOrderPlaced(orderId);
+}
+
+/** Staff WhatsApp alert when a customer order is paid. */
+export async function notifyAdminNewOrder(orderId: string) {
+  const alertPhone = getAdminOrderAlertPhone();
+  if (!alertPhone) {
+    return { ok: false, messageId: null, error: "Admin alert phone not configured" };
+  }
+
+  if (!isWhatsAppConfigured()) {
+    return { ok: false, messageId: null, error: "WhatsApp not configured" };
+  }
+
+  if (await hasSentMessage(orderId, "admin_new_order")) {
+    return { ok: true, messageId: null, error: null };
+  }
+
+  const { createAdminClient } = await import("@/lib/supabase/admin");
+  const admin = createAdminClient();
+
+  const { data: order } = await admin
+    .from("orders")
+    .select("*, order_items(*, products(title))")
+    .eq("id", orderId)
+    .single();
+
+  if (!order) {
+    console.error("WhatsApp admin new-order alert skipped — order not found:", orderId);
+    return { ok: false, messageId: null, error: "Order not found" };
+  }
+
+  const items = (order.order_items ?? []) as (OrderItem & {
+    products?: Product | null;
+  })[];
+  const itemsSummary = formatOrderItems(items) || "Items pending";
+
+  const config = getWhatsAppConfig();
+  const templateName =
+    config?.templates.adminNewOrder ?? WHATSAPP_ADMIN_NEW_ORDER_TEMPLATE;
+
+  const resolved = resolveTemplateComponents(templateName, {
+    order: order as Order,
+    itemsSummary,
+  });
+  if (!resolved) {
+    const error = `Could not build template parameters for "${templateName}"`;
+    console.error(`WhatsApp admin new-order alert failed for ${order.order_number}:`, error);
+    return { ok: false, messageId: null, error };
+  }
+
+  const result = await sendWhatsAppTemplate({
+    phone: alertPhone,
+    messageType: "admin_new_order",
+    templateName,
+    components: resolved.components,
+    orderId,
+    languageCode: resolved.languageCode,
+    bypassNotificationsToggle: true,
+    skipChatPersistence: true,
+  });
+
+  if (!result.ok) {
+    console.error(
+      `WhatsApp admin new-order alert failed for ${order.order_number}:`,
+      result.error
+    );
+  } else if (result.messageId) {
+    console.info(
+      `WhatsApp admin new-order alert sent for ${order.order_number} (${result.messageId})`
+    );
+  }
+
+  return result;
 }
 
 export function getWhatsAppSetupHint(): string {

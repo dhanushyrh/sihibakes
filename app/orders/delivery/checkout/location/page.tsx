@@ -15,7 +15,7 @@ export default async function DeliveryCheckoutLocationPage() {
 
   return (
     <div className="min-h-screen bg-cream">
-      <ShopStatusBanner />
+      <ShopStatusBanner status={storefront} />
       <DeliveryCheckoutLocationClient
         storeOpen={storefront.isOpen}
         kitchenLat={settings?.kitchen_lat ?? DEFAULT_KITCHEN.lat}

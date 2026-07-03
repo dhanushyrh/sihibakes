@@ -12,6 +12,7 @@ import {
 import {
   getExpectedBodyParamCount,
   getTemplateLanguageCode,
+  WHATSAPP_ADMIN_NEW_ORDER_TEMPLATE,
   WHATSAPP_AUTH_OTP_TEMPLATE,
   WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE,
   WHATSAPP_ORDER_CONFIRMED_TEMPLATE,
@@ -43,6 +44,14 @@ export function formatOtpSupportPhone(phone?: string | null): string {
 
 function textParam(value: string) {
   return { type: "text" as const, text: value.slice(0, 1024) };
+}
+
+const WHATSAPP_PARAM_SOFT_MAX = 200;
+
+export function truncateForWhatsAppParam(text: string, maxLen = WHATSAPP_PARAM_SOFT_MAX): string {
+  const trimmed = text.trim();
+  if (trimmed.length <= maxLen) return trimmed;
+  return `${trimmed.slice(0, maxLen - 1).trimEnd()}…`;
 }
 
 export function formatInr(amount: number): string {
@@ -280,6 +289,22 @@ export function buildOrderCancelledComponents(order: Order): TemplateComponent[]
   ];
 }
 
+export function buildAdminNewOrderComponents(
+  order: Order,
+  itemsSummary: string
+): TemplateComponent[] {
+  return [
+    {
+      type: "body",
+      parameters: [
+        textParam(truncateForWhatsAppParam(order.customer_name)),
+        textParam(truncateForWhatsAppParam(itemsSummary)),
+        textParam(truncateForWhatsAppParam(formatOrderConfirmedDeliverySlot(order))),
+      ],
+    },
+  ];
+}
+
 export type ResolvedTemplatePayload = {
   components: TemplateComponent[];
   languageCode: string;
@@ -326,6 +351,7 @@ export function resolveTemplateComponents(
     enquiry?: { name: string; reference: string };
     status?: OrderStatus;
     extras?: { estimatedArrival?: string };
+    itemsSummary?: string;
   }
 ): ResolvedTemplatePayload | null {
   const config = getWhatsAppConfig();
@@ -344,6 +370,8 @@ export function resolveTemplateComponents(
   const otp = templates?.otp ?? WHATSAPP_REACH_CONFIRMATION_TEMPLATE;
   const enquiryReceived =
     templates?.enquiryReceived ?? WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE;
+  const adminNewOrder =
+    templates?.adminNewOrder ?? WHATSAPP_ADMIN_NEW_ORDER_TEMPLATE;
 
   if (normalized === otp.toLowerCase()) {
     if (!params.code) return null;
@@ -359,6 +387,15 @@ export function resolveTemplateComponents(
     return finalizeTemplatePayload(
       enquiryReceived,
       buildEnquiryReceivedComponents(params.enquiry.name, params.enquiry.reference)
+    );
+  }
+
+  if (normalized === adminNewOrder.toLowerCase()) {
+    const order = params.order;
+    if (!order || !params.itemsSummary) return null;
+    return finalizeTemplatePayload(
+      adminNewOrder,
+      buildAdminNewOrderComponents(order, params.itemsSummary)
     );
   }
 

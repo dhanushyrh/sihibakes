@@ -7,7 +7,13 @@ import { formatReviewDate } from "@/lib/reviews";
 import type { HubMarqueeProduct } from "@/lib/data";
 import type { CustomerReview } from "@/lib/types";
 
-function ProductMarqueeCard({ product }: { product: HubMarqueeProduct }) {
+function ProductMarqueeCard({
+  product,
+  priority = false,
+}: {
+  product: HubMarqueeProduct;
+  priority?: boolean;
+}) {
   return (
     <Link
       href="/orders/delivery"
@@ -20,6 +26,7 @@ function ProductMarqueeCard({ product }: { product: HubMarqueeProduct }) {
           fill
           className="object-cover"
           sizes="132px"
+          priority={priority}
         />
       </div>
       <div className="px-2.5 py-2">
@@ -59,8 +66,12 @@ export function OrdersHubProductMarquee({
   return (
     <div className="-mx-4 mt-4">
       <HorizontalMarquee direction="left" durationSeconds={18}>
-        {products.map((product) => (
-          <ProductMarqueeCard key={product.id} product={product} />
+        {products.map((product, index) => (
+          <ProductMarqueeCard
+            key={product.id}
+            product={product}
+            priority={index < 3}
+          />
         ))}
       </HorizontalMarquee>
     </div>
@@ -75,7 +86,7 @@ export function OrdersHubReviewMarquee({
   if (reviews.length === 0) return null;
 
   return (
-    <div className="-mx-4 mt-6">
+    <div className="-mx-4 mt-6 [content-visibility:auto] [contain-intrinsic-size:auto_140px]">
       <p className="mb-2.5 px-4 text-center text-[10px] uppercase tracking-[0.2em] text-chocolate/40">
         Loved by customers
       </p>

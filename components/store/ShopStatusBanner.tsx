@@ -1,4 +1,4 @@
-import { getStorefrontStatus, type StorefrontStatus } from "@/lib/data";
+import type { StorefrontStatus } from "@/lib/data";
 import { OrdersPausedBanner } from "@/components/store/StoreFooter";
 
 export function ShopStatusBannerView({
@@ -16,7 +16,6 @@ export function ShopStatusBannerView({
   );
 }
 
-export async function ShopStatusBanner() {
-  const status = await getStorefrontStatus();
+export function ShopStatusBanner({ status }: { status: StorefrontStatus }) {
   return <ShopStatusBannerView {...status} />;
 }

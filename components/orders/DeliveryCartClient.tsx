@@ -19,11 +19,22 @@ import { formatDeliveryModeSummary } from "@/lib/delivery-mode-availability";
 import { getMaxQuantityPerItem } from "@/lib/inventory";
 import { trackActivity } from "@/lib/activity-tracker";
 import type { Product } from "@/lib/types";
+import type { DeliveryMode } from "@/lib/customer-delivery-slots";
 import { OrderFlowLoading } from "@/components/store/OrderFlowLoading";
 import { CartLinesSkeleton } from "@/components/store/StorePageSkeleton";
 import { Spinner } from "@/components/ui/Spinner";
 
-export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
+export function DeliveryCartClient({
+  storeOpen,
+  initialProducts = [],
+  ssrDeliveryDate = null,
+  ssrDeliveryMode = null,
+}: {
+  storeOpen: boolean;
+  initialProducts?: Product[];
+  ssrDeliveryDate?: string | null;
+  ssrDeliveryMode?: DeliveryMode | null;
+}) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const {
@@ -36,8 +47,8 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
     setVerifiedPhone,
   } = useDeliverySession();
   const { items, updateQuantity, removeItem, itemCount, pruneItems } = useCart();
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
+  const [loading, setLoading] = useState(initialProducts.length === 0);
   const [authSheetOpen, setAuthSheetOpen] = useState(false);
   const [continuing, setContinuing] = useState(false);
   const [unavailableNotice, setUnavailableNotice] = useState("");
@@ -67,6 +78,29 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
     }
     if (!session.deliveryDate) return;
 
+    // SSR already fetched these exact cart products for this schedule; reuse them
+    // and skip the client round-trip on first paint.
+    const scheduleMatchesSsr =
+      session.deliveryDate === ssrDeliveryDate &&
+      session.deliveryMode === ssrDeliveryMode;
+    if (
+      scheduleMatchesSsr &&
+      initialProducts.length > 0 &&
+      ids.every((id) => initialProducts.some((p) => p.id === id))
+    ) {
+      setProducts(initialProducts);
+      const validIds = new Set(getMenuProductIds(initialProducts));
+      const removedCount = items.filter((i) => !validIds.has(i.productId)).length;
+      pruneItems([...validIds]);
+      if (removedCount > 0) {
+        setUnavailableNotice(
+          "Some items are unavailable for your selected delivery date and were removed."
+        );
+      }
+      setLoading(false);
+      return;
+    }
+
     const params = new URLSearchParams({
       ids: ids.join(","),
       delivery_date: session.deliveryDate,
@@ -89,6 +123,7 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
         setLoading(false);
       })
       .catch(() => setLoading(false));
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- SSR props are stable; refetch keyed on cart + schedule
   }, [items, session.deliveryDate, session.deliveryMode, pruneItems]);
 
   const maxQuantityPerItem = getMaxQuantityPerItem(session.deliveryMode);
@@ -260,6 +295,7 @@ export function DeliveryCartClient({ storeOpen }: { storeOpen: boolean }) {
                       alt={line.product.title}
                       fill
                       className="object-cover"
+                      sizes="64px"
                     />
                   </div>
                   <div className="flex flex-1 flex-col">

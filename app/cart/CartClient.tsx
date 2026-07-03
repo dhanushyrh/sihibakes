@@ -103,6 +103,7 @@ export default function CartClient({
                       alt={line.product.title}
                       fill
                       className="object-cover"
+                      sizes="64px"
                     />
                   </div>
                   <div className="flex flex-1 flex-col">

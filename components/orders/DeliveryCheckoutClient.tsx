@@ -6,9 +6,9 @@ import Script from "next/script";
 import Image from "next/image";
 import { CheckCircle2, Tag } from "lucide-react";
 import { OrderFlowHeader } from "@/components/orders/OrderFlowHeader";
-import { SelectedLocationMap } from "@/components/store/SelectedLocationMap";
+import { SelectedLocationMap } from "@/components/store/SelectedLocationMapLazy";
 import { DeliverySlotSelects } from "@/components/store/DeliverySlotSelects";
-import { AvailableCouponsPicker } from "@/components/store/AvailableCouponsPicker";
+import { AvailableCouponsPicker } from "@/components/store/AvailableCouponsPickerLazy";
 import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
 import { useCart } from "@/components/store/CartProvider";
 import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
@@ -66,6 +66,10 @@ type PlacedOrder = {
 
 export function DeliveryCheckoutClient({
   initialSlots,
+  initialCoupons = [],
+  initialProducts = [],
+  ssrDeliveryDate = null,
+  ssrDeliveryMode = null,
   storeOpen,
   kitchenLat,
   kitchenLng,
@@ -73,6 +77,10 @@ export function DeliveryCheckoutClient({
   paymentSkipEnabled,
 }: {
   initialSlots: DeliverySlot[];
+  initialCoupons?: PublicCoupon[];
+  initialProducts?: Product[];
+  ssrDeliveryDate?: string | null;
+  ssrDeliveryMode?: DeliveryMode | null;
   storeOpen: boolean;
   kitchenLat: number;
   kitchenLng: number;
@@ -94,11 +102,13 @@ export function DeliveryCheckoutClient({
     clearSession,
   } = useDeliverySession();
 
-  const [products, setProducts] = useState<Product[]>([]);
+  const [products, setProducts] = useState<Product[]>(initialProducts);
   const [bookableSlots, setBookableSlots] = useState(initialSlots);
   const [selectedDate, setSelectedDate] = useState("");
   const [selectedSlotId, setSelectedSlotId] = useState("");
-  const [availableCoupons, setAvailableCoupons] = useState<PublicCoupon[]>([]);
+  const [availableCoupons, setAvailableCoupons] =
+    useState<PublicCoupon[]>(initialCoupons);
+  const [loadRazorpay, setLoadRazorpay] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const [couponMessage, setCouponMessage] = useState("");
@@ -189,19 +199,25 @@ export function DeliveryCheckoutClient({
     setAppliedCoupon(readAppliedCoupon());
   }, []);
 
-  useEffect(() => {
-    fetch("/api/coupons")
-      .then((r) => r.json())
-      .then((data) => {
-        if (Array.isArray(data)) setAvailableCoupons(data);
-      })
-      .catch(() => {});
-  }, []);
+  // Coupons are provided by SSR (initialCoupons); no client fetch needed.
 
   useEffect(() => {
     const ids = items.map((i) => i.productId);
     const inventoryDate = selectedDate || session.deliveryDate;
     if (!ids.length || !inventoryDate) return;
+
+    // SSR already fetched these exact products for this schedule; reuse on mount.
+    const productsMatchInitial =
+      initialProducts.length > 0 &&
+      inventoryDate === ssrDeliveryDate &&
+      deliveryMode === ssrDeliveryMode &&
+      ids.every((id) => initialProducts.some((p) => p.id === id));
+    if (productsMatchInitial) {
+      setProducts(initialProducts);
+      pruneItems(initialProducts.filter(isMenuProduct).map((p) => p.id));
+      return;
+    }
+
     const params = new URLSearchParams({
       ids: ids.join(","),
       delivery_date: inventoryDate,
@@ -215,6 +231,7 @@ export function DeliveryCheckoutClient({
         setProducts(data);
         pruneItems(data.filter(isMenuProduct).map((p) => p.id));
       });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- SSR props are stable; refetch keyed on cart + schedule
   }, [items, selectedDate, session.deliveryDate, deliveryMode, pruneItems]);
 
   const handleDateChange = (date: string) => {
@@ -224,11 +241,9 @@ export function DeliveryCheckoutClient({
     }
   };
 
+  // Slots are provided by SSR (initialSlots); keep in sync if the prop changes.
   useEffect(() => {
-    fetch("/api/delivery/slots")
-      .then((r) => r.json())
-      .then(setBookableSlots)
-      .catch(() => setBookableSlots(initialSlots));
+    setBookableSlots(initialSlots);
   }, [initialSlots]);
 
   useEffect(() => {
@@ -732,12 +747,14 @@ export function DeliveryCheckoutClient({
 
   return (
     <div className="flex min-h-screen flex-col pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
-      <Script
-        src="https://checkout.razorpay.com/v1/checkout.js"
-        strategy="afterInteractive"
-        onLoad={() => setRazorpayReady(true)}
-        onReady={() => setRazorpayReady(true)}
-      />
+      {loadRazorpay ? (
+        <Script
+          src="https://checkout.razorpay.com/v1/checkout.js"
+          strategy="afterInteractive"
+          onLoad={() => setRazorpayReady(true)}
+          onReady={() => setRazorpayReady(true)}
+        />
+      ) : null}
       <OrderFlowHeader title="Checkout" backHref="/orders/delivery/cart" />
 
       <main className="mx-auto w-full max-w-lg flex-1 px-4 py-6">
@@ -1079,7 +1096,7 @@ export function DeliveryCheckoutClient({
             </p>
           )}
 
-          {!paymentSkipEnabled && !razorpayReady && (
+          {!paymentSkipEnabled && loadRazorpay && !razorpayReady && (
             <div className="flex items-center gap-2 text-xs text-chocolate/50">
               <Spinner size="sm" label="Loading secure payment" />
               <span>Loading secure payment…</span>
@@ -1092,8 +1109,19 @@ export function DeliveryCheckoutClient({
         <div className="mx-auto max-w-lg px-4 py-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
           <button
             type="button"
-            disabled={placingOrder || (!paymentSkipEnabled && !razorpayReady)}
-            onClick={() => void payWithRazorpay()}
+            disabled={
+              placingOrder ||
+              (!paymentSkipEnabled && loadRazorpay && !razorpayReady)
+            }
+            onPointerEnter={() => setLoadRazorpay(true)}
+            onFocus={() => setLoadRazorpay(true)}
+            onClick={() => {
+              if (!paymentSkipEnabled && !razorpayReady) {
+                setLoadRazorpay(true);
+                return;
+              }
+              void payWithRazorpay();
+            }}
             className="flex w-full items-center justify-center gap-2 rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-40"
           >
             {placingOrder ? (

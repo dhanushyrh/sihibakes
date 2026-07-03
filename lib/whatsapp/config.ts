@@ -16,6 +16,7 @@ export type WhatsAppConfig = {
     orderSelfDispatch: string;
     orderCancelled: string;
     enquiryReceived: string;
+    adminNewOrder: string;
   };
   languageCode: string;
   orderPlacedLanguageCode: string;
@@ -104,9 +105,20 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
         process.env.WHATSAPP_TEMPLATE_ORDER_CANCELLED?.trim() || "order_cancelled",
       enquiryReceived:
         process.env.WHATSAPP_TEMPLATE_ENQUIRY_RECEIVED?.trim() || "enquiry_received",
+      adminNewOrder:
+        process.env.WHATSAPP_TEMPLATE_ADMIN_NEW_ORDER?.trim() || "new_order_received",
     },
     orderPlacedLanguageCode: normalizeUtilityTemplateLanguageCode(
       process.env.WHATSAPP_TEMPLATE_ORDER_PLACED_LANGUAGE?.trim() || "en_US"
     ),
   };
+}
+
+/** 10-digit Indian mobile for staff new-order WhatsApp alerts; null when unset. */
+export function getAdminOrderAlertPhone(): string | null {
+  const raw = process.env.WHATSAPP_ADMIN_ORDER_ALERT_PHONE?.trim();
+  if (!raw) return null;
+  const digits = raw.replace(/\D/g, "");
+  const normalized = digits.length >= 10 ? digits.slice(-10) : digits;
+  return normalized.length === 10 ? normalized : null;
 }

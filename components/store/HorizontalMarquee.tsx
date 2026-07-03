@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
+import { type CSSProperties, type ReactNode } from "react";
 
 type HorizontalMarqueeProps = {
   children: ReactNode;
@@ -15,13 +15,8 @@ export function HorizontalMarquee({
   durationSeconds = 35,
   className = "",
 }: HorizontalMarqueeProps) {
-  const [showDuplicate, setShowDuplicate] = useState(false);
   const animationClass =
     direction === "left" ? "animate-marquee-left" : "animate-marquee-right";
-
-  useEffect(() => {
-    setShowDuplicate(true);
-  }, []);
 
   return (
     <div
@@ -34,11 +29,9 @@ export function HorizontalMarquee({
     >
       <div className={`marquee-track flex w-max ${animationClass}`}>
         <div className="flex shrink-0 items-stretch gap-3 pr-3">{children}</div>
-        {showDuplicate ? (
-          <div className="flex shrink-0 items-stretch gap-3 pr-3" aria-hidden>
-            {children}
-          </div>
-        ) : null}
+        <div className="flex shrink-0 items-stretch gap-3 pr-3" aria-hidden>
+          {children}
+        </div>
       </div>
     </div>
   );

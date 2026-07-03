@@ -4,7 +4,7 @@ import {
   getSameDaySlots,
   type DeliveryMode,
 } from "@/lib/customer-delivery-slots";
-import type { DeliverySlot, Product } from "@/lib/types";
+import type { DeliverySlot } from "@/lib/types";
 import { isShopToday, isShopTomorrow } from "@/lib/shop-timezone";
 
 export type SameDayBlockReason =
@@ -62,14 +62,11 @@ export function computeDeliveryModeAvailability(input: {
   ordersAccepting: boolean;
   todayClosed: boolean;
   slots: DeliverySlot[];
-  productsForToday: Product[];
+  hasTodayInventory: boolean;
 }): DeliveryModeAvailability {
-  const { ordersAccepting, todayClosed, slots, productsForToday } = input;
+  const { ordersAccepting, todayClosed, slots, hasTodayInventory } = input;
   const sameDaySlots = getSameDaySlots(slots);
   const preOrderDates = getPreOrderDates(slots);
-  const hasTodayInventory = productsForToday.some(
-    (p) => p.is_active && !p.sold_out_today
-  );
 
   let sameDayEnabled = true;
   let sameDayReason: SameDayBlockReason | null = null;
