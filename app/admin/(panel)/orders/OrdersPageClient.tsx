@@ -5,7 +5,14 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ORDERS_PAGE_SIZE } from "@/lib/constants";
 import type { Order, OrderStatus } from "@/lib/types";
-import { OrderStatusMultiSelect } from "@/components/admin/orders/OrderStatusMultiSelect";
+import {
+  createEmptyOrderFieldFilter,
+  isActiveOrderFieldFilter,
+  orderMatchesFieldFilters,
+  serializeOrderFieldFilters,
+  type OrderFieldFilter,
+} from "@/lib/admin-order-filters";
+import { OrderFieldFilters } from "@/components/admin/orders/OrderFieldFilters";
 import { OrderStatusChangeModal } from "@/components/admin/orders/OrderStatusChangeModal";
 import { OrderCancelModal } from "@/components/admin/orders/OrderCancelModal";
 import { OrdersTable } from "@/components/admin/orders/OrdersTable";
@@ -21,6 +28,8 @@ import { shopDateKey, shopDatePlusDays } from "@/lib/shop-timezone";
 
 type DateFilterType = "delivery" | "placed";
 type QuickDeliveryFilter = "today" | "tomorrow";
+
+const SLOT_GROUP_PAGE_SIZE = 200;
 
 function quickFilterButtonClass(active: boolean) {
   return `h-[42px] rounded-xl px-4 text-sm font-medium transition ${
@@ -46,7 +55,9 @@ export function OrdersPageClient({
   const [loading, setLoading] = useState(false);
   const [totalCount, setTotalCount] = useState(initialTotalCount);
   const [page, setPage] = useState(1);
-  const [statusFilters, setStatusFilters] = useState<OrderStatus[]>([]);
+  const [fieldFilters, setFieldFilters] = useState<OrderFieldFilter[]>([
+    createEmptyOrderFieldFilter(),
+  ]);
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>("delivery");
@@ -95,13 +106,23 @@ export function OrdersPageClient({
     setLoading(true);
     setLoadError(null);
 
+    const groupBySlot =
+      dateFilterType === "delivery" &&
+      dateFrom !== "" &&
+      dateFrom === dateTo;
+
     const params = new URLSearchParams();
-    params.set("page", String(page));
-    params.set("pageSize", String(ORDERS_PAGE_SIZE));
+    params.set("page", groupBySlot ? "1" : String(page));
+    params.set(
+      "pageSize",
+      String(groupBySlot ? SLOT_GROUP_PAGE_SIZE : ORDERS_PAGE_SIZE)
+    );
     params.set("dateType", dateFilterType);
+    if (groupBySlot) params.set("orderBySlot", "1");
     if (customerFilter?.id) params.set("customerId", customerFilter.id);
     if (searchQuery) params.set("q", searchQuery);
-    if (statusFilters.length) params.set("status", statusFilters.join(","));
+    const filtersParam = serializeOrderFieldFilters(fieldFilters);
+    if (filtersParam) params.set("filters", filtersParam);
     if (dateFrom) params.set("dateFrom", dateFrom);
     if (dateTo) params.set("dateTo", dateTo);
 
@@ -119,13 +140,14 @@ export function OrdersPageClient({
 
     setLoading(false);
   }, [
-    statusFilters,
+    fieldFilters,
     dateFrom,
     dateTo,
     dateFilterType,
     searchQuery,
     page,
     customerFilter?.id,
+    fieldFilters,
   ]);
 
   const skipInitialFetch = useRef(true);
@@ -195,8 +217,8 @@ export function OrdersPageClient({
         prev.map((o) => (o.id === orderId ? updated : o))
       );
       if (
-        statusFilters.length > 0 &&
-        !statusFilters.includes(payload.status)
+        fieldFilters.some(isActiveOrderFieldFilter) &&
+        !orderMatchesFieldFilters(updated, fieldFilters)
       ) {
         setOrders((prev) => prev.filter((o) => o.id !== orderId));
         setTotalCount((c) => Math.max(0, c - 1));
@@ -225,7 +247,10 @@ export function OrdersPageClient({
     } else {
       const updated = result.order as Order;
       setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
-      if (statusFilters.length > 0 && !statusFilters.includes("cancelled")) {
+      if (
+        fieldFilters.some(isActiveOrderFieldFilter) &&
+        !orderMatchesFieldFilters(updated, fieldFilters)
+      ) {
         setOrders((prev) => prev.filter((o) => o.id !== orderId));
         setTotalCount((c) => Math.max(0, c - 1));
       }
@@ -236,8 +261,9 @@ export function OrdersPageClient({
   };
 
   const totalPages = Math.max(1, Math.ceil(totalCount / ORDERS_PAGE_SIZE));
+  const activeFieldFilters = fieldFilters.filter(isActiveOrderFieldFilter);
   const hasFilters =
-    statusFilters.length > 0 ||
+    activeFieldFilters.length > 0 ||
     dateFrom !== "" ||
     dateTo !== "" ||
     searchQuery !== "" ||
@@ -260,6 +286,11 @@ export function OrdersPageClient({
           ? "tomorrow"
           : null
       : null;
+
+  const groupOrdersBySlot =
+    dateFilterType === "delivery" &&
+    dateFrom !== "" &&
+    dateFrom === dateTo;
 
   const applyQuickDeliveryFilter = (filter: QuickDeliveryFilter) => {
     if (activeQuickDeliveryFilter === filter) {
@@ -362,12 +393,11 @@ export function OrdersPageClient({
             />
           </div>
         </div>
-        <div className="col-span-2 sm:col-span-1">
-          <OrderStatusMultiSelect
-            compact
-            selected={statusFilters}
+        <div className="col-span-2">
+          <OrderFieldFilters
+            filters={fieldFilters}
             onChange={(next) => {
-              setStatusFilters(next);
+              setFieldFilters(next);
               setPage(1);
             }}
           />
@@ -469,6 +499,7 @@ export function OrdersPageClient({
             orders={orders}
             updatingId={updatingId}
             onStatusRequest={requestStatusChange}
+            groupBySlot={groupOrdersBySlot}
           />
 
           <OrderStatusChangeModal
@@ -486,15 +517,17 @@ export function OrdersPageClient({
             onConfirm={confirmCancel}
           />
 
-          <div className="mt-6">
-            <Pagination
-              page={page}
-              totalPages={totalPages}
-              totalCount={totalCount}
-              pageSize={ORDERS_PAGE_SIZE}
-              onPageChange={setPage}
-            />
-          </div>
+          {!groupOrdersBySlot && (
+            <div className="mt-6">
+              <Pagination
+                page={page}
+                totalPages={totalPages}
+                totalCount={totalCount}
+                pageSize={ORDERS_PAGE_SIZE}
+                onPageChange={setPage}
+              />
+            </div>
+          )}
         </>
       )}
     </div>

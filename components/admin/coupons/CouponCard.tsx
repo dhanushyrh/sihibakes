@@ -63,6 +63,11 @@ export function CouponCard({ coupon, deleting = false, onEdit, onDelete }: Coupo
               Inactive
             </span>
           )}
+          {coupon.is_private && (
+            <span className="rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-medium text-violet-800">
+              Private
+            </span>
+          )}
           {validity && (
             <span
               className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${validity.tone}`}

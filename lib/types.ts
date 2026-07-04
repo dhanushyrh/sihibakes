@@ -101,6 +101,7 @@ export interface Coupon {
   min_subtotal_inr: number;
   first_order_only: boolean;
   is_active: boolean;
+  is_private: boolean;
   valid_from: string | null;
   valid_until: string | null;
 }

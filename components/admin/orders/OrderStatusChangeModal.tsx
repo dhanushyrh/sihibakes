@@ -206,14 +206,9 @@ export function OrderStatusChangeModal({
             Inventory will be reserved and the customer will be notified.
           </p>
         )}
-        {targetStatus === "self_delivered" && (
-          <p className="mt-2 text-xs text-teal-800">
-            Mark when your team delivered the order directly — no delivery partner.
-          </p>
-        )}
         {targetStatus === "delivered" && order.status === "out_for_delivery" && (
           <p className="mt-2 text-xs text-[#4B2C20]/55">
-            Mark when the delivery partner has completed the handoff.
+            Mark when the order has been handed off to the customer.
           </p>
         )}
 

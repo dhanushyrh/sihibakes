@@ -155,15 +155,13 @@ export async function sendOrderStatusNotification(
 ) {
   const config = getWhatsAppConfig();
 
-  if (newStatus === "confirmed") {
-    // Payment receipt already sent — no separate message when admin confirms.
+  if (newStatus === "confirmed" || newStatus === "preparing") {
+    // Payment receipt covers confirmed; preparing updates are admin-only (no customer message).
     return;
   }
 
   let templateName: string | null = null;
-  if (newStatus === "preparing") {
-    templateName = config?.templates.orderPreparing ?? "order_preparing";
-  } else if (newStatus === "out_for_delivery") {
+  if (newStatus === "out_for_delivery") {
     templateName = isSelfDeliveryOrder(order)
       ? config?.templates.orderSelfDispatch ?? WHATSAPP_ORDER_SELF_DISPATCH_TEMPLATE
       : config?.templates.orderDispatch ?? "order_on_the_way_v2";

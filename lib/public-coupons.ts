@@ -39,6 +39,7 @@ export function filterActivePublicCoupons(
     | "value_inr"
     | "min_subtotal_inr"
     | "first_order_only"
+    | "is_private"
     | "valid_from"
     | "valid_until"
   >[],
@@ -46,6 +47,7 @@ export function filterActivePublicCoupons(
 ): PublicCoupon[] {
   return coupons
     .filter((coupon) => {
+      if (coupon.is_private) return false;
       if (coupon.valid_from && new Date(coupon.valid_from) > now) return false;
       if (coupon.valid_until && new Date(coupon.valid_until) < now) return false;
       return true;
@@ -90,9 +92,10 @@ export async function getActivePublicCoupons(): Promise<PublicCoupon[]> {
   const { data, error } = await admin
     .from("coupons")
     .select(
-      "code, type, value_inr, min_subtotal_inr, first_order_only, valid_from, valid_until"
+      "code, type, value_inr, min_subtotal_inr, first_order_only, is_private, valid_from, valid_until"
     )
     .eq("is_active", true)
+    .eq("is_private", false)
     .order("code");
 
   if (error) throw error;

@@ -1,18 +1,27 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ORDERS_PAGE_SIZE } from "@/lib/constants";
-import type { OrderStatus } from "@/lib/types";
+import {
+  applyOrderFieldFilters,
+  parseLegacyStatusFilter,
+  parseOrderFieldFilters,
+  type OrderFieldFilter,
+} from "@/lib/admin-order-filters";
 
 export type AdminOrdersDateType = "delivery" | "placed";
 
 export interface AdminOrdersQueryParams {
   q?: string;
   customerId?: string;
-  status?: OrderStatus[];
+  /** @deprecated Use fieldFilters instead */
+  status?: string[];
+  fieldFilters?: OrderFieldFilter[];
   dateFrom?: string;
   dateTo?: string;
   dateType?: AdminOrdersDateType;
   page?: number;
   pageSize?: number;
+  /** Sort by delivery slot window, then placed time (for single-day delivery views). */
+  orderBySlot?: boolean;
 }
 
 function isDateQuery(value: string): boolean {
@@ -27,24 +36,34 @@ export function parseAdminOrdersQueryParams(
   searchParams: URLSearchParams
 ): AdminOrdersQueryParams {
   const statusRaw = searchParams.get("status");
+  const filtersRaw = searchParams.get("filters");
   const page = Math.max(1, Number(searchParams.get("page") ?? 1) || 1);
   const pageSize = Math.min(
     50,
     Math.max(1, Number(searchParams.get("pageSize") ?? ORDERS_PAGE_SIZE) || ORDERS_PAGE_SIZE)
   );
   const dateType = searchParams.get("dateType");
+  const orderBySlot = searchParams.get("orderBySlot") === "1";
+
+  const fieldFilters = parseOrderFieldFilters(filtersRaw);
+  const legacyStatus = parseLegacyStatusFilter(statusRaw);
+  const mergedFieldFilters =
+    fieldFilters.length > 0
+      ? fieldFilters
+      : legacyStatus
+        ? [legacyStatus]
+        : undefined;
 
   return {
     q: searchParams.get("q")?.trim() || undefined,
     customerId: searchParams.get("customerId")?.trim() || undefined,
-    status: statusRaw
-      ? (statusRaw.split(",").filter(Boolean) as OrderStatus[])
-      : undefined,
+    fieldFilters: mergedFieldFilters,
     dateFrom: searchParams.get("dateFrom") || undefined,
     dateTo: searchParams.get("dateTo") || undefined,
     dateType: dateType === "placed" ? "placed" : "delivery",
     page,
     pageSize,
+    orderBySlot,
   };
 }
 
@@ -55,19 +74,27 @@ export async function queryAdminOrders(
   const {
     q,
     customerId,
-    status,
+    fieldFilters,
     dateFrom,
     dateTo,
     dateType = "delivery",
     page = 1,
     pageSize = ORDERS_PAGE_SIZE,
+    orderBySlot = false,
   } = params;
 
   let query = admin
     .from("orders")
     .select("*, order_items(*, products(title))", { count: "exact" })
-    .in("payment_status", ["paid", "refunded"])
-    .order("created_at", { ascending: false });
+    .in("payment_status", ["paid", "refunded"]);
+
+  if (orderBySlot) {
+    query = query
+      .order("delivery_window_start", { ascending: true })
+      .order("created_at", { ascending: true });
+  } else {
+    query = query.order("created_at", { ascending: false });
+  }
 
   if (customerId) {
     const { data: customer, error: customerError } = await admin
@@ -89,8 +116,8 @@ export async function queryAdminOrders(
     );
   }
 
-  if (status?.length) {
-    query = query.in("status", status);
+  if (fieldFilters?.length) {
+    query = applyOrderFieldFilters(query, fieldFilters);
   }
 
   if (dateFrom || dateTo) {

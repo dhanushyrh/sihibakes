@@ -6,7 +6,7 @@ const ALLOWED_TRANSITIONS: Record<OrderStatus, readonly OrderStatus[]> = {
   pending: ["confirmed", "cancelled"],
   confirmed: ["preparing"],
   preparing: ["out_for_delivery"],
-  out_for_delivery: ["delivered", "self_delivered"],
+  out_for_delivery: ["delivered"],
   delivered: [],
   self_delivered: [],
   cancelled: [],

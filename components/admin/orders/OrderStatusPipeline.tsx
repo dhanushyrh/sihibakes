@@ -83,7 +83,7 @@ export function OrderStatusPipeline({ status }: OrderStatusPipelineProps) {
       )}
       {!isCancelled && status === "out_for_delivery" && (
         <p className="mt-3 text-xs text-[#4B2C20]/55">
-          Next: mark as partner delivered or self delivered.
+          Next: mark as delivered once the customer has received the order.
         </p>
       )}
       {isSelfDelivered && (

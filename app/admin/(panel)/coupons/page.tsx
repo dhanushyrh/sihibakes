@@ -52,6 +52,7 @@ export default function AdminCouponsPage() {
       min_subtotal_inr: editing.min_subtotal_inr ?? 0,
       first_order_only: editing.first_order_only ?? false,
       is_active: editing.is_active ?? true,
+      is_private: editing.is_private ?? false,
       valid_from: editing.valid_from ?? null,
       valid_until: editing.valid_until ?? null,
     };
@@ -239,6 +240,16 @@ export default function AdminCouponsPage() {
                   }
                 />
                 Active
+              </label>
+              <label className="flex items-center gap-2 text-sm text-[#4B2C20]">
+                <input
+                  type="checkbox"
+                  checked={editing.is_private ?? false}
+                  onChange={(e) =>
+                    setEditing({ ...editing, is_private: e.target.checked })
+                  }
+                />
+                Private (hidden from menu &amp; checkout offers)
               </label>
             </div>
             <div className="mt-6 flex gap-2">
