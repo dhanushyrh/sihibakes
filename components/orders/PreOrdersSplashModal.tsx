@@ -29,15 +29,17 @@ export function PreOrdersSplashModal({
         </div>
 
         <div className="flex flex-col items-center px-5 pb-6 pt-5 text-center">
-          <video
-            src="/orders/dance-stars.webm"
-            autoPlay
-            loop
-            muted
-            playsInline
-            className="h-28 w-28 object-contain"
-            aria-hidden
-          />
+          <div className="flex h-28 w-28 items-center justify-center">
+            <video
+              src="/orders/dance-stars.webm"
+              autoPlay
+              loop
+              muted
+              playsInline
+              className="h-full w-full object-contain"
+              aria-hidden
+            />
+          </div>
           <h2
             id="preorders-splash-title"
             className="mt-4 font-display text-2xl font-semibold leading-tight text-chocolate"
