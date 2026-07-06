@@ -1,6 +1,6 @@
 import { ShopStatusBanner } from "@/components/store/ShopStatusBanner";
 import { OrdersHub } from "@/components/orders/OrdersHub";
-import { AnnouncementModal } from "@/components/orders/AnnouncementModal";
+import { OrdersHubModals } from "@/components/orders/OrdersHubModals";
 import {
   getHubMarqueeProducts,
   getPublishedReviews,
@@ -26,7 +26,7 @@ export default async function OrdersPage() {
     <div className="min-h-screen bg-cream pb-[env(safe-area-inset-bottom)]">
       <ShopStatusBanner status={storefront} />
       <OrdersHub store={store} products={products} reviews={reviews} />
-      <AnnouncementModal announcements={announcements} />
+      <OrdersHubModals announcements={announcements} />
     </div>
   );
 }

@@ -4,13 +4,14 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { ChevronRight, X } from "lucide-react";
 import { useLockBodyScroll } from "@/hooks/useLockBodyScroll";
 import {
-  filterUnseenAnnouncements,
   markAnnouncementsSeen,
 } from "@/lib/announcement-session";
 import type { PublicAnnouncement } from "@/lib/site-announcements";
 
 type AnnouncementModalProps = {
   announcements: PublicAnnouncement[];
+  open: boolean;
+  onClose: () => void;
 };
 
 const AUTO_ADVANCE_MS = 3000;
@@ -28,7 +29,7 @@ function AnnouncementSlide({
 
   return (
     <article
-      className="w-full shrink-0 snap-center snap-always"
+      className="box-border w-full min-w-full shrink-0 grow-0 basis-full snap-start snap-always px-5"
       aria-hidden={!isActive}
     >
       <h2
@@ -49,41 +50,50 @@ function AnnouncementSlide({
   );
 }
 
-export function AnnouncementModal({ announcements }: AnnouncementModalProps) {
+export function AnnouncementModal({
+  announcements,
+  open,
+  onClose,
+}: AnnouncementModalProps) {
   const [visibleAnnouncements, setVisibleAnnouncements] = useState<
     PublicAnnouncement[]
   >([]);
-  const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(0);
   const [pauseAutoAdvance, setPauseAutoAdvance] = useState(false);
   const trackRef = useRef<HTMLDivElement>(null);
   const scrollRafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    const unseen = filterUnseenAnnouncements(announcements);
-    setVisibleAnnouncements(unseen);
+    setVisibleAnnouncements(announcements);
     setActiveIndex(0);
-    setOpen(unseen.length > 0);
   }, [announcements]);
 
-  useLockBodyScroll(open);
+  useEffect(() => {
+    if (!open) return;
+    const track = trackRef.current;
+    if (!track) return;
+    track.scrollLeft = 0;
+  }, [open, visibleAnnouncements]);
+
+  useLockBodyScroll(open && visibleAnnouncements.length > 0);
 
   const dismiss = useCallback(() => {
     markAnnouncementsSeen(visibleAnnouncements.map((announcement) => announcement.id));
-    setOpen(false);
-  }, [visibleAnnouncements]);
+    onClose();
+  }, [onClose, visibleAnnouncements]);
 
   const goToSlide = useCallback((index: number) => {
     const track = trackRef.current;
     if (!track) return;
 
-    const nextIndex = Math.max(0, Math.min(index, track.children.length - 1));
-    const slide = track.children[nextIndex] as HTMLElement | undefined;
-    if (!slide) return;
-
-    track.scrollTo({ left: slide.offsetLeft, behavior: "smooth" });
+    const nextIndex = Math.max(
+      0,
+      Math.min(index, visibleAnnouncements.length - 1)
+    );
+    const slideWidth = track.clientWidth;
+    track.scrollTo({ left: nextIndex * slideWidth, behavior: "smooth" });
     setActiveIndex(nextIndex);
-  }, []);
+  }, [visibleAnnouncements.length]);
 
   const goNext = useCallback(() => {
     goToSlide(activeIndex + 1);
@@ -95,24 +105,17 @@ export function AnnouncementModal({ announcements }: AnnouncementModalProps) {
     scrollRafRef.current = window.requestAnimationFrame(() => {
       scrollRafRef.current = null;
       const track = trackRef.current;
-      if (!track || track.children.length === 0) return;
+      if (!track || track.clientWidth === 0) return;
 
-      const scrollLeft = track.scrollLeft;
-      let closestIndex = 0;
-      let closestDistance = Number.POSITIVE_INFINITY;
+      const closestIndex = Math.round(track.scrollLeft / track.clientWidth);
+      const boundedIndex = Math.max(
+        0,
+        Math.min(closestIndex, visibleAnnouncements.length - 1)
+      );
 
-      Array.from(track.children).forEach((child, index) => {
-        const slide = child as HTMLElement;
-        const distance = Math.abs(slide.offsetLeft - scrollLeft);
-        if (distance < closestDistance) {
-          closestDistance = distance;
-          closestIndex = index;
-        }
-      });
-
-      setActiveIndex(closestIndex);
+      setActiveIndex(boundedIndex);
     });
-  }, []);
+  }, [visibleAnnouncements.length]);
 
   useEffect(() => {
     if (!open || visibleAnnouncements.length <= 1) return;
@@ -221,23 +224,25 @@ export function AnnouncementModal({ announcements }: AnnouncementModalProps) {
 
         {isCarousel ? (
           <>
-            <div
-              ref={trackRef}
-              onScroll={handleScroll}
-              onPointerDown={() => setPauseAutoAdvance(true)}
-              onPointerUp={() => setPauseAutoAdvance(false)}
-              onPointerLeave={() => setPauseAutoAdvance(false)}
-              onPointerCancel={() => setPauseAutoAdvance(false)}
-              className="mt-2 flex min-h-[12rem] snap-x snap-mandatory overflow-x-auto scroll-smooth px-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-            >
-              {visibleAnnouncements.map((announcement, index) => (
-                <AnnouncementSlide
-                  key={announcement.id}
-                  announcement={announcement}
-                  slideIndex={index}
-                  activeIndex={activeIndex}
-                />
-              ))}
+            <div className="mt-2 overflow-hidden">
+              <div
+                ref={trackRef}
+                onScroll={handleScroll}
+                onPointerDown={() => setPauseAutoAdvance(true)}
+                onPointerUp={() => setPauseAutoAdvance(false)}
+                onPointerLeave={() => setPauseAutoAdvance(false)}
+                onPointerCancel={() => setPauseAutoAdvance(false)}
+                className="flex min-h-[12rem] snap-x snap-mandatory overflow-x-auto scroll-smooth [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              >
+                {visibleAnnouncements.map((announcement, index) => (
+                  <AnnouncementSlide
+                    key={announcement.id}
+                    announcement={announcement}
+                    slideIndex={index}
+                    activeIndex={activeIndex}
+                  />
+                ))}
+              </div>
             </div>
             {activeIndex < visibleAnnouncements.length - 1 && (
               <p className="mt-3 text-center text-xs text-chocolate/45">
