@@ -106,8 +106,8 @@ function FilterRow({
   canRemove: boolean;
 }) {
   return (
-    <div className="flex flex-wrap items-end gap-2">
-      <div className="min-w-[7.5rem] flex-1 sm:flex-none">
+    <div className="grid grid-cols-1 items-end gap-2 md:grid-cols-[minmax(7.5rem,1fr)_minmax(6.5rem,1fr)_minmax(10rem,2fr)_auto]">
+      <div className="min-w-0">
         <label className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50">
           Field
         </label>
@@ -130,7 +130,7 @@ function FilterRow({
         </select>
       </div>
 
-      <div className="min-w-[6.5rem] flex-1 sm:flex-none">
+      <div className="min-w-0">
         <label className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50">
           Operator
         </label>
@@ -149,7 +149,7 @@ function FilterRow({
         </select>
       </div>
 
-      <div className="min-w-[10rem] flex-[2]">
+      <div className="min-w-0">
         <label className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50">
           Value
         </label>
@@ -166,7 +166,7 @@ function FilterRow({
         <button
           type="button"
           onClick={onRemove}
-          className="mb-0.5 flex h-[42px] w-[42px] shrink-0 items-center justify-center rounded-xl text-[#4B2C20]/50 hover:bg-[#F5E6D3]/60 hover:text-[#4B2C20]"
+          className="flex h-[42px] w-[42px] shrink-0 items-center justify-center justify-self-end rounded-xl text-[#4B2C20]/50 hover:bg-[#F5E6D3]/60 hover:text-[#4B2C20] md:justify-self-auto"
           aria-label="Remove filter"
         >
           <X size={16} />
@@ -198,13 +198,13 @@ export function OrderFieldFilters({ filters, onChange }: OrderFieldFiltersProps)
   };
 
   return (
-    <div className="col-span-2 space-y-2">
-      <div className="flex items-center justify-between gap-2">
+    <div className="space-y-2">
+      <div className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
         <p className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50">
           Filters
         </p>
         {activeFilters.length > 0 && (
-          <p className="text-[10px] text-[#4B2C20]/45">
+          <p className="text-[10px] text-[#4B2C20]/45 sm:text-right">
             {activeFilters
               .map(
                 (f) =>

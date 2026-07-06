@@ -307,8 +307,8 @@ export function OrdersPageClient({
 
   return (
     <div>
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div>
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
           {customerFilter ? (
             <Link
               href="/admin/customers"
@@ -329,7 +329,7 @@ export function OrdersPageClient({
         {!customerFilter && (
           <Link
             href="/admin/orders/roster"
-            className="inline-flex h-[42px] items-center justify-center gap-2 rounded-xl bg-[#4B2C20] px-4 text-sm font-medium text-white transition hover:bg-[#3d2319]"
+            className="inline-flex h-[42px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#4B2C20] px-4 text-sm font-medium text-white transition hover:bg-[#3d2319]"
           >
             <Download size={16} />
             Download roster
@@ -354,46 +354,49 @@ export function OrdersPageClient({
         </div>
       )}
 
-      <div className="mt-4 grid grid-cols-2 gap-3 sm:flex sm:flex-wrap sm:items-end">
-        <div className="col-span-2 flex flex-wrap gap-2">
-          <button
-            type="button"
-            onClick={() => applyQuickDeliveryFilter("today")}
-            className={quickFilterButtonClass(activeQuickDeliveryFilter === "today")}
-          >
-            Today&apos;s orders
-          </button>
-          <button
-            type="button"
-            onClick={() => applyQuickDeliveryFilter("tomorrow")}
-            className={quickFilterButtonClass(activeQuickDeliveryFilter === "tomorrow")}
-          >
-            Tomorrow&apos;s orders
-          </button>
-        </div>
-        <div className="col-span-2 min-w-0 sm:col-span-1 sm:min-w-[12rem] sm:flex-1">
-          <label
-            htmlFor="orders-search"
-            className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
-          >
-            Search
-          </label>
-          <div className="relative mt-1">
-            <Search
-              size={16}
-              className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#4B2C20]/40"
-            />
-            <input
-              id="orders-search"
-              type="search"
-              value={searchInput}
-              onChange={(e) => setSearchInput(e.target.value)}
-              placeholder="Order, customer, phone, date…"
-              className="h-[42px] w-full rounded-xl border border-[#4B2C20]/10 bg-white py-0 pl-9 pr-4 text-sm text-[#4B2C20] placeholder:text-[#4B2C20]/40"
-            />
+      <div className="mt-4 space-y-4">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end">
+          <div className="flex shrink-0 flex-wrap gap-2">
+            <button
+              type="button"
+              onClick={() => applyQuickDeliveryFilter("today")}
+              className={quickFilterButtonClass(activeQuickDeliveryFilter === "today")}
+            >
+              Today&apos;s orders
+            </button>
+            <button
+              type="button"
+              onClick={() => applyQuickDeliveryFilter("tomorrow")}
+              className={quickFilterButtonClass(activeQuickDeliveryFilter === "tomorrow")}
+            >
+              Tomorrow&apos;s orders
+            </button>
+          </div>
+          <div className="min-w-0 flex-1">
+            <label
+              htmlFor="orders-search"
+              className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
+            >
+              Search
+            </label>
+            <div className="relative mt-1">
+              <Search
+                size={16}
+                className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[#4B2C20]/40"
+              />
+              <input
+                id="orders-search"
+                type="search"
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder="Order, customer, phone, date…"
+                className="h-[42px] w-full rounded-xl border border-[#4B2C20]/10 bg-white py-0 pl-9 pr-4 text-sm text-[#4B2C20] placeholder:text-[#4B2C20]/40"
+              />
+            </div>
           </div>
         </div>
-        <div className="col-span-2">
+
+        <div className="rounded-xl bg-white p-4 ring-1 ring-[#4B2C20]/10">
           <OrderFieldFilters
             filters={fieldFilters}
             onChange={(next) => {
@@ -402,73 +405,76 @@ export function OrdersPageClient({
             }}
           />
         </div>
-        <div className="col-span-1 min-w-0">
-          <label
-            htmlFor="orders-date-type"
-            className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
-          >
-            Date type
-          </label>
-          <select
-            id="orders-date-type"
-            value={dateFilterType}
-            onChange={(e) => {
-              setDateFilterType(e.target.value as DateFilterType);
-              setPage(1);
-            }}
-            className="mt-1 block h-[42px] w-full min-w-0 rounded-xl border border-[#4B2C20]/10 bg-white px-3 text-sm text-[#4B2C20]"
-          >
-            <option value="delivery">Delivery</option>
-            <option value="placed">Placed</option>
-          </select>
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="w-full min-w-0 sm:w-auto sm:min-w-[10rem]">
+            <label
+              htmlFor="orders-date-type"
+              className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
+            >
+              Date type
+            </label>
+            <select
+              id="orders-date-type"
+              value={dateFilterType}
+              onChange={(e) => {
+                setDateFilterType(e.target.value as DateFilterType);
+                setPage(1);
+              }}
+              className="mt-1 block h-[42px] w-full rounded-xl border border-[#4B2C20]/10 bg-white px-3 text-sm text-[#4B2C20]"
+            >
+              <option value="delivery">Delivery</option>
+              <option value="placed">Placed</option>
+            </select>
+          </div>
+          <div className="w-full min-w-0 sm:w-auto sm:min-w-[10rem]">
+            <label
+              htmlFor="orders-date-from"
+              className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
+            >
+              From
+            </label>
+            <input
+              id="orders-date-from"
+              type="date"
+              value={dateFrom}
+              max={dateTo || undefined}
+              onChange={(e) => {
+                setDateFrom(e.target.value);
+                setPage(1);
+              }}
+              className="mt-1 block h-[42px] w-full rounded-xl border border-[#4B2C20]/10 bg-white px-3 text-sm text-[#4B2C20]"
+            />
+          </div>
+          <div className="w-full min-w-0 sm:w-auto sm:min-w-[10rem]">
+            <label
+              htmlFor="orders-date-to"
+              className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
+            >
+              To
+            </label>
+            <input
+              id="orders-date-to"
+              type="date"
+              value={dateTo}
+              min={dateFrom || undefined}
+              onChange={(e) => {
+                setDateTo(e.target.value);
+                setPage(1);
+              }}
+              className="mt-1 block h-[42px] w-full rounded-xl border border-[#4B2C20]/10 bg-white px-3 text-sm text-[#4B2C20]"
+            />
+          </div>
+          {(dateFrom || dateTo) && (
+            <button
+              type="button"
+              onClick={clearDateRange}
+              className="h-[42px] shrink-0 rounded-xl px-3 text-xs text-[#4B2C20]/60 hover:text-[#4B2C20]"
+            >
+              Clear dates
+            </button>
+          )}
         </div>
-        <div className="col-span-1 min-w-0">
-          <label
-            htmlFor="orders-date-from"
-            className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
-          >
-            From
-          </label>
-          <input
-            id="orders-date-from"
-            type="date"
-            value={dateFrom}
-            max={dateTo || undefined}
-            onChange={(e) => {
-              setDateFrom(e.target.value);
-              setPage(1);
-            }}
-            className="mt-1 block h-[42px] w-full min-w-0 rounded-xl border border-[#4B2C20]/10 bg-white px-3 text-sm text-[#4B2C20]"
-          />
-        </div>
-        <div className="col-span-1 min-w-0">
-          <label
-            htmlFor="orders-date-to"
-            className="text-[10px] font-medium uppercase tracking-wide text-[#4B2C20]/50"
-          >
-            To
-          </label>
-          <input
-            id="orders-date-to"
-            type="date"
-            value={dateTo}
-            min={dateFrom || undefined}
-            onChange={(e) => {
-              setDateTo(e.target.value);
-              setPage(1);
-            }}
-            className="mt-1 block h-[42px] w-full min-w-0 rounded-xl border border-[#4B2C20]/10 bg-white px-3 text-sm text-[#4B2C20]"
-          />
-        </div>
-        {(dateFrom || dateTo) && (
-          <button
-            type="button"
-            onClick={clearDateRange}
-            className="col-span-2 h-[42px] shrink-0 rounded-xl px-3 text-xs text-[#4B2C20]/60 hover:text-[#4B2C20] sm:col-span-1"
-          >
-            Clear dates
-          </button>
-        )}
       </div>
 
       {(statusError || loadError) && (
