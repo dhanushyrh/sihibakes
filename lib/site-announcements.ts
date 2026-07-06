@@ -2,6 +2,11 @@ import { createClient } from "@/lib/supabase/server";
 import type { SiteAnnouncement } from "@/lib/types";
 import { isSupabaseConfigured } from "@/lib/mock-data";
 
+export type PublicAnnouncement = Pick<
+  SiteAnnouncement,
+  "id" | "title" | "description" | "disclaimer"
+>;
+
 export const MOCK_SITE_ANNOUNCEMENT: SiteAnnouncement = {
   id: "mock-announcement",
   title: "We're Live! Enjoy 25% OFF on Everything",
@@ -32,20 +37,33 @@ export function filterActiveAnnouncements(
   return announcements.filter((announcement) => isAnnouncementLive(announcement, now));
 }
 
-export async function getActiveSiteAnnouncement(): Promise<SiteAnnouncement | null> {
+export async function getActiveSiteAnnouncements(): Promise<PublicAnnouncement[]> {
   if (!isSupabaseConfigured()) {
-    return isAnnouncementLive(MOCK_SITE_ANNOUNCEMENT) ? MOCK_SITE_ANNOUNCEMENT : null;
+    return isAnnouncementLive(MOCK_SITE_ANNOUNCEMENT)
+      ? [
+          {
+            id: MOCK_SITE_ANNOUNCEMENT.id,
+            title: MOCK_SITE_ANNOUNCEMENT.title,
+            description: MOCK_SITE_ANNOUNCEMENT.description,
+            disclaimer: MOCK_SITE_ANNOUNCEMENT.disclaimer,
+          },
+        ]
+      : [];
   }
 
   const supabase = await createClient();
   const { data, error } = await supabase
     .from("site_announcements")
-    .select("*")
+    .select("id, title, description, disclaimer, starts_at, ends_at, is_active, created_at")
     .eq("is_active", true)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: true });
 
-  if (error || !data?.length) return null;
+  if (error || !data?.length) return [];
 
-  const active = filterActiveAnnouncements(data as SiteAnnouncement[]);
-  return active[0] ?? null;
+  return filterActiveAnnouncements(data as SiteAnnouncement[]).map((announcement) => ({
+    id: announcement.id,
+    title: announcement.title,
+    description: announcement.description,
+    disclaimer: announcement.disclaimer,
+  }));
 }

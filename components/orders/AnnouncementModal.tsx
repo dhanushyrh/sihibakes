@@ -1,38 +1,168 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { ChevronRight, X } from "lucide-react";
 import { useLockBodyScroll } from "@/hooks/useLockBodyScroll";
 import {
-  hasSeenAnnouncement,
-  markAnnouncementSeen,
+  filterUnseenAnnouncements,
+  markAnnouncementsSeen,
 } from "@/lib/announcement-session";
-import type { SiteAnnouncement } from "@/lib/types";
+import type { PublicAnnouncement } from "@/lib/site-announcements";
 
 type AnnouncementModalProps = {
-  announcement: Pick<
-    SiteAnnouncement,
-    "id" | "title" | "description" | "disclaimer"
-  > | null;
+  announcements: PublicAnnouncement[];
 };
 
-export function AnnouncementModal({ announcement }: AnnouncementModalProps) {
+const AUTO_ADVANCE_MS = 3000;
+
+function AnnouncementSlide({
+  announcement,
+  slideIndex,
+  activeIndex,
+}: {
+  announcement: PublicAnnouncement;
+  slideIndex: number;
+  activeIndex: number;
+}) {
+  const isActive = slideIndex === activeIndex;
+
+  return (
+    <article
+      className="w-full shrink-0 snap-center snap-always"
+      aria-hidden={!isActive}
+    >
+      <h2
+        id={`announcement-title-${announcement.id}`}
+        className="font-display text-2xl font-semibold leading-tight text-chocolate"
+      >
+        {announcement.title}
+      </h2>
+      <p className="mt-4 text-sm leading-relaxed text-chocolate/80">
+        {announcement.description}
+      </p>
+      {announcement.disclaimer && (
+        <p className="mt-4 text-xs leading-relaxed text-chocolate/50">
+          {announcement.disclaimer}
+        </p>
+      )}
+    </article>
+  );
+}
+
+export function AnnouncementModal({ announcements }: AnnouncementModalProps) {
+  const [visibleAnnouncements, setVisibleAnnouncements] = useState<
+    PublicAnnouncement[]
+  >([]);
   const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [pauseAutoAdvance, setPauseAutoAdvance] = useState(false);
+  const trackRef = useRef<HTMLDivElement>(null);
+  const scrollRafRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (!announcement) return;
-    if (hasSeenAnnouncement(announcement.id)) return;
-    setOpen(true);
-  }, [announcement]);
+    const unseen = filterUnseenAnnouncements(announcements);
+    setVisibleAnnouncements(unseen);
+    setActiveIndex(0);
+    setOpen(unseen.length > 0);
+  }, [announcements]);
 
   useLockBodyScroll(open);
 
-  if (!announcement || !open) return null;
-
-  const dismiss = () => {
-    markAnnouncementSeen(announcement.id);
+  const dismiss = useCallback(() => {
+    markAnnouncementsSeen(visibleAnnouncements.map((announcement) => announcement.id));
     setOpen(false);
-  };
+  }, [visibleAnnouncements]);
+
+  const goToSlide = useCallback((index: number) => {
+    const track = trackRef.current;
+    if (!track) return;
+
+    const nextIndex = Math.max(0, Math.min(index, track.children.length - 1));
+    const slide = track.children[nextIndex] as HTMLElement | undefined;
+    if (!slide) return;
+
+    track.scrollTo({ left: slide.offsetLeft, behavior: "smooth" });
+    setActiveIndex(nextIndex);
+  }, []);
+
+  const goNext = useCallback(() => {
+    goToSlide(activeIndex + 1);
+  }, [activeIndex, goToSlide]);
+
+  const handleScroll = useCallback(() => {
+    if (scrollRafRef.current !== null) return;
+
+    scrollRafRef.current = window.requestAnimationFrame(() => {
+      scrollRafRef.current = null;
+      const track = trackRef.current;
+      if (!track || track.children.length === 0) return;
+
+      const scrollLeft = track.scrollLeft;
+      let closestIndex = 0;
+      let closestDistance = Number.POSITIVE_INFINITY;
+
+      Array.from(track.children).forEach((child, index) => {
+        const slide = child as HTMLElement;
+        const distance = Math.abs(slide.offsetLeft - scrollLeft);
+        if (distance < closestDistance) {
+          closestDistance = distance;
+          closestIndex = index;
+        }
+      });
+
+      setActiveIndex(closestIndex);
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!open || visibleAnnouncements.length <= 1) return;
+    if (activeIndex >= visibleAnnouncements.length - 1) return;
+    if (pauseAutoAdvance) return;
+
+    const timer = window.setTimeout(() => {
+      goToSlide(activeIndex + 1);
+    }, AUTO_ADVANCE_MS);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    activeIndex,
+    goToSlide,
+    open,
+    pauseAutoAdvance,
+    visibleAnnouncements.length,
+  ]);
+
+  useEffect(() => {
+    if (!open || visibleAnnouncements.length <= 1) return;
+
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "ArrowRight") {
+        event.preventDefault();
+        goToSlide(activeIndex + 1);
+      }
+      if (event.key === "ArrowLeft") {
+        event.preventDefault();
+        goToSlide(activeIndex - 1);
+      }
+    };
+
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [activeIndex, goToSlide, open, visibleAnnouncements.length]);
+
+  useEffect(() => {
+    return () => {
+      if (scrollRafRef.current !== null) {
+        window.cancelAnimationFrame(scrollRafRef.current);
+      }
+    };
+  }, []);
+
+  if (!open || visibleAnnouncements.length === 0) return null;
+
+  const isCarousel = visibleAnnouncements.length > 1;
+  const isLast = activeIndex === visibleAnnouncements.length - 1;
+  const activeAnnouncement = visibleAnnouncements[activeIndex];
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
@@ -45,14 +175,40 @@ export function AnnouncementModal({ announcement }: AnnouncementModalProps) {
       <div
         role="dialog"
         aria-modal="true"
-        aria-labelledby="announcement-title"
+        aria-labelledby={`announcement-title-${activeAnnouncement.id}`}
+        aria-label={
+          isCarousel
+            ? `Announcement ${activeIndex + 1} of ${visibleAnnouncements.length}`
+            : undefined
+        }
         className="relative z-10 max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-t-3xl bg-cream pb-[env(safe-area-inset-bottom)]"
       >
         <div className="flex flex-col items-center pt-3">
           <div className="h-1 w-10 rounded-full bg-chocolate/15" />
         </div>
 
-        <div className="flex items-center justify-end px-5 pt-3">
+        <div
+          className={`flex items-center px-5 pt-3 ${
+            isCarousel ? "justify-between" : "justify-end"
+          }`}
+        >
+          {isCarousel ? (
+            <div className="flex gap-1.5">
+              {visibleAnnouncements.map((announcement, index) => (
+                <button
+                  key={announcement.id}
+                  type="button"
+                  onClick={() => goToSlide(index)}
+                  className={`h-2 w-2 rounded-full transition ${
+                    index === activeIndex ? "bg-chocolate" : "bg-chocolate/15"
+                  }`}
+                  aria-label={`Go to announcement ${index + 1}`}
+                />
+              ))}
+            </div>
+          ) : (
+            <span />
+          )}
           <button
             type="button"
             onClick={dismiss}
@@ -63,28 +219,61 @@ export function AnnouncementModal({ announcement }: AnnouncementModalProps) {
           </button>
         </div>
 
-        <div className="px-5 pb-6 pt-2">
-          <h2
-            id="announcement-title"
-            className="font-display text-2xl font-semibold leading-tight text-chocolate"
-          >
-            {announcement.title}
-          </h2>
-          <p className="mt-4 text-sm leading-relaxed text-chocolate/80">
-            {announcement.description}
-          </p>
-          {announcement.disclaimer && (
-            <p className="mt-4 text-xs leading-relaxed text-chocolate/50">
-              {announcement.disclaimer}
-            </p>
+        {isCarousel ? (
+          <>
+            <div
+              ref={trackRef}
+              onScroll={handleScroll}
+              onPointerDown={() => setPauseAutoAdvance(true)}
+              onPointerUp={() => setPauseAutoAdvance(false)}
+              onPointerLeave={() => setPauseAutoAdvance(false)}
+              onPointerCancel={() => setPauseAutoAdvance(false)}
+              className="mt-2 flex min-h-[12rem] snap-x snap-mandatory overflow-x-auto scroll-smooth px-5 [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+            >
+              {visibleAnnouncements.map((announcement, index) => (
+                <AnnouncementSlide
+                  key={announcement.id}
+                  announcement={announcement}
+                  slideIndex={index}
+                  activeIndex={activeIndex}
+                />
+              ))}
+            </div>
+            {activeIndex < visibleAnnouncements.length - 1 && (
+              <p className="mt-3 text-center text-xs text-chocolate/45">
+                Swipe for more →
+              </p>
+            )}
+          </>
+        ) : (
+          <div className="min-h-[12rem] px-5 pt-2">
+            <AnnouncementSlide
+              announcement={visibleAnnouncements[0]}
+              slideIndex={0}
+              activeIndex={0}
+            />
+          </div>
+        )}
+
+        <div className="px-5 pb-6 pt-4">
+          {isCarousel && !isLast ? (
+            <button
+              type="button"
+              onClick={goNext}
+              className="flex w-full items-center justify-center gap-1.5 rounded-full py-3 text-sm font-medium text-chocolate ring-1 ring-chocolate/20"
+            >
+              Next
+              <ChevronRight size={16} />
+            </button>
+          ) : (
+            <button
+              type="button"
+              onClick={dismiss}
+              className="w-full rounded-full bg-chocolate py-3 text-sm font-medium text-cream"
+            >
+              Got it
+            </button>
           )}
-          <button
-            type="button"
-            onClick={dismiss}
-            className="mt-6 w-full rounded-full bg-chocolate py-3 text-sm font-medium text-cream"
-          >
-            Got it
-          </button>
         </div>
       </div>
     </div>
