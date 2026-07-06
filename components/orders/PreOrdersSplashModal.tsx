@@ -1,11 +1,6 @@
 "use client";
 
-import Image from "next/image";
-import { useEffect } from "react";
-import { X } from "lucide-react";
 import { useLockBodyScroll } from "@/hooks/useLockBodyScroll";
-
-const AUTO_CONTINUE_MS = 3500;
 
 type PreOrdersSplashModalProps = {
   open: boolean;
@@ -18,23 +13,11 @@ export function PreOrdersSplashModal({
 }: PreOrdersSplashModalProps) {
   useLockBodyScroll(open);
 
-  useEffect(() => {
-    if (!open) return;
-
-    const timer = window.setTimeout(onContinue, AUTO_CONTINUE_MS);
-    return () => window.clearTimeout(timer);
-  }, [open, onContinue]);
-
   if (!open) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center">
-      <button
-        type="button"
-        className="absolute inset-0 bg-black/50"
-        onClick={onContinue}
-        aria-label="Continue"
-      />
+      <div className="absolute inset-0 bg-black/50" aria-hidden />
       <div
         role="dialog"
         aria-modal="true"
@@ -45,28 +28,16 @@ export function PreOrdersSplashModal({
           <div className="h-1 w-10 rounded-full bg-chocolate/15" />
         </div>
 
-        <div className="flex items-center justify-end px-5 pt-3">
-          <button
-            type="button"
-            onClick={onContinue}
-            className="flex h-8 w-8 items-center justify-center rounded-full bg-white/90 text-chocolate"
-            aria-label="Close"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="flex flex-col items-center px-5 pb-6 pt-2 text-center">
-          <div className="relative h-28 w-28">
-            <Image
-              src="/orders/dance-stars.png"
-              alt=""
-              fill
-              className="object-contain"
-              priority
-              unoptimized
-            />
-          </div>
+        <div className="flex flex-col items-center px-5 pb-6 pt-5 text-center">
+          <video
+            src="/orders/dance-stars.webm"
+            autoPlay
+            loop
+            muted
+            playsInline
+            className="h-28 w-28 object-contain"
+            aria-hidden
+          />
           <h2
             id="preorders-splash-title"
             className="mt-4 font-display text-2xl font-semibold leading-tight text-chocolate"

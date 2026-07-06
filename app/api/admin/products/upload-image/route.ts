@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import {
+  compressProductImage,
   ensureProductImagesBucket,
   productImageObjectPath,
   productImagePublicUrl,
@@ -34,13 +35,22 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 
-  const path = productImageObjectPath(file);
-  const buffer = Buffer.from(await file.arrayBuffer());
+  const path = productImageObjectPath("webp");
+  const rawBuffer = Buffer.from(await file.arrayBuffer());
+  let buffer: Buffer;
+  try {
+    buffer = await compressProductImage(rawBuffer);
+  } catch {
+    return NextResponse.json(
+      { error: "Could not process image. Try a different photo." },
+      { status: 400 }
+    );
+  }
 
   const { error: uploadError } = await admin.storage
     .from("product-images")
     .upload(path, buffer, {
-      contentType: file.type,
+      contentType: "image/webp",
       cacheControl: "3600",
       upsert: false,
     });

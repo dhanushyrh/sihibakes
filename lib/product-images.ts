@@ -1,9 +1,12 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import sharp from "sharp";
 
 export const PRODUCT_IMAGES_BUCKET = "product-images";
 
 const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp", "gif"]);
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
+const MAX_IMAGE_DIMENSION = 1200;
+const WEBP_QUALITY = 82;
 
 export function validateProductImage(file: File): string | null {
   if (!file.type.startsWith("image/")) {
@@ -19,9 +22,21 @@ export function validateProductImage(file: File): string | null {
   return null;
 }
 
-export function productImageObjectPath(file: File): string {
-  const ext = file.name.split(".").pop()?.toLowerCase() || "jpg";
-  return `${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${ext}`;
+export function productImageObjectPath(extension = "webp"): string {
+  return `${Date.now()}-${crypto.randomUUID().slice(0, 8)}.${extension}`;
+}
+
+export async function compressProductImage(input: Buffer): Promise<Buffer> {
+  return sharp(input, { animated: true })
+    .rotate()
+    .resize({
+      width: MAX_IMAGE_DIMENSION,
+      height: MAX_IMAGE_DIMENSION,
+      fit: "inside",
+      withoutEnlargement: true,
+    })
+    .webp({ quality: WEBP_QUALITY })
+    .toBuffer();
 }
 
 export async function ensureProductImagesBucket(

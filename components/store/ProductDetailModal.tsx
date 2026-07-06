@@ -6,7 +6,7 @@ import { formatCurrency } from "@/lib/delivery";
 import { getUnitPrice } from "@/lib/pricing";
 import { useCart } from "@/components/store/CartProvider";
 import { useLockBodyScroll } from "@/hooks/useLockBodyScroll";
-import Image from "next/image";
+import { ProductImage } from "@/components/store/ProductImage";
 import { Minus, Plus, X } from "lucide-react";
 
 interface ProductDetailModalProps {
@@ -71,11 +71,11 @@ export function ProductDetailModal({
         >
           <X size={18} />
         </button>
-        <div className="relative aspect-square">
-          <Image
-            src={product.image_path || "/hero-tiramisu.png"}
+        <div className="relative aspect-square bg-parchment">
+          <ProductImage
+            src={product.image_path}
             alt={product.title}
-            fill
+            sizes="(max-width: 512px) 100vw, 512px"
             className="object-cover"
           />
         </div>

@@ -6,7 +6,7 @@ import { Minus, Plus, Users } from "lucide-react";
 import type { Product, ProductTag } from "@/lib/types";
 import { getUnitPrice } from "@/lib/pricing";
 import { useCart } from "@/components/store/CartProvider";
-import Image from "next/image";
+import { ProductImage } from "@/components/store/ProductImage";
 
 const TAG_LABELS: Record<ProductTag, string> = {
   bestseller: "Bestseller",
@@ -82,13 +82,12 @@ export function ProductCard({
         disabled={soldOut}
       >
         <div className="relative aspect-[4/3] shrink-0 overflow-hidden bg-parchment">
-          <Image
-            src={product.image_path || "/hero-tiramisu.png"}
+          <ProductImage
+            src={product.image_path}
             alt={product.title}
-            fill
             priority={priority}
-            className="object-cover transition group-hover:scale-105"
             sizes="(max-width: 768px) 50vw, 25vw"
+            className="object-cover transition group-hover:scale-105"
           />
           {soldOut && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
