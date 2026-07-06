@@ -1,5 +1,6 @@
 "use client";
 
+import { DotLottieReact } from "@lottiefiles/dotlottie-react";
 import { useLockBodyScroll } from "@/hooks/useLockBodyScroll";
 
 type PreOrdersSplashModalProps = {
@@ -29,15 +30,12 @@ export function PreOrdersSplashModal({
         </div>
 
         <div className="flex flex-col items-center px-5 pb-6 pt-5 text-center">
-          <div className="flex h-28 w-28 items-center justify-center">
-            <video
-              src="/orders/dance-stars.webm"
-              autoPlay
+          <div className="flex h-28 w-28 items-center justify-center" aria-hidden>
+            <DotLottieReact
+              src="/orders/dance-stars.lottie"
               loop
-              muted
-              playsInline
-              className="h-full w-full object-contain"
-              aria-hidden
+              autoplay
+              className="h-full w-full"
             />
           </div>
           <h2
