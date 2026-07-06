@@ -415,7 +415,7 @@ export async function getDeliveryModeAvailability() {
   const settings = await getShopSettings();
   const today = shopDateKey();
   const [slots, todayClosed, hasTodayInventory] = await Promise.all([
-    getAvailableDeliverySlots(),
+    getCustomerDeliverySlotsBase(),
     isDeliveryDayClosed(today),
     hasActiveInventoryToday(today),
   ]);

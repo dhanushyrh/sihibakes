@@ -247,6 +247,29 @@ export function filterCustomerDeliverySlotsBase(
   });
 }
 
+/** Checkout slots for a delivery mode — pre-orders keep the full pre-order window. */
+export function filterCheckoutSlotsForDeliveryMode(
+  slots: DeliverySlot[],
+  mode: DeliveryMode,
+  closedDates: string[],
+  cart: CartLine[],
+  readyStockByProduct: ReadonlyMap<string, number>,
+  now = new Date()
+): DeliverySlot[] {
+  const modeSlots = filterSlotsForDeliveryMode(slots, mode, now);
+  if (mode === "pre_order") {
+    return modeSlots;
+  }
+  return filterCustomerDeliverySlotsForOrder(
+    modeSlots,
+    closedDates,
+    cart,
+    readyStockByProduct,
+    now,
+    ORDER_BOOKING_WINDOW_DAYS
+  );
+}
+
 export function filterCustomerDeliverySlotsForOrder(
   slots: DeliverySlot[],
   closedDates: string[],

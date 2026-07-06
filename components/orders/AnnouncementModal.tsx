@@ -14,7 +14,7 @@ type AnnouncementModalProps = {
   onClose: () => void;
 };
 
-const AUTO_ADVANCE_MS = 3000;
+const AUTO_ADVANCE_MS = 5000;
 
 function AnnouncementSlide({
   announcement,

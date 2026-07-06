@@ -33,8 +33,7 @@ import { formatCurrency, formatDeliveryFee, formatDistance } from "@/lib/deliver
 import { normalizePhone } from "@/lib/storefront";
 import { getUnitPrice } from "@/lib/pricing";
 import {
-  filterSlotsForDeliveryMode,
-  filterCustomerDeliverySlotsForOrder,
+  filterCheckoutSlotsForDeliveryMode,
   buildReadyStockMap,
   getSlotBookabilityMap,
   resolveDeliverySelection,
@@ -107,7 +106,7 @@ export function DeliveryCheckoutClient({
 
   const [products, setProducts] = useState<Product[]>(initialProducts);
   const [bookableSlots, setBookableSlots] = useState(initialSlots);
-  const [selectedDate, setSelectedDate] = useState("");
+  const [selectedDate, setSelectedDate] = useState(ssrDeliveryDate ?? "");
   const [selectedSlotId, setSelectedSlotId] = useState("");
   const [availableCoupons, setAvailableCoupons] =
     useState<PublicCoupon[]>(initialCoupons);
@@ -205,9 +204,9 @@ export function DeliveryCheckoutClient({
 
   const modeSlots = useMemo(() => {
     if (!deliveryMode) return [];
-    const base = filterSlotsForDeliveryMode(bookableSlots, deliveryMode);
-    return filterCustomerDeliverySlotsForOrder(
-      base,
+    return filterCheckoutSlotsForDeliveryMode(
+      bookableSlots,
+      deliveryMode,
       [],
       cartForSlots,
       readyStockMap
@@ -273,12 +272,12 @@ export function DeliveryCheckoutClient({
   useEffect(() => {
     if (!modeSlots.length) return;
     const next = resolveDeliverySelection(modeSlots, {
-      date: selectedDate,
+      date: selectedDate || session.deliveryDate || "",
       slotId: selectedSlotId,
     });
     if (next.date !== selectedDate) setSelectedDate(next.date);
     if (next.slotId !== selectedSlotId) setSelectedSlotId(next.slotId);
-  }, [modeSlots, selectedDate, selectedSlotId]);
+  }, [modeSlots, selectedDate, selectedSlotId, session.deliveryDate]);
 
   useEffect(() => {
     if (!deliveryMode || !selectedDate) return;
@@ -973,7 +972,7 @@ export function DeliveryCheckoutClient({
 
           <div className="scroll-mt-24" data-checkout-field="slot">
             <DeliverySlotSelects
-              slots={modeSlots}
+              slots={bookableSlots}
               selectedDate={selectedDate}
               selectedSlotId={selectedSlotId}
               onDateChange={handleDateChange}

@@ -4,12 +4,15 @@ import { useEffect, useMemo, useRef } from "react";
 import { format, parseISO } from "date-fns";
 import { CalendarClock, Check, Clock3 } from "lucide-react";
 import {
+  filterSlotsForDeliveryMode,
   getBookableDates,
   getDateStripEntries,
+  getPreOrderDates,
   getSlotsForBookableDate,
   type DeliveryMode,
   type SlotBookableVia,
 } from "@/lib/customer-delivery-slots";
+import { normalizeDateKey } from "@/lib/shop-closed-days";
 import { isShopToday, isShopTomorrow } from "@/lib/shop-timezone";
 import type { DeliverySlot } from "@/lib/types";
 
@@ -87,25 +90,48 @@ export function DeliverySlotSelects({
   const dateStripRef = useRef<HTMLDivElement>(null);
   const selectedDateRef = useRef<HTMLButtonElement>(null);
 
-  const availableDates = useMemo(() => getBookableDates(slots), [slots]);
+  const preOrderDates = useMemo(
+    () => (deliveryMode === "pre_order" ? getPreOrderDates(slots) : []),
+    [slots, deliveryMode]
+  );
+
+  const scopedSlots = useMemo(() => {
+    if (deliveryMode === "pre_order") {
+      const allowed = new Set(preOrderDates);
+      return slots.filter((slot) =>
+        allowed.has(normalizeDateKey(slot.slot_date))
+      );
+    }
+    if (deliveryMode === "same_day") {
+      return filterSlotsForDeliveryMode(slots, "same_day");
+    }
+    return slots;
+  }, [slots, deliveryMode, preOrderDates]);
+
+  const availableDates = useMemo(() => {
+    if (deliveryMode === "pre_order") return preOrderDates;
+    return getBookableDates(scopedSlots);
+  }, [deliveryMode, preOrderDates, scopedSlots]);
+
   const dateStripEntries = useMemo(() => {
     if (deliveryMode === "same_day") return [];
     if (deliveryMode === "pre_order") {
-      return availableDates.map((date) => ({ date, bookable: true }));
+      return preOrderDates.map((date) => ({ date, bookable: true }));
     }
-    const entries = getDateStripEntries(slots);
+    const entries = getDateStripEntries(scopedSlots);
     const bookable = new Set(availableDates);
     return entries.filter((entry) => bookable.has(entry.date));
-  }, [slots, deliveryMode, availableDates]);
+  }, [scopedSlots, deliveryMode, preOrderDates, availableDates]);
+
   const slotsForDate = useMemo(
-    () => getSlotsForBookableDate(slots, selectedDate),
-    [slots, selectedDate]
+    () => getSlotsForBookableDate(scopedSlots, selectedDate),
+    [scopedSlots, selectedDate]
   );
   const selectedSlot = slotsForDate.find((slot) => slot.id === selectedSlotId);
 
   const handleDateChange = (date: string) => {
     onDateChange(date);
-    const nextSlots = getSlotsForBookableDate(slots, date);
+    const nextSlots = getSlotsForBookableDate(scopedSlots, date);
     onSlotChange(nextSlots[0]?.id ?? "");
   };
 

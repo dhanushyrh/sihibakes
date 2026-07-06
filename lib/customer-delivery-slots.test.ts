@@ -1,11 +1,16 @@
 import { describe, expect, it } from "vitest";
 import {
   cartQualifiesForReadyPath,
+  filterCheckoutSlotsForDeliveryMode,
+  filterCustomerDeliverySlotsForOrder,
+  filterSlotsForDeliveryMode,
+  getBookableDates,
   getNextSameDaySlot,
   isSlotBookableForOrder,
   SAME_DAY_PREP_LEAD_MINUTES,
   READY_SLOT_LEAD_MINUTES,
 } from "./customer-delivery-slots";
+import { PRE_ORDER_MAX_DATES } from "./constants";
 import type { DeliverySlot } from "./types";
 
 function slot(
@@ -126,6 +131,62 @@ describe("cartQualifiesForReadyPath", () => {
     expect(
       cartQualifiesForReadyPath([{ productId: "p1", quantity: 6 }], ready)
     ).toBe(false);
+  });
+});
+
+describe("pre-order checkout slots", () => {
+  it("keeps pre-order dates beyond the same-day booking window", () => {
+    const now = new Date("2026-07-06T12:00:00+05:30");
+    const slots = [
+      slot("jul-10-a", "2026-07-10", "11:00:00", "13:00:00"),
+      slot("jul-11-a", "2026-07-11", "11:00:00", "13:00:00"),
+      slot("jul-11-b", "2026-07-11", "16:00:00", "18:00:00"),
+    ];
+
+    const modeSlots = filterSlotsForDeliveryMode(slots, "pre_order", now);
+    const legacy = filterCustomerDeliverySlotsForOrder(
+      modeSlots,
+      [],
+      [],
+      new Map(),
+      now
+    );
+    const checkout = filterCheckoutSlotsForDeliveryMode(
+      slots,
+      "pre_order",
+      [],
+      [],
+      new Map(),
+      now
+    );
+
+    expect(legacy).toHaveLength(0);
+    expect(getBookableDates(checkout)).toEqual(["2026-07-10", "2026-07-11"]);
+    expect(checkout).toHaveLength(3);
+  });
+
+  it("limits checkout pre-order slots to the next three available dates", () => {
+    const now = new Date("2026-07-06T12:00:00+05:30");
+    const slots = Array.from({ length: 8 }, (_, i) => {
+      const date = `2026-07-${String(7 + i).padStart(2, "0")}`;
+      return slot(`slot-${date}`, date, "11:00:00", "13:00:00");
+    });
+
+    const checkout = filterCheckoutSlotsForDeliveryMode(
+      slots,
+      "pre_order",
+      [],
+      [],
+      new Map(),
+      now
+    );
+
+    expect(getBookableDates(checkout)).toHaveLength(PRE_ORDER_MAX_DATES);
+    expect(getBookableDates(checkout)).toEqual([
+      "2026-07-07",
+      "2026-07-08",
+      "2026-07-09",
+    ]);
   });
 });
 
