@@ -39,11 +39,12 @@ export default function OrderConfirmationClient({
             <CheckCircle className="text-chocolate" size={36} strokeWidth={1.5} />
           </div>
           <h1 className="mt-5 font-display text-2xl font-semibold text-chocolate">
-            Payment received!
+            Order received!
           </h1>
           <p className="mt-2 text-sm leading-relaxed text-chocolate/65">
-            Thank you for ordering from Sihi Bakes. Our kitchen will confirm your
-            order shortly and share delivery updates with you.
+            Thank you for ordering from Sihi Bakes. We&apos;ll share all further
+            updates — including order confirmation and delivery details — via
+            WhatsApp.
           </p>
           {order && !("error" in order) && order.whatsapp_notification?.status === "sent" && (
             <p className="mt-3 rounded-xl bg-green-50 px-3 py-2 text-sm text-green-900 ring-1 ring-green-200">
@@ -156,18 +157,12 @@ export default function OrderConfirmationClient({
           </div>
         )}
 
-        <div className="mt-auto space-y-3 pt-8">
-          <Link
-            href="/orders"
-            className="block w-full rounded-full bg-chocolate py-4 text-center text-sm font-medium text-cream transition hover:bg-chocolate-dark"
-          >
-            Back to orders
-          </Link>
+        <div className="mt-auto pt-8">
           <Link
             href="/"
-            className="block w-full rounded-full border border-chocolate/20 py-4 text-center text-sm font-medium text-chocolate"
+            className="block w-full rounded-full bg-chocolate py-4 text-center text-sm font-medium text-cream transition hover:bg-chocolate-dark"
           >
-            Back to home
+            Back to Home
           </Link>
         </div>
       </main>
