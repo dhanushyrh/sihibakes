@@ -1,11 +1,37 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ORDERS_PAGE_SIZE } from "@/lib/constants";
+import type { Order } from "@/lib/types";
 import {
   applyOrderFieldFilters,
   parseLegacyStatusFilter,
   parseOrderFieldFilters,
   type OrderFieldFilter,
 } from "@/lib/admin-order-filters";
+
+/** Orders list + table updates — includes line items for roster-style display. */
+export const ADMIN_ORDER_LIST_SELECT =
+  "*, order_items(*, products(title))";
+
+/** Order detail page — includes unit pricing on nested products. */
+export const ADMIN_ORDER_DETAIL_SELECT =
+  "*, order_items(*, products(title, price_inr))";
+
+export async function fetchAdminOrderById(
+  admin: SupabaseClient,
+  id: string,
+  select = ADMIN_ORDER_DETAIL_SELECT
+) {
+  return admin.from("orders").select(select).eq("id", id).single();
+}
+
+/** Keep line items when a partial order payload omits the nested join. */
+export function mergeAdminOrderUpdate(existing: Order, updated: Order): Order {
+  return {
+    ...existing,
+    ...updated,
+    order_items: updated.order_items ?? existing.order_items,
+  };
+}
 
 export type AdminOrdersDateType = "delivery" | "placed";
 
@@ -85,7 +111,7 @@ export async function queryAdminOrders(
 
   let query = admin
     .from("orders")
-    .select("*, order_items(*, products(title))", { count: "exact" })
+    .select(ADMIN_ORDER_LIST_SELECT, { count: "exact" })
     .in("payment_status", ["paid", "refunded"]);
 
   if (orderBySlot) {

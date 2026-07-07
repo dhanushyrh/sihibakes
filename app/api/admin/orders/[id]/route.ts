@@ -22,6 +22,10 @@ import {
 } from "@/lib/delivery-vendors";
 import { getShopSettings } from "@/lib/data";
 import { getOrderAdminAlerts } from "@/lib/alerts/notify-admin";
+import {
+  ADMIN_ORDER_DETAIL_SELECT,
+  ADMIN_ORDER_LIST_SELECT,
+} from "@/lib/admin-orders-query";
 import { isBorzoConfigured } from "@/lib/borzo/config";
 import { dispatchBorzoDelivery, isBorzoVendorName } from "@/lib/borzo/delivery";
 import { BorzoApiError } from "@/lib/borzo/client";
@@ -51,17 +55,18 @@ export async function GET(
   const { id } = await params;
   const admin = createAdminClient();
 
-  const { data, error } = await admin
-    .from("orders")
-    .select("*, order_items(*, products(title, price_inr))")
-    .eq("id", id)
-    .single();
+  const [{ data, error }, adminAlerts] = await Promise.all([
+    admin
+      .from("orders")
+      .select(ADMIN_ORDER_DETAIL_SELECT)
+      .eq("id", id)
+      .single(),
+    getOrderAdminAlerts(id),
+  ]);
 
   if (error || !data) {
     return NextResponse.json({ error: "Order not found" }, { status: 404 });
   }
-
-  const adminAlerts = await getOrderAdminAlerts(id);
 
   return NextResponse.json({ ...data, admin_alerts: adminAlerts });
 }
@@ -178,7 +183,7 @@ export async function PATCH(
           out_for_delivery_at: new Date().toISOString(),
         })
         .eq("id", id)
-        .select()
+        .select(ADMIN_ORDER_LIST_SELECT)
         .single();
 
       if (error) {
@@ -268,7 +273,7 @@ export async function PATCH(
           out_for_delivery_at: new Date().toISOString(),
         })
         .eq("id", id)
-        .select()
+        .select(ADMIN_ORDER_LIST_SELECT)
         .single();
 
       if (error) {
@@ -296,7 +301,7 @@ export async function PATCH(
         out_for_delivery_at: new Date().toISOString(),
       })
       .eq("id", id)
-      .select()
+      .select(ADMIN_ORDER_LIST_SELECT)
       .single();
 
     if (error) {
@@ -316,7 +321,7 @@ export async function PATCH(
     .from("orders")
     .update({ status })
     .eq("id", id)
-    .select()
+    .select(ADMIN_ORDER_LIST_SELECT)
     .single();
 
   if (error) {

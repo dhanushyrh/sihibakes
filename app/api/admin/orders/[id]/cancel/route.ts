@@ -3,6 +3,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
 import { notifyOrderStatusChange } from "@/lib/whatsapp/notifications";
 import { canCancelOrderStatus } from "@/lib/order-status-transitions";
+import { ADMIN_ORDER_LIST_SELECT } from "@/lib/admin-orders-query";
 import type { OrderStatus } from "@/lib/types";
 
 export async function POST(
@@ -53,7 +54,7 @@ export async function POST(
       cancelled_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .select()
+    .select(ADMIN_ORDER_LIST_SELECT)
     .single();
 
   if (error) {

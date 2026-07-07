@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { requireAdmin } from "@/lib/admin-auth";
+import { ADMIN_ORDER_LIST_SELECT } from "@/lib/admin-orders-query";
 
 export async function POST(
   request: Request,
@@ -76,7 +77,7 @@ export async function POST(
       refunded_at: new Date().toISOString(),
     })
     .eq("id", id)
-    .select()
+    .select(ADMIN_ORDER_LIST_SELECT)
     .single();
 
   if (error) {

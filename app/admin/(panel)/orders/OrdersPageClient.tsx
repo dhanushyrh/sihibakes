@@ -18,6 +18,9 @@ import { OrderCancelModal } from "@/components/admin/orders/OrderCancelModal";
 import { OrdersTable } from "@/components/admin/orders/OrdersTable";
 import { Pagination } from "@/components/admin/orders/Pagination";
 import { TableSkeleton } from "@/components/admin/ui/TableSkeleton";
+import {
+  mergeAdminOrderUpdate,
+} from "@/lib/admin-orders-query";
 import type { OrderStatusUpdatePayload } from "@/lib/order-status-update";
 import {
   submitOrderCancel,
@@ -214,7 +217,9 @@ export function OrdersPageClient({
     } else {
       const updated = data as Order;
       setOrders((prev) =>
-        prev.map((o) => (o.id === orderId ? updated : o))
+        prev.map((o) =>
+          o.id === orderId ? mergeAdminOrderUpdate(o, updated) : o
+        )
       );
       if (
         fieldFilters.some(isActiveOrderFieldFilter) &&
@@ -246,7 +251,11 @@ export function OrdersPageClient({
       setStatusError(result.error);
     } else {
       const updated = result.order as Order;
-      setOrders((prev) => prev.map((o) => (o.id === orderId ? updated : o)));
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId ? mergeAdminOrderUpdate(o, updated) : o
+        )
+      );
       if (
         fieldFilters.some(isActiveOrderFieldFilter) &&
         !orderMatchesFieldFilters(updated, fieldFilters)
