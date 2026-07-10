@@ -3,6 +3,7 @@ import crypto from "crypto";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { markOrderPaid } from "@/lib/order-payment";
 import { releaseOrderInventory } from "@/lib/inventory-server";
+import { paymentAmountMatchesOrder } from "@/lib/razorpay";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,11 +60,23 @@ export async function POST(request: Request) {
 
     const { data: order } = await admin
       .from("orders")
-      .select("id, payment_status")
+      .select("id, payment_status, total_inr")
       .eq("razorpay_order_id", razorpayOrderId)
       .single();
 
     if (!order || order.payment_status === "paid") {
+      return NextResponse.json({ received: true });
+    }
+
+    if (!paymentAmountMatchesOrder(Number(payment.amount), order.total_inr)) {
+      console.error(
+        "Webhook amount mismatch for order",
+        order.id,
+        "expected",
+        order.total_inr,
+        "got paise",
+        payment.amount
+      );
       return NextResponse.json({ received: true });
     }
 

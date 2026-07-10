@@ -19,6 +19,7 @@ import {
   getUnitPrice,
 } from "@/lib/pricing";
 import { createRazorpayOrder, getRazorpayPublicKey } from "@/lib/razorpay";
+import { markOrderPaid } from "@/lib/order-payment";
 import { isPaymentSkipEnabled } from "@/lib/payment-skip";
 import {
   isSlotBookableForOrder,
@@ -437,6 +438,18 @@ export async function POST(request: Request) {
     const razorpayKey = getRazorpayPublicKey();
     const paymentSkipEnabled = isPaymentSkipEnabled(settings);
 
+    if (pricing.total_inr === 0) {
+      await markOrderPaid(order.id, `zero_total_${Date.now()}`);
+      return NextResponse.json({
+        order_id: order.id,
+        order_number: orderNumber,
+        total_inr: 0,
+        payment_skip_enabled: true,
+        razorpay_order_id: null,
+        razorpay_key: null,
+      });
+    }
+
     if (!paymentSkipEnabled) {
       if (!process.env.RAZORPAY_KEY_ID || !process.env.RAZORPAY_KEY_SECRET) {
         return NextResponse.json({ error: "Payment not configured" }, { status: 503 });
@@ -456,7 +469,7 @@ export async function POST(request: Request) {
       }
 
       try {
-        const rzOrder = await createRazorpayOrder(orderNumber);
+        const rzOrder = await createRazorpayOrder(orderNumber, pricing.total_inr);
         razorpayOrderId = rzOrder.id;
         await admin
           .from("orders")

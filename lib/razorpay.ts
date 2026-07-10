@@ -1,7 +1,19 @@
 import Razorpay from "razorpay";
 
-/** Temporary: charge ₹1 on Razorpay while validating live keys (order total is stored separately). */
-export const RAZORPAY_CHECKOUT_AMOUNT_INR = 1;
+/** Converts an INR order total to Razorpay paise (minimum ₹1). */
+export function orderTotalToPaise(amountInr: number): number {
+  if (!Number.isFinite(amountInr) || amountInr < 1) {
+    throw new Error("Order total must be at least ₹1");
+  }
+  return Math.round(amountInr * 100);
+}
+
+export function paymentAmountMatchesOrder(
+  paymentAmountPaise: number,
+  orderTotalInr: number
+): boolean {
+  return paymentAmountPaise === orderTotalToPaise(orderTotalInr);
+}
 
 export function getRazorpayPublicKey(): string | null {
   return (
@@ -28,8 +40,8 @@ export function getRazorpayInstance() {
   });
 }
 
-export async function createRazorpayOrder(receipt: string) {
-  const amountPaise = RAZORPAY_CHECKOUT_AMOUNT_INR * 100;
+export async function createRazorpayOrder(receipt: string, amountInr: number) {
+  const amountPaise = orderTotalToPaise(amountInr);
 
   const razorpay = getRazorpayInstance();
   // Note: `expire_by` is intentionally omitted — the order-expiry feature is not

@@ -11,10 +11,6 @@ export const dynamic = "force-dynamic";
 export async function POST(request: Request) {
   try {
     const settings = await getShopSettings();
-    if (!isPaymentSkipEnabled(settings)) {
-      return NextResponse.json({ error: "Not available" }, { status: 403 });
-    }
-
     const { order_id, order_number, phone } = await request.json();
     if (!order_id || !order_number || !phone) {
       return NextResponse.json({ error: "Missing fields" }, { status: 400 });
@@ -23,13 +19,17 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     const { data: order, error } = await admin
       .from("orders")
-      .select("id, order_number, phone, payment_status")
+      .select("id, order_number, phone, payment_status, total_inr")
       .eq("id", order_id)
       .eq("order_number", order_number)
       .single();
 
     if (error || !order) {
       return NextResponse.json({ error: "Order not found" }, { status: 404 });
+    }
+
+    if (!isPaymentSkipEnabled(settings) && order.total_inr !== 0) {
+      return NextResponse.json({ error: "Not available" }, { status: 403 });
     }
 
     const normalized = String(phone).replace(/\D/g, "").slice(-10);
