@@ -160,7 +160,7 @@ export function DeliverySlotSelects({
   const isSameDay = deliveryMode === "same_day";
   const headerEyebrow = isSameDay ? "Today's delivery window" : "Pre-order schedule";
   const headerHint = isSameDay
-    ? "Pick a time slot for today"
+    ? "Select your delivery slot for today"
     : "Choose your pre-order date and time";
 
   return (
@@ -256,7 +256,7 @@ export function DeliverySlotSelects({
 
         <div>
           <div className="mb-2.5 flex items-center justify-between gap-2">
-            <p className="text-xs font-medium text-chocolate/55">Pick a time</p>
+            <p className="text-xs font-medium text-chocolate/55">Select your delivery slot</p>
             {selectedDate && (
               <p className="text-[11px] text-chocolate/40">
                 {format(parseISO(selectedDate), "EEEE, d MMMM")}
