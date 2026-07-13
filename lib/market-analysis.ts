@@ -1,7 +1,7 @@
 import { subDays, subMinutes, format } from "date-fns";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { formatCurrency } from "@/lib/delivery";
-import { normalizeActivityCartItems } from "@/lib/activity-cart";
+import { normalizeActivityCartItems, resolveSessionCartValueInr } from "@/lib/activity-cart";
 import { getCachedAdminData } from "@/lib/admin-data-cache";
 
 export type MarketAnalysisPeriod = 7 | 30 | 90;
@@ -59,6 +59,28 @@ export interface AbandonedCartItemMetric {
   abandonedSessions: number;
 }
 
+export type LocationCaptureLeadStatus =
+  | "completed"
+  | "unpaid_order"
+  | "abandoned"
+  | "in_progress";
+
+export interface LocationCaptureLead {
+  sessionId: string;
+  locationMarkedAt: string;
+  phone: string | null;
+  fullName: string | null;
+  cartValueInr: number | null;
+  deliveryFeeInr: number | null;
+  estimatedTotalInr: number | null;
+  deliveryDistanceKm: number | null;
+  status: LocationCaptureLeadStatus;
+  lastStage: string;
+  topItems: string[];
+  lat: number | null;
+  lng: number | null;
+}
+
 export interface MarketAnalysisData {
   period: MarketAnalysisPeriod;
   periodLabel: string;
@@ -82,12 +104,14 @@ export interface MarketAnalysisData {
   demandPockets: DemandPocket[];
   deviceMix: DeviceMixMetric[];
   abandonedCartItems: AbandonedCartItemMetric[];
+  locationCaptureLeads: LocationCaptureLead[];
   recommendations: string[];
 }
 
 interface ActivitySessionRow {
   id: string;
   phone: string | null;
+  full_name: string | null;
   first_cart_at: string | null;
   phone_verified_at: string | null;
   location_marked_at: string | null;
@@ -100,6 +124,9 @@ interface ActivitySessionRow {
   lng: number | null;
   cart_value_inr: number | null;
   cart_items: unknown;
+  delivery_fee_inr: number | null;
+  delivery_distance_km: number | null;
+  order_id: string | null;
   device_type: string | null;
   updated_at: string;
 }
@@ -146,6 +173,52 @@ function topItemNamesFromSessions(
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([title]) => title);
+}
+
+function resolveLocationLeadStatus(
+  session: ActivitySessionRow,
+  abandonmentCutoff: Date
+): LocationCaptureLeadStatus {
+  if (session.is_order_completed) return "completed";
+  if (session.order_created_at) return "unpaid_order";
+  if (new Date(session.updated_at) >= abandonmentCutoff) return "in_progress";
+  if (isAbandoned(session, abandonmentCutoff)) return "abandoned";
+  return "abandoned";
+}
+
+function buildLocationCaptureLead(
+  session: ActivitySessionRow,
+  abandonmentCutoff: Date
+): LocationCaptureLead {
+  const cartValueInr = resolveSessionCartValueInr(
+    session.cart_value_inr,
+    session.cart_items
+  );
+  const deliveryFeeInr =
+    typeof session.delivery_fee_inr === "number" ? session.delivery_fee_inr : null;
+  const estimatedTotalInr =
+    cartValueInr != null && deliveryFeeInr != null
+      ? cartValueInr + deliveryFeeInr
+      : null;
+
+  return {
+    sessionId: session.id,
+    locationMarkedAt: session.location_marked_at!,
+    phone: session.phone,
+    fullName: session.full_name,
+    cartValueInr,
+    deliveryFeeInr,
+    estimatedTotalInr,
+    deliveryDistanceKm:
+      typeof session.delivery_distance_km === "number"
+        ? Number(session.delivery_distance_km)
+        : null,
+    status: resolveLocationLeadStatus(session, abandonmentCutoff),
+    lastStage: session.last_stage,
+    topItems: topItemNamesFromSessions([session], 2),
+    lat: session.lat,
+    lng: session.lng,
+  };
 }
 
 function buildRecommendations(data: {
@@ -266,7 +339,7 @@ async function fetchMarketAnalysisUncached(
       admin
         .from("customer_activity_sessions")
         .select(
-          "id, phone, first_cart_at, phone_verified_at, location_marked_at, checkout_started_at, order_created_at, order_completed_at, is_order_completed, last_stage, lat, lng, cart_value_inr, cart_items, device_type, updated_at"
+          "id, phone, full_name, first_cart_at, phone_verified_at, location_marked_at, checkout_started_at, order_created_at, order_completed_at, is_order_completed, last_stage, lat, lng, cart_value_inr, cart_items, delivery_fee_inr, delivery_distance_km, order_id, device_type, updated_at"
         )
         .gte("created_at", periodStart.toISOString()),
       admin.from("shop_settings").select("kitchen_lat, kitchen_lng").limit(1).single(),
@@ -504,6 +577,11 @@ async function fetchMarketAnalysisUncached(
     .sort((a, b) => b.totalQuantity - a.totalQuantity)
     .slice(0, 6);
 
+  const locationCaptureLeads: LocationCaptureLead[] = rows
+    .filter((session) => session.location_marked_at != null)
+    .map((session) => buildLocationCaptureLead(session, abandonmentCutoff))
+    .sort((a, b) => b.locationMarkedAt.localeCompare(a.locationMarkedAt));
+
   const recommendations = buildRecommendations({
     bounceRate,
     checkoutCompletionRate,
@@ -538,6 +616,7 @@ async function fetchMarketAnalysisUncached(
     demandPockets,
     deviceMix,
     abandonedCartItems,
+    locationCaptureLeads,
     recommendations,
   };
 }

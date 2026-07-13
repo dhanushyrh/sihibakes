@@ -8,7 +8,8 @@ import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
 import { isValidIndianPhone } from "@/lib/checkout-validation";
 import { trackActivity } from "@/lib/activity-tracker";
 import { CHECKOUT_DETAILS_PATH } from "@/lib/checkout-routing";
-import type { DeliveryFenceKm } from "@/lib/types";
+import { useCartActivitySnapshot } from "@/hooks/useCartActivitySnapshot";
+import type { DeliveryFenceKm, Product } from "@/lib/types";
 import { OrderFlowLoading } from "@/components/store/OrderFlowLoading";
 
 export function DeliveryCheckoutLocationClient({
@@ -16,15 +17,18 @@ export function DeliveryCheckoutLocationClient({
   kitchenLat,
   kitchenLng,
   deliveryFence,
+  products = [],
 }: {
   storeOpen: boolean;
   kitchenLat: number;
   kitchenLng: number;
   deliveryFence: DeliveryFenceKm;
+  products?: Product[];
 }) {
   const router = useRouter();
   const { session, sessionReady, isLocationReady, setLocation } =
     useDeliverySession();
+  const { cartValueInr, cartItems, itemCount } = useCartActivitySnapshot(products);
   const locationTrackedRef = useRef(false);
 
   useEffect(() => {
@@ -38,6 +42,9 @@ export function DeliveryCheckoutLocationClient({
       deliveryDistanceKm: session.delivery.distance_km,
       deliveryFeeInr: session.delivery.delivery_fee_inr,
       phone: session.whatsappPhone,
+      cartValueInr: cartValueInr ?? undefined,
+      itemCount,
+      cartItems,
     });
   }, [
     isLocationReady,
@@ -45,6 +52,9 @@ export function DeliveryCheckoutLocationClient({
     session.lng,
     session.delivery,
     session.whatsappPhone,
+    cartValueInr,
+    itemCount,
+    cartItems,
   ]);
 
   useEffect(() => {

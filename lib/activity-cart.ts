@@ -51,3 +51,33 @@ export function normalizeActivityCartItems(
 export function cartItemsCount(items: ActivityCartItemSnapshot[]): number {
   return items.reduce((sum, item) => sum + item.quantity, 0);
 }
+
+/** Sum line totals from a cart snapshot; returns null when no priced lines exist. */
+export function sumCartValueInr(items: ActivityCartItemSnapshot[]): number | null {
+  let total = 0;
+  let hasPricedLine = false;
+
+  for (const item of items) {
+    if (typeof item.lineTotalInr === "number") {
+      total += item.lineTotalInr;
+      hasPricedLine = true;
+      continue;
+    }
+    if (typeof item.unitPriceInr === "number") {
+      total += item.unitPriceInr * item.quantity;
+      hasPricedLine = true;
+    }
+  }
+
+  return hasPricedLine ? Math.round(total) : null;
+}
+
+export function resolveSessionCartValueInr(
+  cartValueInr: number | null | undefined,
+  cartItems: unknown
+): number | null {
+  if (typeof cartValueInr === "number" && cartValueInr >= 0) {
+    return cartValueInr;
+  }
+  return sumCartValueInr(normalizeActivityCartItems(cartItems));
+}

@@ -1,9 +1,14 @@
 import type { Metadata } from "next";
 import { BRAND } from "@/lib/constants";
 
-const siteUrl =
-  process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "") ||
-  "https://sihibakes.in";
+export function getSiteUrl(): string {
+  return (
+    process.env.NEXT_PUBLIC_APP_URL?.trim().replace(/\/$/, "") ||
+    "https://sihibakes.in"
+  );
+}
+
+const siteUrl = getSiteUrl();
 
 export const siteMetadata: Metadata = {
   metadataBase: new URL(siteUrl),

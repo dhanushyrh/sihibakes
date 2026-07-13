@@ -13,6 +13,7 @@ import { DemandPocketsTable } from "@/components/admin/market-analysis/DemandPoc
 import { MarketingRecommendations } from "@/components/admin/market-analysis/MarketingRecommendations";
 import { DeviceMixPanel } from "@/components/admin/market-analysis/DeviceMixPanel";
 import { AbandonedCartItemsPanel } from "@/components/admin/market-analysis/AbandonedCartItemsPanel";
+import { LocationCaptureLeadsTable } from "@/components/admin/market-analysis/LocationCaptureLeadsTable";
 import {
   Users,
   MapPin,
@@ -77,7 +78,7 @@ export default async function MarketAnalysisPage({
         <MetricCard
           label="Location captures"
           value={String(data.kpis.locationCaptures)}
-          subtitle="Pinned delivery spot"
+          subtitle="Pinned delivery spot · see leads below"
           icon={MapPin}
         />
         <MetricCard
@@ -105,6 +106,8 @@ export default async function MarketAnalysisPage({
           icon={TrendingDown}
         />
       </div>
+
+      <LocationCaptureLeadsTable leads={data.locationCaptureLeads} />
 
       <div className="grid gap-4 xl:grid-cols-3">
         <div className="xl:col-span-2">
