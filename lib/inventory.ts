@@ -54,12 +54,32 @@ import type { DeliveryMode } from "./customer-delivery-slots";
 /** Max units of one product per pre-order checkout. */
 export const PRE_ORDER_MAX_QUANTITY_PER_ITEM = 5;
 
+/**
+ * Max quantity the customer can add for a product line.
+ * - Pre-order: fixed cap per item
+ * - Same-day: remaining stock for that delivery date (when known)
+ */
+export function getMaxQuantityForProduct(
+  deliveryMode?: DeliveryMode | null,
+  remaining?: number | null
+): number | undefined {
+  if (deliveryMode === "pre_order") {
+    return PRE_ORDER_MAX_QUANTITY_PER_ITEM;
+  }
+  if (
+    deliveryMode === "same_day" &&
+    typeof remaining === "number" &&
+    Number.isFinite(remaining)
+  ) {
+    return Math.max(0, Math.floor(remaining));
+  }
+  return undefined;
+}
+
 export function getMaxQuantityPerItem(
   deliveryMode?: DeliveryMode | null
 ): number | undefined {
-  return deliveryMode === "pre_order"
-    ? PRE_ORDER_MAX_QUANTITY_PER_ITEM
-    : undefined;
+  return getMaxQuantityForProduct(deliveryMode);
 }
 
 export function resolveProductSoldOut(

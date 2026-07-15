@@ -16,7 +16,7 @@ import { formatCurrency } from "@/lib/delivery";
 import { getUnitPrice } from "@/lib/pricing";
 import { getMenuProductIds, isMenuProduct } from "@/lib/cart-products";
 import { formatDeliveryModeSummary } from "@/lib/delivery-mode-availability";
-import { getMaxQuantityPerItem } from "@/lib/inventory";
+import { getMaxQuantityForProduct } from "@/lib/inventory";
 import { trackActivity } from "@/lib/activity-tracker";
 import type { Product } from "@/lib/types";
 import type { DeliveryMode } from "@/lib/customer-delivery-slots";
@@ -126,15 +126,56 @@ export function DeliveryCartClient({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- SSR props are stable; refetch keyed on cart + schedule
   }, [items, session.deliveryDate, session.deliveryMode, pruneItems]);
 
-  const maxQuantityPerItem = getMaxQuantityPerItem(session.deliveryMode);
-
-  const changeLineQuantity = (productId: string, quantity: number) => {
+  const changeLineQuantity = (
+    productId: string,
+    quantity: number,
+    remaining?: number | null
+  ) => {
+    const maxQuantity = getMaxQuantityForProduct(
+      session.deliveryMode,
+      remaining
+    );
     const capped =
-      maxQuantityPerItem != null
-        ? Math.min(quantity, maxQuantityPerItem)
-        : quantity;
+      maxQuantity != null ? Math.min(quantity, maxQuantity) : quantity;
     updateQuantity(productId, capped);
   };
+
+  // Cap same-day cart lines if stock fell below the quantity already in cart.
+  // Fail-soft: only act when remaining is a known finite number for that product.
+  useEffect(() => {
+    if (loading || products.length === 0) return;
+    if (session.deliveryMode !== "same_day") return;
+
+    let lowestCappedMax: number | null = null;
+    let removedAny = false;
+
+    for (const item of items) {
+      const product = products.find((p) => p.id === item.productId);
+      if (!product || typeof product.remaining_next_day !== "number") continue;
+
+      const maxQuantity = getMaxQuantityForProduct(
+        "same_day",
+        product.remaining_next_day
+      );
+      if (maxQuantity == null || item.quantity <= maxQuantity) continue;
+
+      updateQuantity(item.productId, maxQuantity);
+      if (maxQuantity === 0) removedAny = true;
+      else if (lowestCappedMax == null || maxQuantity < lowestCappedMax) {
+        lowestCappedMax = maxQuantity;
+      }
+    }
+
+    if (removedAny) {
+      setUnavailableNotice(
+        "Some items sold out and were removed from your cart."
+      );
+    } else if (lowestCappedMax != null) {
+      setUnavailableNotice(
+        `Cart updated — only ${lowestCappedMax} left for an item today.`
+      );
+    }
+  }, [loading, products, items, session.deliveryMode, updateQuantity]);
 
   useEffect(() => {
     if (loading || products.length === 0) return;
@@ -253,7 +294,8 @@ export function DeliveryCartClient({
 
         {session.deliveryMode === "pre_order" && (
           <p className="mb-4 rounded-2xl bg-white px-4 py-3 text-xs text-chocolate/60 ring-1 ring-chocolate/10">
-            Pre-order limit: up to {maxQuantityPerItem} of each item per order.
+            Pre-order limit: up to{" "}
+            {getMaxQuantityForProduct("pre_order")} of each item per order.
           </p>
         )}
 
@@ -284,7 +326,12 @@ export function DeliveryCartClient({
         ) : (
           <>
             <div className="space-y-3">
-              {cartLines.map((line) => (
+              {cartLines.map((line) => {
+                const maxQuantity = getMaxQuantityForProduct(
+                  session.deliveryMode,
+                  line.product.remaining_next_day
+                );
+                return (
                 <div
                   key={line.productId}
                   className="flex gap-3 rounded-2xl bg-white p-3 ring-1 ring-chocolate/10"
@@ -313,13 +360,25 @@ export function DeliveryCartClient({
                     </div>
                     <p className="text-xs text-chocolate/50">
                       {formatCurrency(line.unitPrice)} each
+                      {session.deliveryMode === "same_day" &&
+                        typeof line.product.remaining_next_day === "number" &&
+                        line.product.remaining_next_day <= 5 &&
+                        line.product.remaining_next_day > 0 && (
+                          <span className="ml-1 text-chocolate/70">
+                            · {line.product.remaining_next_day} left today
+                          </span>
+                        )}
                     </p>
                     <div className="mt-auto flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <button
                           type="button"
                           onClick={() =>
-                            changeLineQuantity(line.productId, line.quantity - 1)
+                            changeLineQuantity(
+                              line.productId,
+                              line.quantity - 1,
+                              line.product.remaining_next_day
+                            )
                           }
                           className="flex h-8 w-8 items-center justify-center rounded-full bg-cream"
                         >
@@ -331,11 +390,14 @@ export function DeliveryCartClient({
                         <button
                           type="button"
                           onClick={() =>
-                            changeLineQuantity(line.productId, line.quantity + 1)
+                            changeLineQuantity(
+                              line.productId,
+                              line.quantity + 1,
+                              line.product.remaining_next_day
+                            )
                           }
                           disabled={
-                            maxQuantityPerItem != null &&
-                            line.quantity >= maxQuantityPerItem
+                            maxQuantity != null && line.quantity >= maxQuantity
                           }
                           className="flex h-8 w-8 items-center justify-center rounded-full bg-chocolate text-cream disabled:opacity-40"
                         >
@@ -348,7 +410,8 @@ export function DeliveryCartClient({
                     </div>
                   </div>
                 </div>
-              ))}
+                );
+              })}
             </div>
 
             <div className="mt-6 rounded-2xl bg-white p-4 text-sm ring-1 ring-chocolate/10">
