@@ -8,6 +8,7 @@ import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
 import {
   formatSlotTime,
   getSameDayBlockMessage,
+  isSameDaySoldOutReason,
   type DeliveryModeAvailability,
 } from "@/lib/delivery-mode-availability";
 import { isShopTomorrow } from "@/lib/shop-timezone";
@@ -190,11 +191,17 @@ export function DeliveryModeChoiceClient({
   const today = shopDateKey();
 
   const earliestSameDaySlot = availability.sameDaySlots[0];
-  const sameDayDetail = earliestSameDaySlot
-    ? `Earliest slot ${formatSlotTime(earliestSameDaySlot.window_start)} – ${formatSlotTime(earliestSameDaySlot.window_end)}`
-    : "No slots available today";
+  const sameDaySoldOut = isSameDaySoldOutReason(availability.sameDayReason);
+  const sameDayDetail = !availability.sameDayEnabled
+    ? sameDaySoldOut
+      ? "Sold out for today"
+      : "Unavailable today"
+    : earliestSameDaySlot
+      ? `Earliest slot ${formatSlotTime(earliestSameDaySlot.window_start)} – ${formatSlotTime(earliestSameDaySlot.window_end)}`
+      : "No slots available today";
 
   const handleSameDay = () => {
+    if (!availability.sameDayEnabled) return;
     setDeliverySchedule("same_day", today);
     router.push("/orders/delivery/menu");
   };
@@ -224,7 +231,11 @@ export function DeliveryModeChoiceClient({
         <div className="mt-8 flex flex-1 flex-col gap-3">
           <ModeCard
             title="Same Day Delivery"
-            subtitle="Today only · fastest route"
+            subtitle={
+              sameDaySoldOut
+                ? "Sold out for today"
+                : "Today only · fastest route"
+            }
             detail={sameDayDetail}
             disabled={!availability.sameDayEnabled}
             disabledMessage={

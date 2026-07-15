@@ -2,6 +2,7 @@ import { format, parseISO } from "date-fns";
 import {
   getPreOrderDates,
   getSameDaySlots,
+  isSlotBookableWithLeadTime,
   type DeliveryMode,
 } from "@/lib/customer-delivery-slots";
 import type { DeliverySlot } from "@/lib/types";
@@ -53,8 +54,29 @@ export function getSameDayBlockMessage(reason: SameDayBlockReason): string {
     case "sold_out_today":
       return "Sold out for today — pre-order for the next available date.";
     case "no_same_day_slots":
-      return "No same-day slots left — pre-order for a later date.";
+      return "Sold out for today — no same-day delivery slots left. Choose a pre-order date.";
   }
+}
+
+/** True when same-day is blocked because nothing can be fulfilled today. */
+export function isSameDaySoldOutReason(
+  reason: SameDayBlockReason | null
+): boolean {
+  return reason === "sold_out_today" || reason === "no_same_day_slots";
+}
+
+/**
+ * Bookable same-day slots for the mode-choice screen.
+ * Uses prep lead time (no cart yet) so we don't offer Same Day when every
+ * remaining window is past the kitchen cut-off or all slots are closed.
+ */
+export function getBookableSameDaySlots(
+  slots: DeliverySlot[],
+  now = new Date()
+): DeliverySlot[] {
+  return getSameDaySlots(slots, now).filter((slot) =>
+    isSlotBookableWithLeadTime(slot, now)
+  );
 }
 
 /** Server-side availability for the delivery mode choice screen. */
@@ -63,10 +85,17 @@ export function computeDeliveryModeAvailability(input: {
   todayClosed: boolean;
   slots: DeliverySlot[];
   hasTodayInventory: boolean;
+  now?: Date;
 }): DeliveryModeAvailability {
-  const { ordersAccepting, todayClosed, slots, hasTodayInventory } = input;
-  const sameDaySlots = getSameDaySlots(slots);
-  const preOrderDates = getPreOrderDates(slots);
+  const {
+    ordersAccepting,
+    todayClosed,
+    slots,
+    hasTodayInventory,
+    now = new Date(),
+  } = input;
+  const sameDaySlots = getBookableSameDaySlots(slots, now);
+  const preOrderDates = getPreOrderDates(slots, now);
 
   let sameDayEnabled = true;
   let sameDayReason: SameDayBlockReason | null = null;
