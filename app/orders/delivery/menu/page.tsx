@@ -41,6 +41,8 @@ export default async function DeliveryMenuPage() {
   const [products, coupons] = await Promise.all([
     getProducts(false, deliveryDate ?? undefined, {
       deliveryMode: deliveryMode ?? undefined,
+      // Match /api/products/menu — badge only shows for same-day remaining ≤ 5.
+      includeLowStockBadge: deliveryMode === "same_day",
     }),
     getActivePublicCoupons(),
   ]);
