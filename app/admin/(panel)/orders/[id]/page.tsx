@@ -85,6 +85,7 @@ export default function AdminOrderDetailPage() {
       setShowCancelModal(true);
       return;
     }
+    setError(null);
     setStatusModalTarget(status);
   };
 
@@ -96,6 +97,7 @@ export default function AdminOrderDetailPage() {
   const closeStatusModal = () => {
     if (saving) return;
     setStatusModalTarget(null);
+    setError(null);
   };
 
   const confirmStatusChange = async (payload: OrderStatusUpdatePayload) => {
@@ -256,7 +258,7 @@ export default function AdminOrderDetailPage() {
         </p>
       </header>
 
-      {error && (
+      {error && !statusModalTarget && (
         <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
           {error}
         </p>
@@ -680,6 +682,7 @@ export default function AdminOrderDetailPage() {
         order={order}
         targetStatus={statusModalTarget}
         saving={saving}
+        error={statusModalTarget ? error : null}
         onClose={closeStatusModal}
         onConfirm={confirmStatusChange}
       />

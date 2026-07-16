@@ -167,6 +167,7 @@ export function OrdersPageClient({
     if (updatingId) return;
     setStatusModalOrder(null);
     setStatusModalTarget(null);
+    setStatusError(null);
   };
 
   const closeCancelModal = () => {
@@ -181,6 +182,7 @@ export function OrdersPageClient({
       setCancelModalOrder(order);
       return;
     }
+    setStatusError(null);
     setStatusModalOrder(order);
     setStatusModalTarget(status);
   };
@@ -486,9 +488,9 @@ export function OrdersPageClient({
         </div>
       </div>
 
-      {(statusError || loadError) && (
+      {((statusError && !statusModalOrder) || loadError) && (
         <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
-          {statusError ?? loadError}
+          {statusError && !statusModalOrder ? statusError : loadError}
         </p>
       )}
 
@@ -521,6 +523,7 @@ export function OrdersPageClient({
             order={statusModalOrder}
             targetStatus={statusModalTarget}
             saving={updatingId === statusModalOrder?.id}
+            error={statusError}
             onClose={closeStatusModal}
             onConfirm={confirmStatusChange}
           />

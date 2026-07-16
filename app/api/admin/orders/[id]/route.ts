@@ -20,16 +20,17 @@ import {
   listActiveDeliveryVendors,
   resolveDeliveryVendorName,
 } from "@/lib/delivery-vendors";
-import { getShopSettings } from "@/lib/data";
 import { getOrderAdminAlerts } from "@/lib/alerts/notify-admin";
 import {
   ADMIN_ORDER_DETAIL_SELECT,
   ADMIN_ORDER_LIST_SELECT,
 } from "@/lib/admin-orders-query";
-import { isBorzoConfigured } from "@/lib/borzo/config";
-import { dispatchBorzoDelivery, isBorzoVendorName } from "@/lib/borzo/delivery";
-import { BorzoApiError } from "@/lib/borzo/client";
-import { BORZO_VENDOR_NAME } from "@/lib/order-status-update";
+// Borzo API auto-dispatch paused — restore these imports with the block below.
+// import { getShopSettings } from "@/lib/data";
+// import { isBorzoConfigured } from "@/lib/borzo/config";
+// import { dispatchBorzoDelivery, isBorzoVendorName } from "@/lib/borzo/delivery";
+// import { BorzoApiError } from "@/lib/borzo/client";
+// import { BORZO_VENDOR_NAME } from "@/lib/order-status-update";
 
 const VALID_STATUSES = new Set(ORDER_STATUS_OPTIONS.map((s) => s.key));
 
@@ -231,63 +232,66 @@ export async function PATCH(
       );
     }
 
-    if (isBorzoVendorName(vendor.name)) {
-      if (!isBorzoConfigured()) {
-        return NextResponse.json(
-          { error: "Borzo delivery is not configured on the server" },
-          { status: 503 }
-        );
-      }
-
-      const settings = await getShopSettings();
-      if (!settings) {
-        return NextResponse.json({ error: "Shop not configured" }, { status: 500 });
-      }
-
-      let borzoDispatch;
-      try {
-        borzoDispatch = await dispatchBorzoDelivery(order, settings, {
-          deliveryOtp: otp,
-          partnerName,
-        });
-      } catch (err) {
-        console.error("Borzo dispatch failed:", err);
-        const message =
-          err instanceof BorzoApiError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : "Failed to create Borzo delivery";
-        return NextResponse.json({ error: message }, { status: 502 });
-      }
-
-      const { data, error } = await admin
-        .from("orders")
-        .update({
-          status,
-          delivery_partner_order_id: borzoDispatch.borzo_order_id,
-          delivery_vendor: BORZO_VENDOR_NAME,
-          delivery_otp: otp,
-          delivery_partner_name: partnerName,
-          delivery_eta_display: deliveryEtaDisplay,
-          out_for_delivery_at: new Date().toISOString(),
-        })
-        .eq("id", id)
-        .select(ADMIN_ORDER_LIST_SELECT)
-        .single();
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 });
-      }
-
-      if (order.status !== status) {
-        void notifyOrderStatusChange(id, status, {
-          estimatedArrival: deliveryEtaDisplay,
-        });
-      }
-
-      return NextResponse.json(data);
-    }
+    // Borzo API auto-dispatch paused — treat Borzo like Rapido / other vendors
+    // (manual Order ID, OTP, partner name). Re-enable by restoring the block below.
+    //
+    // if (isBorzoVendorName(vendor.name)) {
+    //   if (!isBorzoConfigured()) {
+    //     return NextResponse.json(
+    //       { error: "Borzo delivery is not configured on the server" },
+    //       { status: 503 }
+    //     );
+    //   }
+    //
+    //   const settings = await getShopSettings();
+    //   if (!settings) {
+    //     return NextResponse.json({ error: "Shop not configured" }, { status: 500 });
+    //   }
+    //
+    //   let borzoDispatch;
+    //   try {
+    //     borzoDispatch = await dispatchBorzoDelivery(order, settings, {
+    //       deliveryOtp: otp,
+    //       partnerName,
+    //     });
+    //   } catch (err) {
+    //     console.error("Borzo dispatch failed:", err);
+    //     const message =
+    //       err instanceof BorzoApiError
+    //         ? err.message
+    //         : err instanceof Error
+    //           ? err.message
+    //           : "Failed to create Borzo delivery";
+    //     return NextResponse.json({ error: message }, { status: 502 });
+    //   }
+    //
+    //   const { data, error } = await admin
+    //     .from("orders")
+    //     .update({
+    //       status,
+    //       delivery_partner_order_id: borzoDispatch.borzo_order_id,
+    //       delivery_vendor: BORZO_VENDOR_NAME,
+    //       delivery_otp: otp,
+    //       delivery_partner_name: partnerName,
+    //       delivery_eta_display: deliveryEtaDisplay,
+    //       out_for_delivery_at: new Date().toISOString(),
+    //     })
+    //     .eq("id", id)
+    //     .select(ADMIN_ORDER_LIST_SELECT)
+    //     .single();
+    //
+    //   if (error) {
+    //     return NextResponse.json({ error: error.message }, { status: 500 });
+    //   }
+    //
+    //   if (order.status !== status) {
+    //     void notifyOrderStatusChange(id, status, {
+    //       estimatedArrival: deliveryEtaDisplay,
+    //     });
+    //   }
+    //
+    //   return NextResponse.json(data);
+    // }
 
     const { data, error } = await admin
       .from("orders")

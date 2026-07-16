@@ -19,6 +19,7 @@ interface OrderStatusChangeModalProps {
   order: Order | null;
   targetStatus: OrderStatus | null;
   saving: boolean;
+  error?: string | null;
   onClose: () => void;
   onConfirm: (payload: OrderStatusUpdatePayload) => void;
 }
@@ -40,6 +41,7 @@ export function OrderStatusChangeModal({
   order,
   targetStatus,
   saving,
+  error = null,
   onClose,
   onConfirm,
 }: OrderStatusChangeModalProps) {
@@ -405,6 +407,12 @@ export function OrderStatusChangeModal({
               )}
             </>
           )}
+
+          {error ? (
+            <p className="rounded-xl bg-red-50 px-3 py-2 text-sm text-red-700">
+              {error}
+            </p>
+          ) : null}
 
           <div className="flex gap-2 pt-2">
             <button
