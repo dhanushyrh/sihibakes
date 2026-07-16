@@ -338,13 +338,21 @@ export function OrdersPageClient({
           </p>
         </div>
         {!customerFilter && (
-          <Link
-            href="/admin/orders/roster"
-            className="inline-flex h-[42px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#4B2C20] px-4 text-sm font-medium text-white transition hover:bg-[#3d2319]"
-          >
-            <Download size={16} />
-            Download roster
-          </Link>
+          <div className="flex flex-wrap gap-2">
+            <Link
+              href="/admin/kitchen"
+              className="inline-flex h-[42px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-white px-4 text-sm font-medium text-[#4B2C20] ring-1 ring-[#4B2C20]/10 transition hover:ring-[#4B2C20]/20"
+            >
+              Kitchen
+            </Link>
+            <Link
+              href="/admin/orders/roster"
+              className="inline-flex h-[42px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#4B2C20] px-4 text-sm font-medium text-white transition hover:bg-[#3d2319]"
+            >
+              <Download size={16} />
+              Download roster
+            </Link>
+          </div>
         )}
       </div>
 

@@ -2,8 +2,13 @@ export const ADMIN_SOUND_STORAGE_KEY = "sihi_admin_sound_enabled";
 export const ADMIN_NOTIFY_PERMISSION_KEY = "sihi_admin_notify_asked";
 export const ADMIN_WHATSAPP_VIEWING_KEY = "admin_whatsapp_viewing_conversation_id";
 
+/** Dispatched when orders change so Kitchen / Orders can soft-refresh. */
+export const ADMIN_ORDERS_CHANGED_EVENT = "sihi:admin-orders-changed";
+
 export type AdminNotificationCounts = {
   pendingOrders: number;
+  /** Paid orders for shop-today still in kitchen pipeline. */
+  kitchenActiveToday: number;
   whatsappUnread: number;
   newEnquiries: number;
 };
@@ -115,7 +120,22 @@ export function showAdminBrowserNotification(params: {
 
 export function formatAdminDocumentTitle(counts: AdminNotificationCounts): string {
   const total =
-    counts.pendingOrders + counts.whatsappUnread + counts.newEnquiries;
+    counts.pendingOrders +
+    counts.whatsappUnread +
+    counts.newEnquiries;
   const base = "Sihi Bakes Admin";
   return total > 0 ? `(${total}) ${base}` : base;
 }
+
+export function dispatchAdminOrdersChanged(): void {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new CustomEvent(ADMIN_ORDERS_CHANGED_EVENT));
+}
+
+export type AdminAlertParams = {
+  title: string;
+  body: string;
+  tag: string;
+  url?: string;
+  playSound?: boolean;
+};

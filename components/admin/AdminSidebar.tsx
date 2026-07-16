@@ -20,6 +20,7 @@ import {
   MessageSquare,
   MessagesSquare,
   Star,
+  ChefHat,
   type LucideIcon,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -29,7 +30,11 @@ import { useWhatsAppUnreadCount } from "@/lib/hooks/useWhatsAppUnreadCount";
 import { useAdminNotifications } from "@/components/admin/AdminNotificationProvider";
 import type { AdminNotificationCounts } from "@/lib/admin-notifications";
 
-type NavBadgeKey = "pendingOrders" | "newEnquiries" | "whatsappUnread";
+type NavBadgeKey =
+  | "pendingOrders"
+  | "kitchenActiveToday"
+  | "newEnquiries"
+  | "whatsappUnread";
 
 const NAV: {
   href: string;
@@ -42,6 +47,12 @@ const NAV: {
   { href: "/admin/market-analysis", label: "Market Analysis", icon: TrendingUp },
   { href: "/admin/products", label: "Products", icon: Package },
   { href: "/admin/orders", label: "Orders", icon: ShoppingBag, badge: "pendingOrders" },
+  {
+    href: "/admin/kitchen",
+    label: "Kitchen",
+    icon: ChefHat,
+    badge: "kitchenActiveToday",
+  },
   { href: "/admin/enquiries", label: "Enquiries", icon: MessageSquare, badge: "newEnquiries" },
   { href: "/admin/whatsapp", label: "WhatsApp", icon: MessagesSquare, badge: "whatsappUnread" },
   { href: "/admin/reviews", label: "Reviews", icon: Star },
@@ -61,6 +72,8 @@ function getNavBadgeCount(
   switch (badge) {
     case "pendingOrders":
       return counts.pendingOrders;
+    case "kitchenActiveToday":
+      return counts.kitchenActiveToday;
     case "newEnquiries":
       return counts.newEnquiries;
     case "whatsappUnread":

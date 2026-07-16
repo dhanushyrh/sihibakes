@@ -13,7 +13,9 @@ import { usePathname } from "next/navigation";
 import { Bell, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import {
+  type AdminAlertParams,
   type AdminNotificationCounts,
+  dispatchAdminOrdersChanged,
   formatAdminDocumentTitle,
   getViewingWhatsAppConversationId,
   isAdminSoundEnabled,
@@ -36,6 +38,8 @@ type AdminNotificationContextValue = {
   soundEnabled: boolean;
   setSoundEnabled: (enabled: boolean) => void;
   enableAlerts: () => Promise<void>;
+  /** Sound + browser notification + in-app toast. */
+  notify: (params: AdminAlertParams) => void;
   notificationsSupported: boolean;
   notificationPermission: NotificationPermission | "unsupported";
 };
@@ -52,6 +56,7 @@ const AdminNotificationContext = createContext<AdminNotificationContextValue | n
 
 const EMPTY_COUNTS: AdminNotificationCounts = {
   pendingOrders: 0,
+  kitchenActiveToday: 0,
   whatsappUnread: 0,
   newEnquiries: 0,
 };
@@ -119,13 +124,7 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
   }, []);
 
   const alertUser = useCallback(
-    (params: {
-      title: string;
-      body: string;
-      tag: string;
-      url?: string;
-      playSound?: boolean;
-    }) => {
+    (params: AdminAlertParams) => {
       if (params.playSound !== false) playAdminAlertSound();
       showAdminBrowserNotification({
         title: params.title,
@@ -167,10 +166,10 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
           title: "New order",
           body:
             delta === 1
-              ? "A new paid order is awaiting confirmation."
-              : `${delta} new paid orders need attention.`,
+              ? "A new paid order needs kitchen prep."
+              : `${delta} new paid orders need kitchen prep.`,
           tag: "admin-order",
-          url: "/admin/orders?status=pending",
+          url: "/admin/kitchen",
         });
       }
       if (data.newEnquiries > prev.newEnquiries) {
@@ -293,7 +292,10 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
       .on(
         "postgres_changes",
         { event: "*", schema: "public", table: "orders" },
-        () => scheduleRefresh()
+        () => {
+          dispatchAdminOrdersChanged();
+          scheduleRefresh();
+        }
       )
       .on(
         "postgres_changes",
@@ -350,6 +352,7 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
         soundEnabled,
         setSoundEnabled,
         enableAlerts,
+        notify: alertUser,
         notificationsSupported,
         notificationPermission,
       }}
@@ -389,8 +392,8 @@ export function AdminNotificationProvider({ children }: { children: ReactNode })
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium">Enable admin alerts</p>
               <p className="mt-1 text-xs text-white/75">
-                Get a sound and notification when new orders or WhatsApp messages
-                arrive. Recommended for iPad.
+                Sound and browser alerts for new orders (Kitchen), WhatsApp, and
+                enquiries. Recommended for kitchen iPad.
               </p>
               <div className="mt-3 flex gap-2">
                 <button
