@@ -244,12 +244,12 @@ export async function createWhatsAppTemplate(
   }
 }
 
-/** Default templates aligned with lib/whatsapp/notifications.ts */
+/** Default templates aligned with live notifications (no legacy duplicates). */
 export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
   const footer = BRAND.name;
   const googleReviewUrl = getGoogleReviewUrl();
 
-  const templates: CreateWhatsAppTemplateInput[] = [
+  return [
     {
       name: "order_confirmed_v2",
       language: "en_US",
@@ -264,23 +264,6 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
             body_text: [
               ["Dhanush", "SIHI-20260701-2550", "₹299", "4 Jul, 6:00 PM – 8:00 PM"],
             ],
-          },
-        },
-        { type: "FOOTER", text: footer },
-      ],
-    },
-    {
-      name: "order_confirmed",
-      language: "en_US",
-      category: "UTILITY",
-      allowCategoryChange: true,
-      components: [
-        {
-          type: "BODY",
-          text:
-            "Hi {{1}}, thank you for ordering from Sihi Bakes. Your order number {{2}} is confirmed. The total amount is {{3}}. Your delivery slot is {{4}}. We will update you when it is being prepared.",
-          example: {
-            body_text: [["Rahul", "SB-1001", "850 rupees", "30 Jun, 10 AM to 12 PM"]],
           },
         },
         { type: "FOOTER", text: footer },
@@ -376,42 +359,6 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
       ],
     },
     {
-      name: "order_on_the_way",
-      language: "en_US",
-      category: "UTILITY",
-      allowCategoryChange: true,
-      components: [
-        {
-          type: "BODY",
-          text:
-            "Your Sihi Bakes order {{1}} is on its way!\n\nDelivery Partner: {{2}}\nref code: {{3}}\nETA: {{4}}\n\nThank you! 💛",
-          example: {
-            body_text: [
-              ["SIHI-20260701-2550", "Test Rider", "9997", "4 Jul, 6:00–8:00 PM"],
-            ],
-          },
-        },
-        { type: "FOOTER", text: footer },
-      ],
-    },
-    {
-      name: "order_out_for_delivery_v2",
-      language: "en_US",
-      category: "UTILITY",
-      allowCategoryChange: true,
-      components: [
-        {
-          type: "BODY",
-          text:
-            "Good news from Sihi Bakes. Your order number {{1}} is now out for delivery. Delivery partner name is {{2}}. Delivery reference for this trip is {{3}}. Expected arrival window is {{4}}. Our team will contact you if anything changes.",
-          example: {
-            body_text: [["SB-1001", "Borzo", "REF-4821", "30 Jun, 11 AM to 1 PM"]],
-          },
-        },
-        { type: "FOOTER", text: footer },
-      ],
-    },
-    {
       name: "order_cancelled",
       language: "en_US",
       category: "UTILITY",
@@ -486,30 +433,6 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
       ],
     },
     {
-      name: "checkout_otp",
-      language: "en",
-      category: "AUTHENTICATION",
-      components: [
-        {
-          type: "BODY",
-          add_security_recommendation: true,
-        },
-        {
-          type: "FOOTER",
-          code_expiration_minutes: 10,
-        },
-        {
-          type: "BUTTONS",
-          buttons: [{ type: "OTP", otp_type: "COPY_CODE" }],
-        },
-      ],
-    },
-  ];
-
-  // Marketing review ask — only seeded when Google review URL is configured.
-  // Not auto-sent until Meta approves and we wire it after delivery.
-  if (googleReviewUrl) {
-    templates.push({
       name: WHATSAPP_ORDER_REVIEW_REQUEST_TEMPLATE,
       language: "en_US",
       category: "MARKETING",
@@ -535,10 +458,28 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
           ],
         },
       ],
-    });
-  }
-
-  return templates;
+    },
+    // AUTHENTICATION OTP — may fail to create until WABA is TIER_2K+
+    {
+      name: "checkout_otp",
+      language: "en",
+      category: "AUTHENTICATION",
+      components: [
+        {
+          type: "BODY",
+          add_security_recommendation: true,
+        },
+        {
+          type: "FOOTER",
+          code_expiration_minutes: 10,
+        },
+        {
+          type: "BUTTONS",
+          buttons: [{ type: "OTP", otp_type: "COPY_CODE" }],
+        },
+      ],
+    },
+  ];
 }
 
 export async function seedSihiDefaultTemplates(): Promise<{
@@ -557,12 +498,6 @@ export async function seedSihiDefaultTemplates(): Promise<{
   const skipped: string[] = [];
   const failed: { name: string; error: string }[] = [];
   const notes: string[] = [];
-
-  if (!getGoogleReviewUrl()) {
-    notes.push(
-      `Skipped ${WHATSAPP_ORDER_REVIEW_REQUEST_TEMPLATE}: set WHATSAPP_GOOGLE_REVIEW_URL then re-run seed`
-    );
-  }
 
   for (const template of getSihiDefaultTemplates()) {
     if (existingNames.has(template.name)) {

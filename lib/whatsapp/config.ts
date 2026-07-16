@@ -125,16 +125,22 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
   };
 }
 
+/** Sihi Bakes Google Business review link (public). Override with WHATSAPP_GOOGLE_REVIEW_URL. */
+export const DEFAULT_GOOGLE_REVIEW_URL =
+  "https://g.page/r/CayJs7pha_2gEBM/review";
+
 /** Google review URL for the review-request WhatsApp button (baked into Meta template). */
-export function getGoogleReviewUrl(): string | null {
-  const url = process.env.WHATSAPP_GOOGLE_REVIEW_URL?.trim();
-  if (!url) return null;
+export function getGoogleReviewUrl(): string {
+  const url =
+    process.env.WHATSAPP_GOOGLE_REVIEW_URL?.trim() || DEFAULT_GOOGLE_REVIEW_URL;
   try {
     const parsed = new URL(url);
-    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") {
+      return DEFAULT_GOOGLE_REVIEW_URL;
+    }
     return url;
   } catch {
-    return null;
+    return DEFAULT_GOOGLE_REVIEW_URL;
   }
 }
 

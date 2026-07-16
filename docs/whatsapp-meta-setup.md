@@ -177,7 +177,7 @@ Sent when admin marks an order **Delivered** or **Self delivered**:
 
 **MARKETING** template with a **Leave a review** URL button. Not sent automatically yet — after Meta approves it, we can wire it to send after delivery (or on a delay).
 
-1. Set `WHATSAPP_GOOGLE_REVIEW_URL` in Vercel to `https://g.page/r/CayJs7pha_2gEBM/review` (baked into the Meta template at create time).
+1. Review button URL defaults to `https://g.page/r/CayJs7pha_2gEBM/review` (override with `WHATSAPP_GOOGLE_REVIEW_URL` if needed). The URL is baked into the Meta template at create time.
 2. Run **Admin → WhatsApp → Templates → Create Sihi defaults** (or seed API).
 3. Wait for Meta approval (`APPROVED`).
 4. Tell the team to wire auto-send / timing.
