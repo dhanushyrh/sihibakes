@@ -110,7 +110,6 @@ export function DeliveryCheckoutClient({
   const [selectedSlotId, setSelectedSlotId] = useState("");
   const [availableCoupons, setAvailableCoupons] =
     useState<PublicCoupon[]>(initialCoupons);
-  const [loadRazorpay, setLoadRazorpay] = useState(false);
   const [couponCode, setCouponCode] = useState("");
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCoupon | null>(null);
   const [couponMessage, setCouponMessage] = useState("");
@@ -770,7 +769,7 @@ export function DeliveryCheckoutClient({
 
   return (
     <div className="flex min-h-screen flex-col pb-[calc(6.5rem+env(safe-area-inset-bottom))]">
-      {loadRazorpay ? (
+      {!paymentSkipEnabled ? (
         <Script
           src="https://checkout.razorpay.com/v1/checkout.js"
           strategy="afterInteractive"
@@ -1120,7 +1119,7 @@ export function DeliveryCheckoutClient({
             </p>
           )}
 
-          {!paymentSkipEnabled && loadRazorpay && !razorpayReady && (
+          {!paymentSkipEnabled && !razorpayReady && (
             <div className="flex items-center gap-2 text-xs text-chocolate/50">
               <Spinner size="sm" label="Loading secure payment" />
               <span>Loading secure payment…</span>
@@ -1134,18 +1133,9 @@ export function DeliveryCheckoutClient({
           <button
             type="button"
             disabled={
-              placingOrder ||
-              (!paymentSkipEnabled && loadRazorpay && !razorpayReady)
+              placingOrder || (!paymentSkipEnabled && !razorpayReady)
             }
-            onPointerEnter={() => setLoadRazorpay(true)}
-            onFocus={() => setLoadRazorpay(true)}
-            onClick={() => {
-              if (!paymentSkipEnabled && !razorpayReady) {
-                setLoadRazorpay(true);
-                return;
-              }
-              void payWithRazorpay();
-            }}
+            onClick={() => void payWithRazorpay()}
             className="flex w-full items-center justify-center gap-2 rounded-full bg-chocolate py-3.5 text-sm font-medium text-cream disabled:opacity-40"
           >
             {placingOrder ? (
