@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { format, parseISO } from "date-fns";
 import type {
   LocationCaptureLead,
@@ -8,12 +8,15 @@ import type {
 } from "@/lib/market-analysis";
 import { formatCurrency } from "@/lib/delivery";
 import { formatDisplayPhone } from "@/lib/storefront";
+import { Pagination } from "@/components/admin/orders/Pagination";
 
 type LeadFilter = "all" | "abandoned" | "completed";
 
 interface LocationCaptureLeadsTableProps {
   leads: LocationCaptureLead[];
 }
+
+const PAGE_SIZE = 15;
 
 const STATUS_LABELS: Record<LocationCaptureLeadStatus, string> = {
   completed: "Completed",
@@ -46,11 +49,27 @@ export function LocationCaptureLeadsTable({
   leads,
 }: LocationCaptureLeadsTableProps) {
   const [filter, setFilter] = useState<LeadFilter>("all");
+  const [page, setPage] = useState(1);
 
   const filtered = useMemo(
     () => leads.filter((lead) => matchesFilter(lead, filter)),
     [leads, filter]
   );
+
+  const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
+
+  useEffect(() => {
+    setPage(1);
+  }, [filter, leads]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  const pageRows = useMemo(() => {
+    const start = (page - 1) * PAGE_SIZE;
+    return filtered.slice(start, start + PAGE_SIZE);
+  }, [filtered, page]);
 
   const filters: { id: LeadFilter; label: string }[] = [
     { id: "all", label: "All" },
@@ -97,59 +116,70 @@ export function LocationCaptureLeadsTable({
           No leads match this filter.
         </p>
       ) : (
-        <div className="mt-4 overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-sm">
-            <thead>
-              <tr className="border-b border-[#4B2C20]/10 text-[10px] uppercase tracking-wide text-[#4B2C20]/45">
-                <th className="pb-2 pr-3 font-medium">When</th>
-                <th className="pb-2 pr-3 font-medium">Phone</th>
-                <th className="pb-2 pr-3 font-medium">Name</th>
-                <th className="pb-2 pr-3 font-medium">Cart</th>
-                <th className="pb-2 pr-3 font-medium">Delivery</th>
-                <th className="pb-2 pr-3 font-medium">Est. total</th>
-                <th className="pb-2 pr-3 font-medium">Status</th>
-                <th className="pb-2 font-medium">Items</th>
-              </tr>
-            </thead>
-            <tbody>
-              {filtered.map((lead) => (
-                <tr
-                  key={lead.sessionId}
-                  className="border-b border-[#4B2C20]/5 last:border-0"
-                >
-                  <td className="py-2.5 pr-3 whitespace-nowrap text-[#4B2C20]/75">
-                    {format(parseISO(lead.locationMarkedAt), "d MMM, h:mm a")}
-                  </td>
-                  <td className="py-2.5 pr-3 font-medium text-[#4B2C20]">
-                    {lead.phone ? formatDisplayPhone(lead.phone) : "—"}
-                  </td>
-                  <td className="py-2.5 pr-3 text-[#4B2C20]/75">
-                    {lead.fullName?.trim() || "—"}
-                  </td>
-                  <td className="py-2.5 pr-3 tabular-nums text-[#4B2C20]/75">
-                    {formatAmount(lead.cartValueInr)}
-                  </td>
-                  <td className="py-2.5 pr-3 tabular-nums text-[#4B2C20]/75">
-                    {formatAmount(lead.deliveryFeeInr)}
-                  </td>
-                  <td className="py-2.5 pr-3 tabular-nums font-medium text-[#4B2C20]">
-                    {formatAmount(lead.estimatedTotalInr)}
-                  </td>
-                  <td className="py-2.5 pr-3">
-                    <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_STYLES[lead.status]}`}
-                    >
-                      {STATUS_LABELS[lead.status]}
-                    </span>
-                  </td>
-                  <td className="py-2.5 text-xs text-[#4B2C20]/60">
-                    {lead.topItems.length > 0 ? lead.topItems.join(", ") : "—"}
-                  </td>
+        <>
+          <div className="mt-4 overflow-x-auto">
+            <table className="w-full min-w-[760px] text-left text-sm">
+              <thead>
+                <tr className="border-b border-[#4B2C20]/10 text-[10px] uppercase tracking-wide text-[#4B2C20]/45">
+                  <th className="pb-2 pr-3 font-medium">When</th>
+                  <th className="pb-2 pr-3 font-medium">Phone</th>
+                  <th className="pb-2 pr-3 font-medium">Name</th>
+                  <th className="pb-2 pr-3 font-medium">Cart</th>
+                  <th className="pb-2 pr-3 font-medium">Delivery</th>
+                  <th className="pb-2 pr-3 font-medium">Est. total</th>
+                  <th className="pb-2 pr-3 font-medium">Status</th>
+                  <th className="pb-2 font-medium">Items</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {pageRows.map((lead) => (
+                  <tr
+                    key={lead.sessionId}
+                    className="border-b border-[#4B2C20]/5 last:border-0"
+                  >
+                    <td className="py-2.5 pr-3 whitespace-nowrap text-[#4B2C20]/75">
+                      {format(parseISO(lead.locationMarkedAt), "d MMM, h:mm a")}
+                    </td>
+                    <td className="py-2.5 pr-3 font-medium text-[#4B2C20]">
+                      {lead.phone ? formatDisplayPhone(lead.phone) : "—"}
+                    </td>
+                    <td className="py-2.5 pr-3 text-[#4B2C20]/75">
+                      {lead.fullName?.trim() || "—"}
+                    </td>
+                    <td className="py-2.5 pr-3 tabular-nums text-[#4B2C20]/75">
+                      {formatAmount(lead.cartValueInr)}
+                    </td>
+                    <td className="py-2.5 pr-3 tabular-nums text-[#4B2C20]/75">
+                      {formatAmount(lead.deliveryFeeInr)}
+                    </td>
+                    <td className="py-2.5 pr-3 tabular-nums font-medium text-[#4B2C20]">
+                      {formatAmount(lead.estimatedTotalInr)}
+                    </td>
+                    <td className="py-2.5 pr-3">
+                      <span
+                        className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${STATUS_STYLES[lead.status]}`}
+                      >
+                        {STATUS_LABELS[lead.status]}
+                      </span>
+                    </td>
+                    <td className="py-2.5 text-xs text-[#4B2C20]/60">
+                      {lead.topItems.length > 0 ? lead.topItems.join(", ") : "—"}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="mt-4">
+            <Pagination
+              page={page}
+              totalPages={totalPages}
+              totalCount={filtered.length}
+              pageSize={PAGE_SIZE}
+              onPageChange={setPage}
+            />
+          </div>
+        </>
       )}
     </div>
   );
