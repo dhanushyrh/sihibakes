@@ -28,7 +28,9 @@ import { orderShortId } from "@/lib/order-badges";
 import {
   buildKitchenBoard,
   formatKitchenOrderItems,
+  kitchenBakeUnits,
   kitchenProgressLabel,
+  kitchenSummaryChips,
   type KitchenBoard,
   type KitchenOrder,
   type KitchenSlotBoard,
@@ -73,21 +75,30 @@ function viewTabClass(active: boolean) {
 function SlotProgressBar({ slot }: { slot: KitchenSlotBoard }) {
   const { counts } = slot;
   if (counts.total === 0) return null;
-  const pct = Math.round(
-    ((counts.dispatched + counts.done) / counts.total) * 100
-  );
+
+  const out = counts.dispatched + counts.done;
+  const pct = Math.round((out / counts.total) * 100);
+  const showBar = out > 0;
+
   return (
     <div className="mt-2">
-      <div className="flex items-center justify-between text-xs text-[#4B2C20]/60">
-        <span>{kitchenProgressLabel(counts)}</span>
-        <span>{pct}% out</span>
-      </div>
-      <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#4B2C20]/10">
-        <div
-          className="h-full rounded-full bg-[#4B2C20] transition-all"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+      <p className="text-xs text-[#4B2C20]/60">{kitchenProgressLabel(counts)}</p>
+      {showBar ? (
+        <>
+          <div className="mt-1 flex items-center justify-between text-[11px] text-[#4B2C20]/45">
+            <span>
+              {out} of {counts.total} out
+            </span>
+            <span>{pct}%</span>
+          </div>
+          <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-[#4B2C20]/10">
+            <div
+              className="h-full rounded-full bg-[#4B2C20] transition-all"
+              style={{ width: `${pct}%` }}
+            />
+          </div>
+        </>
+      ) : null}
     </div>
   );
 }
@@ -105,15 +116,21 @@ function BakeTable({
     );
   }
 
+  const hasReady = lines.some((line) => line.readyQty > 0);
+
   return (
     <div className="overflow-x-auto">
-      <table className="w-full min-w-[420px] text-left text-sm">
+      <table className="w-full min-w-[320px] text-left text-sm">
         <thead>
           <tr className="border-b border-[#4B2C20]/10 text-xs uppercase tracking-wide text-[#4B2C20]/50">
             <th className="pb-2 font-medium">Product</th>
-            <th className="pb-2 text-right font-medium">Prep</th>
-            <th className="pb-2 text-right font-medium">Ready</th>
-            <th className="pb-2 text-right font-medium">Total</th>
+            <th className="pb-2 text-right font-medium">To bake</th>
+            {hasReady && (
+              <th className="pb-2 text-right font-medium">From fridge</th>
+            )}
+            {hasReady && (
+              <th className="pb-2 text-right font-medium">Total</th>
+            )}
           </tr>
         </thead>
         <tbody>
@@ -124,9 +141,6 @@ function BakeTable({
             >
               <td className="py-3 pr-3 font-medium text-[#4B2C20]">
                 {line.title}
-                <span className="mt-0.5 block text-xs font-normal text-[#4B2C20]/45">
-                  {line.orderCount} order{line.orderCount === 1 ? "" : "s"}
-                </span>
               </td>
               <td className="py-3 text-right tabular-nums">
                 <span
@@ -139,12 +153,16 @@ function BakeTable({
                   {line.prepQty}
                 </span>
               </td>
-              <td className="py-3 text-right tabular-nums text-[#4B2C20]/55">
-                {line.readyQty}
-              </td>
-              <td className="py-3 text-right tabular-nums font-medium text-[#4B2C20]">
-                {line.totalQty}
-              </td>
+              {hasReady && (
+                <td className="py-3 text-right tabular-nums text-[#4B2C20]/55">
+                  {line.readyQty}
+                </td>
+              )}
+              {hasReady && (
+                <td className="py-3 text-right tabular-nums font-medium text-[#4B2C20]">
+                  {line.totalQty}
+                </td>
+              )}
             </tr>
           ))}
         </tbody>
@@ -183,11 +201,11 @@ function PackOrderCard({
             <OrderStatusBadge status={order.status} />
             {order.uses_ready_stock ? (
               <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium text-teal-800">
-                Ready stock
+                From fridge
               </span>
             ) : (
               <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-medium text-amber-800">
-                Prep
+                Bake fresh
               </span>
             )}
           </div>
@@ -597,13 +615,33 @@ export function KitchenPageClient() {
                   {dateLabel}
                 </h2>
               </div>
-              <div className="flex flex-wrap gap-3 text-sm text-[#4B2C20]/70">
-                <span>{board.totals.total} orders</span>
-                <span>{board.totals.confirmed} to prep</span>
-                <span>{board.totals.preparing} in kitchen</span>
-                {board.totals.readyStockOrders > 0 && (
-                  <span>{board.totals.readyStockOrders} ready stock</span>
-                )}
+              <div className="flex flex-wrap gap-2 text-sm text-[#4B2C20]/70">
+                {kitchenSummaryChips(board.totals).map((chip) => (
+                  <span
+                    key={chip}
+                    className="rounded-full bg-[#F5E6D3]/70 px-2.5 py-1 text-xs font-medium text-[#4B2C20]"
+                  >
+                    {chip}
+                  </span>
+                ))}
+                {(() => {
+                  const units = kitchenBakeUnits(board.bakeLines);
+                  if (units.toBake <= 0 && units.fromFridge <= 0) return null;
+                  const parts: string[] = [];
+                  if (units.toBake > 0) {
+                    parts.push(
+                      `${units.toBake} item${units.toBake === 1 ? "" : "s"} to bake`
+                    );
+                  }
+                  if (units.fromFridge > 0) {
+                    parts.push(`${units.fromFridge} from fridge`);
+                  }
+                  return (
+                    <span className="rounded-full bg-[#4B2C20]/8 px-2.5 py-1 text-xs font-medium text-[#4B2C20]">
+                      {parts.join(" · ")}
+                    </span>
+                  );
+                })()}
               </div>
             </div>
 
@@ -659,8 +697,13 @@ export function KitchenPageClient() {
                       <p className="mt-0.5 text-sm text-[#4B2C20]/55">
                         {slot.counts.total} order
                         {slot.counts.total === 1 ? "" : "s"}
+                        {(() => {
+                          const units = kitchenBakeUnits(slot.bakeLines);
+                          if (units.toBake <= 0) return null;
+                          return ` · ${units.toBake} to bake`;
+                        })()}
                         {slot.counts.readyStockOrders > 0
-                          ? ` · ${slot.counts.readyStockOrders} ready stock`
+                          ? ` · ${slot.counts.readyStockOrders} from fridge`
                           : ""}
                       </p>
                       <SlotProgressBar slot={slot} />
@@ -677,7 +720,10 @@ export function KitchenPageClient() {
                           {bulkBusyKey === `${slot.key}:confirmed` ? (
                             <Loader2 className="h-4 w-4 animate-spin" />
                           ) : null}
-                          Confirm all ({slot.counts.pending})
+                          Confirm{" "}
+                          {slot.counts.pending === 1
+                            ? "order"
+                            : `${slot.counts.pending} orders`}
                         </button>
                       )}
                       {slot.counts.confirmed > 0 && (
@@ -692,7 +738,10 @@ export function KitchenPageClient() {
                           ) : (
                             <ChefHat className="h-4 w-4" />
                           )}
-                          Start prep ({slot.counts.confirmed})
+                          Start prep
+                          {slot.counts.confirmed > 1
+                            ? ` (${slot.counts.confirmed})`
+                            : ""}
                         </button>
                       )}
                     </div>

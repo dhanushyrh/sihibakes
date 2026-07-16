@@ -221,13 +221,81 @@ export function formatKitchenOrderItems(order: KitchenOrder): string {
 export function kitchenProgressLabel(counts: KitchenSlotCounts): string {
   const active = counts.pending + counts.confirmed + counts.preparing;
   if (counts.total === 0) return "No orders";
-  if (active === 0) return "All clear";
-  if (counts.preparing > 0 && counts.confirmed === 0 && counts.pending === 0) {
-    return `${counts.preparing} preparing`;
-  }
+  if (active === 0) return "All orders out";
+
   const parts: string[] = [];
-  if (counts.pending > 0) parts.push(`${counts.pending} to confirm`);
-  if (counts.confirmed > 0) parts.push(`${counts.confirmed} to prep`);
-  if (counts.preparing > 0) parts.push(`${counts.preparing} in kitchen`);
+  if (counts.pending > 0) {
+    parts.push(
+      counts.pending === 1
+        ? "1 order needs confirm"
+        : `${counts.pending} orders need confirm`
+    );
+  }
+  if (counts.confirmed > 0) {
+    parts.push(
+      counts.confirmed === 1
+        ? "1 order ready to start"
+        : `${counts.confirmed} orders ready to start`
+    );
+  }
+  if (counts.preparing > 0) {
+    parts.push(
+      counts.preparing === 1
+        ? "1 order being prepared"
+        : `${counts.preparing} orders being prepared`
+    );
+  }
   return parts.join(" · ");
+}
+
+/** Human-readable day / slot summary without zero noise. */
+export function kitchenSummaryChips(counts: KitchenSlotCounts): string[] {
+  const chips: string[] = [
+    counts.total === 1 ? "1 order" : `${counts.total} orders`,
+  ];
+  if (counts.pending > 0) {
+    chips.push(
+      counts.pending === 1 ? "1 to confirm" : `${counts.pending} to confirm`
+    );
+  }
+  if (counts.confirmed > 0) {
+    chips.push(
+      counts.confirmed === 1
+        ? "1 waiting to start"
+        : `${counts.confirmed} waiting to start`
+    );
+  }
+  if (counts.preparing > 0) {
+    chips.push(
+      counts.preparing === 1
+        ? "1 being prepared"
+        : `${counts.preparing} being prepared`
+    );
+  }
+  const out = counts.dispatched + counts.done;
+  if (out > 0) {
+    chips.push(out === 1 ? "1 out for delivery" : `${out} out for delivery`);
+  }
+  if (counts.readyStockOrders > 0) {
+    chips.push(
+      counts.readyStockOrders === 1
+        ? "1 from ready stock"
+        : `${counts.readyStockOrders} from ready stock`
+    );
+  }
+  return chips;
+}
+
+export function kitchenBakeUnits(lines: KitchenBakeLine[]): {
+  toBake: number;
+  fromFridge: number;
+} {
+  return lines.reduce(
+    (acc, line) => {
+      acc.toBake += line.prepQty;
+      acc.fromFridge += line.readyQty;
+      return acc;
+    },
+    { toBake: 0, fromFridge: 0 }
+  );
 }

@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildKitchenBoard,
   kitchenProgressLabel,
+  kitchenSummaryChips,
   orderCountsTowardBake,
   type KitchenOrder,
 } from "./kitchen";
@@ -152,7 +153,7 @@ describe("buildKitchenBoard", () => {
 });
 
 describe("kitchenProgressLabel", () => {
-  it("summarizes open kitchen work", () => {
+  it("uses clear order-status language", () => {
     expect(
       kitchenProgressLabel({
         total: 5,
@@ -164,6 +165,40 @@ describe("kitchenProgressLabel", () => {
         readyStockOrders: 1,
         prepOrders: 4,
       })
-    ).toBe("1 to confirm · 2 to prep · 2 in kitchen");
+    ).toBe(
+      "1 order needs confirm · 2 orders ready to start · 2 orders being prepared"
+    );
+  });
+
+  it("describes a single confirmed order clearly", () => {
+    expect(
+      kitchenProgressLabel({
+        total: 1,
+        pending: 0,
+        confirmed: 1,
+        preparing: 0,
+        dispatched: 0,
+        done: 0,
+        readyStockOrders: 0,
+        prepOrders: 1,
+      })
+    ).toBe("1 order ready to start");
+  });
+});
+
+describe("kitchenSummaryChips", () => {
+  it("omits zero statuses and clarifies waiting orders", () => {
+    expect(
+      kitchenSummaryChips({
+        total: 1,
+        pending: 0,
+        confirmed: 1,
+        preparing: 0,
+        dispatched: 0,
+        done: 0,
+        readyStockOrders: 0,
+        prepOrders: 1,
+      })
+    ).toEqual(["1 order", "1 waiting to start"]);
   });
 });
