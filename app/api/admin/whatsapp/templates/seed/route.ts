@@ -26,11 +26,14 @@ export async function POST() {
     created: result.created,
     skipped: result.skipped,
     failed: result.failed,
+    notes: result.notes,
     message:
       result.created.length > 0
         ? `Submitted ${result.created.length} template(s) for Meta review (status: PENDING).`
         : result.failed.length > 0
           ? "Some templates failed to create."
-          : "All default templates already exist.",
+          : result.notes.length > 0
+            ? result.notes.join(" · ")
+            : "All default templates already exist.",
   });
 }

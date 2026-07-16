@@ -21,6 +21,9 @@ export const WHATSAPP_ORDER_PREPARING_TEMPLATE = "order_preparing";
 /** Order delivered — sent when status moves to delivered or self_delivered. */
 export const WHATSAPP_ORDER_DELIVERED_TEMPLATE = "order_delivered";
 
+/** Post-delivery Google review ask — not auto-sent until Meta-approved + wired. */
+export const WHATSAPP_ORDER_REVIEW_REQUEST_TEMPLATE = "order_review_request_v1";
+
 /** Order out for delivery with partner, ref code, and ETA. */
 export const WHATSAPP_ORDER_ON_THE_WAY_TEMPLATE = "order_on_the_way_v2";
 
@@ -39,6 +42,7 @@ export const WHATSAPP_TEMPLATE_BODY_PARAM_COUNTS: Record<string, number> = {
   order_confirmed_v2: 4,
   order_preparing: 1,
   order_delivered: 1,
+  [WHATSAPP_ORDER_REVIEW_REQUEST_TEMPLATE]: 1,
   order_on_the_way: 4,
   order_on_the_way_v2: 4,
   order_self_on_the_way_v2: 2,
@@ -57,6 +61,7 @@ export const WHATSAPP_TEMPLATE_DEFAULT_LANGUAGES: Record<string, string> = {
   order_confirmed_v2: "en_US",
   order_preparing: "en_US",
   order_delivered: "en_US",
+  [WHATSAPP_ORDER_REVIEW_REQUEST_TEMPLATE]: "en_US",
   order_on_the_way: "en_US",
   order_on_the_way_v2: "en_US",
   order_self_on_the_way_v2: "en_US",

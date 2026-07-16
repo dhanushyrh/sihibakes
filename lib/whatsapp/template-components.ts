@@ -19,6 +19,7 @@ import {
   WHATSAPP_ORDER_DELIVERED_TEMPLATE,
   WHATSAPP_ORDER_ON_THE_WAY_TEMPLATE,
   WHATSAPP_ORDER_PREPARING_TEMPLATE,
+  WHATSAPP_ORDER_REVIEW_REQUEST_TEMPLATE,
   WHATSAPP_ORDER_SELF_DISPATCH_TEMPLATE,
   WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
 } from "@/lib/whatsapp/template-registry";
@@ -29,6 +30,7 @@ export {
   WHATSAPP_ORDER_DELIVERED_TEMPLATE,
   WHATSAPP_ORDER_ON_THE_WAY_TEMPLATE,
   WHATSAPP_ORDER_PREPARING_TEMPLATE,
+  WHATSAPP_ORDER_REVIEW_REQUEST_TEMPLATE,
   WHATSAPP_ORDER_SELF_DISPATCH_TEMPLATE,
   WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
 } from "@/lib/whatsapp/template-registry";
@@ -226,6 +228,15 @@ export function buildOrderDeliveredComponents(order: Order): TemplateComponent[]
   ];
 }
 
+export function buildOrderReviewRequestComponents(order: Order): TemplateComponent[] {
+  return [
+    {
+      type: "body",
+      parameters: [textParam(firstName(order))],
+    },
+  ];
+}
+
 export function buildOrderStatusComponents(
   order: Order,
   status: OrderStatus
@@ -363,6 +374,8 @@ export function resolveTemplateComponents(
   const orderStatus = templates?.orderStatus ?? "order_status_update";
   const orderPreparing = templates?.orderPreparing ?? WHATSAPP_ORDER_PREPARING_TEMPLATE;
   const orderDelivered = templates?.orderDelivered ?? WHATSAPP_ORDER_DELIVERED_TEMPLATE;
+  const orderReviewRequest =
+    templates?.orderReviewRequest ?? WHATSAPP_ORDER_REVIEW_REQUEST_TEMPLATE;
   const orderDispatch = templates?.orderDispatch ?? WHATSAPP_ORDER_ON_THE_WAY_TEMPLATE;
   const orderSelfDispatch =
     templates?.orderSelfDispatch ?? WHATSAPP_ORDER_SELF_DISPATCH_TEMPLATE;
@@ -427,6 +440,13 @@ export function resolveTemplateComponents(
     return finalizeTemplatePayload(
       orderDelivered,
       buildOrderDeliveredComponents(order)
+    );
+  }
+
+  if (normalized === orderReviewRequest.toLowerCase()) {
+    return finalizeTemplatePayload(
+      orderReviewRequest,
+      buildOrderReviewRequestComponents(order)
     );
   }
 

@@ -12,6 +12,7 @@ export type WhatsAppConfig = {
     orderStatus: string;
     orderPreparing: string;
     orderDelivered: string;
+    orderReviewRequest: string;
     orderDispatch: string;
     orderSelfDispatch: string;
     orderCancelled: string;
@@ -103,6 +104,9 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
         process.env.WHATSAPP_TEMPLATE_ORDER_PREPARING?.trim() || "order_preparing",
       orderDelivered:
         process.env.WHATSAPP_TEMPLATE_ORDER_DELIVERED?.trim() || "order_delivered",
+      orderReviewRequest:
+        process.env.WHATSAPP_TEMPLATE_ORDER_REVIEW?.trim() ||
+        "order_review_request_v1",
       orderDispatch:
         process.env.WHATSAPP_TEMPLATE_ORDER_DISPATCH?.trim() || "order_on_the_way_v2",
       orderSelfDispatch:
@@ -119,6 +123,19 @@ export function getWhatsAppConfig(): WhatsAppConfig | null {
       process.env.WHATSAPP_TEMPLATE_ORDER_PLACED_LANGUAGE?.trim() || "en_US"
     ),
   };
+}
+
+/** Google review URL for the review-request WhatsApp button (baked into Meta template). */
+export function getGoogleReviewUrl(): string | null {
+  const url = process.env.WHATSAPP_GOOGLE_REVIEW_URL?.trim();
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return null;
+    return url;
+  } catch {
+    return null;
+  }
 }
 
 /** 10-digit Indian mobile for staff new-order WhatsApp alerts; null when unset. */

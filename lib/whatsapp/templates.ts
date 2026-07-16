@@ -1,6 +1,7 @@
 import { BRAND } from "@/lib/constants";
-import { getWhatsAppConfig } from "@/lib/whatsapp/config";
+import { getGoogleReviewUrl, getWhatsAppConfig } from "@/lib/whatsapp/config";
 import { formatWhatsAppErrorForAdmin } from "@/lib/whatsapp/errors";
+import { WHATSAPP_ORDER_REVIEW_REQUEST_TEMPLATE } from "@/lib/whatsapp/template-registry";
 
 export type WhatsAppTemplateCategory =
   | "AUTHENTICATION"
@@ -246,8 +247,9 @@ export async function createWhatsAppTemplate(
 /** Default templates aligned with lib/whatsapp/notifications.ts */
 export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
   const footer = BRAND.name;
+  const googleReviewUrl = getGoogleReviewUrl();
 
-  return [
+  const templates: CreateWhatsAppTemplateInput[] = [
     {
       name: "order_confirmed_v2",
       language: "en_US",
@@ -503,6 +505,40 @@ export function getSihiDefaultTemplates(): CreateWhatsAppTemplateInput[] {
       ],
     },
   ];
+
+  // Marketing review ask — only seeded when Google review URL is configured.
+  // Not auto-sent until Meta approves and we wire it after delivery.
+  if (googleReviewUrl) {
+    templates.push({
+      name: WHATSAPP_ORDER_REVIEW_REQUEST_TEMPLATE,
+      language: "en_US",
+      category: "MARKETING",
+      allowCategoryChange: true,
+      components: [
+        {
+          type: "BODY",
+          text:
+            "Hi {{1}}, thank you for ordering from Sihi Bakes! 💛\n\nIf you enjoyed your treats, we'd love a quick Google review — it helps more people in Mangaluru discover us.\n\nTap below to leave a review.",
+          example: {
+            body_text: [["Dhanush"]],
+          },
+        },
+        { type: "FOOTER", text: footer },
+        {
+          type: "BUTTONS",
+          buttons: [
+            {
+              type: "URL",
+              text: "Leave a review",
+              url: googleReviewUrl,
+            },
+          ],
+        },
+      ],
+    });
+  }
+
+  return templates;
 }
 
 export async function seedSihiDefaultTemplates(): Promise<{
@@ -510,6 +546,7 @@ export async function seedSihiDefaultTemplates(): Promise<{
   created: string[];
   skipped: string[];
   failed: { name: string; error: string }[];
+  notes: string[];
 }> {
   const existing = await listWhatsAppTemplates();
   const existingNames = new Set(
@@ -519,6 +556,13 @@ export async function seedSihiDefaultTemplates(): Promise<{
   const created: string[] = [];
   const skipped: string[] = [];
   const failed: { name: string; error: string }[] = [];
+  const notes: string[] = [];
+
+  if (!getGoogleReviewUrl()) {
+    notes.push(
+      `Skipped ${WHATSAPP_ORDER_REVIEW_REQUEST_TEMPLATE}: set WHATSAPP_GOOGLE_REVIEW_URL then re-run seed`
+    );
+  }
 
   for (const template of getSihiDefaultTemplates()) {
     if (existingNames.has(template.name)) {
@@ -540,5 +584,6 @@ export async function seedSihiDefaultTemplates(): Promise<{
     created,
     skipped,
     failed,
+    notes,
   };
 }

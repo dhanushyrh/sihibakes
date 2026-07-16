@@ -59,6 +59,7 @@ export const WHATSAPP_ADMIN_TEMPLATE_OPTIONS = [
   { key: "order_confirmed_v2", label: "Order confirmed" },
   { key: "order_confirmed", label: "Order confirmed (legacy)" },
   { key: "order_delivered", label: "Order delivered" },
+  { key: "order_review_request_v1", label: "Ask for Google review" },
   { key: "order_status_update", label: "Order status update" },
   { key: "order_on_the_way_v2", label: "Out for delivery" },
   { key: "order_self_on_the_way_v2", label: "Self delivery — on the way" },

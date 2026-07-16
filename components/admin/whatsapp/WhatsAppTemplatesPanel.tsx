@@ -75,6 +75,7 @@ export function WhatsAppTemplatesPanel() {
     const parts: string[] = [];
     if (data.created?.length) parts.push(`Created: ${data.created.join(", ")}`);
     if (data.skipped?.length) parts.push(`Skipped (exist): ${data.skipped.join(", ")}`);
+    if (data.notes?.length) parts.push((data.notes as string[]).join(" · "));
     if (data.failed?.length) {
       parts.push(
         `Failed: ${data.failed.map((f: { name: string; error: string }) => `${f.name} (${f.error})`).join("; ")}`
