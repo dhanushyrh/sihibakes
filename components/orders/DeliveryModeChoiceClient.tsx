@@ -8,7 +8,6 @@ import { useDeliverySession } from "@/components/store/DeliverySessionProvider";
 import {
   formatSlotTime,
   getSameDayBlockMessage,
-  isSameDaySoldOutReason,
   type DeliveryModeAvailability,
 } from "@/lib/delivery-mode-availability";
 import { isShopTomorrow } from "@/lib/shop-timezone";
@@ -191,14 +190,9 @@ export function DeliveryModeChoiceClient({
   const today = shopDateKey();
 
   const earliestSameDaySlot = availability.sameDaySlots[0];
-  const sameDaySoldOut = isSameDaySoldOutReason(availability.sameDayReason);
-  const sameDayDetail = !availability.sameDayEnabled
-    ? sameDaySoldOut
-      ? "Sold out for today"
-      : "Unavailable today"
-    : earliestSameDaySlot
-      ? `Earliest slot ${formatSlotTime(earliestSameDaySlot.window_start)} – ${formatSlotTime(earliestSameDaySlot.window_end)}`
-      : "No slots available today";
+  const sameDayDetail = earliestSameDaySlot
+    ? `Earliest slot ${formatSlotTime(earliestSameDaySlot.window_start)} – ${formatSlotTime(earliestSameDaySlot.window_end)}`
+    : "No slots available today";
 
   const handleSameDay = () => {
     if (!availability.sameDayEnabled) return;
@@ -229,25 +223,17 @@ export function DeliveryModeChoiceClient({
         </div>
 
         <div className="mt-8 flex flex-1 flex-col gap-3">
-          <ModeCard
-            title="Same Day Delivery"
-            subtitle={
-              sameDaySoldOut
-                ? "Sold out for today"
-                : "Today only · fastest route"
-            }
-            detail={sameDayDetail}
-            disabled={!availability.sameDayEnabled}
-            disabledMessage={
-              availability.sameDayReason
-                ? getSameDayBlockMessage(availability.sameDayReason)
-                : undefined
-            }
-            icon={Sparkles}
-            accent="chocolate"
-            onSelect={handleSameDay}
-            cta="Order for today"
-          />
+          {availability.sameDayEnabled ? (
+            <ModeCard
+              title="Same Day Delivery"
+              subtitle="Today only · fastest route"
+              detail={sameDayDetail}
+              icon={Sparkles}
+              accent="chocolate"
+              onSelect={handleSameDay}
+              cta="Order for today"
+            />
+          ) : null}
 
           <PreOrderModeCard
             dates={availability.preOrderDates}
@@ -267,6 +253,14 @@ export function DeliveryModeChoiceClient({
             Same-day slots need at least 60 minutes notice
           </p>
         )}
+
+        {!availability.sameDayEnabled &&
+          availability.sameDayReason &&
+          availability.ordersAccepting && (
+            <p className="mt-4 rounded-2xl bg-parchment/80 px-4 py-3 text-center text-sm text-chocolate/70 ring-1 ring-chocolate/10">
+              {getSameDayBlockMessage(availability.sameDayReason)}
+            </p>
+          )}
 
         {!availability.ordersAccepting && (
           <p className="mt-4 rounded-2xl bg-red-50 px-4 py-3 text-center text-sm text-red-800 ring-1 ring-red-200">

@@ -971,7 +971,7 @@ export function DeliveryCheckoutClient({
 
           <div className="scroll-mt-24" data-checkout-field="slot">
             <DeliverySlotSelects
-              slots={bookableSlots}
+              slots={modeSlots}
               selectedDate={selectedDate}
               selectedSlotId={selectedSlotId}
               onDateChange={handleDateChange}
@@ -979,6 +979,11 @@ export function DeliveryCheckoutClient({
               deliveryMode={deliveryMode}
               slotBookability={slotBookability}
               slotError={fieldErrors.slot}
+              emptyDatesMessage={
+                deliveryMode === "same_day"
+                  ? "No same-day delivery slots left — go back and choose a pre-order date."
+                  : "No delivery dates available right now."
+              }
             />
           </div>
 

@@ -108,30 +108,36 @@ export function DeliverySlotSelects({
     return slots;
   }, [slots, deliveryMode, preOrderDates]);
 
-  const availableDates = useMemo(() => {
-    if (deliveryMode === "pre_order") return preOrderDates;
-    return getBookableDates(scopedSlots);
-  }, [deliveryMode, preOrderDates, scopedSlots]);
+  /** Only slots the customer can still book — never show passed/cutoff windows. */
+  const selectableSlots = useMemo(() => {
+    if (!slotBookability) return scopedSlots;
+    return scopedSlots.filter((slot) => slotBookability.has(slot.id));
+  }, [scopedSlots, slotBookability]);
+
+  const availableDates = useMemo(
+    () => getBookableDates(selectableSlots),
+    [selectableSlots]
+  );
 
   const dateStripEntries = useMemo(() => {
     if (deliveryMode === "same_day") return [];
     if (deliveryMode === "pre_order") {
-      return preOrderDates.map((date) => ({ date, bookable: true }));
+      return availableDates.map((date) => ({ date, bookable: true }));
     }
-    const entries = getDateStripEntries(scopedSlots);
+    const entries = getDateStripEntries(selectableSlots);
     const bookable = new Set(availableDates);
     return entries.filter((entry) => bookable.has(entry.date));
-  }, [scopedSlots, deliveryMode, preOrderDates, availableDates]);
+  }, [selectableSlots, deliveryMode, availableDates]);
 
   const slotsForDate = useMemo(
-    () => getSlotsForBookableDate(scopedSlots, selectedDate),
-    [scopedSlots, selectedDate]
+    () => getSlotsForBookableDate(selectableSlots, selectedDate),
+    [selectableSlots, selectedDate]
   );
   const selectedSlot = slotsForDate.find((slot) => slot.id === selectedSlotId);
 
   const handleDateChange = (date: string) => {
     onDateChange(date);
-    const nextSlots = getSlotsForBookableDate(scopedSlots, date);
+    const nextSlots = getSlotsForBookableDate(selectableSlots, date);
     onSlotChange(nextSlots[0]?.id ?? "");
   };
 
