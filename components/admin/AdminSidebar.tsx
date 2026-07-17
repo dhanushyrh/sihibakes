@@ -36,32 +36,64 @@ type NavBadgeKey =
   | "newEnquiries"
   | "whatsappUnread";
 
-const NAV: {
+type NavItem = {
   href: string;
   label: string;
   icon: LucideIcon;
   badge?: NavBadgeKey;
-}[] = [
-  { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
-  { href: "/admin/market-analysis", label: "Market Analysis", icon: TrendingUp },
-  { href: "/admin/products", label: "Products", icon: Package },
-  { href: "/admin/orders", label: "Orders", icon: ShoppingBag, badge: "pendingOrders" },
+};
+
+type NavGroup = {
+  label: string;
+  items: NavItem[];
+};
+
+const NAV_GROUPS: NavGroup[] = [
   {
-    href: "/admin/kitchen",
-    label: "Kitchen",
-    icon: ChefHat,
-    badge: "kitchenActiveToday",
+    label: "Overview",
+    items: [
+      { href: "/admin", label: "Dashboard", icon: LayoutDashboard },
+      { href: "/admin/analytics", label: "Analytics", icon: BarChart3 },
+      { href: "/admin/market-analysis", label: "Market Analysis", icon: TrendingUp },
+    ],
   },
-  { href: "/admin/enquiries", label: "Enquiries", icon: MessageSquare, badge: "newEnquiries" },
-  { href: "/admin/whatsapp", label: "WhatsApp", icon: MessagesSquare, badge: "whatsappUnread" },
-  { href: "/admin/reviews", label: "Reviews", icon: Star },
-  { href: "/admin/customers", label: "Customers", icon: Users },
-  { href: "/admin/coupons", label: "Coupons", icon: Ticket },
-  { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
-  { href: "/admin/expenses", label: "Expenses", icon: Banknote },
-  { href: "/admin/delivery-slots", label: "Delivery & Stock", icon: Calendar },
-  { href: "/admin/settings", label: "Settings", icon: Settings },
+  {
+    label: "Operations",
+    items: [
+      { href: "/admin/orders", label: "Orders", icon: ShoppingBag, badge: "pendingOrders" },
+      {
+        href: "/admin/kitchen",
+        label: "Kitchen",
+        icon: ChefHat,
+        badge: "kitchenActiveToday",
+      },
+      { href: "/admin/delivery-slots", label: "Delivery & Stock", icon: Calendar },
+      { href: "/admin/products", label: "Products", icon: Package },
+    ],
+  },
+  {
+    label: "Customers",
+    items: [
+      { href: "/admin/customers", label: "Customers", icon: Users },
+      { href: "/admin/enquiries", label: "Enquiries", icon: MessageSquare, badge: "newEnquiries" },
+      { href: "/admin/whatsapp", label: "WhatsApp", icon: MessagesSquare, badge: "whatsappUnread" },
+      { href: "/admin/reviews", label: "Reviews", icon: Star },
+    ],
+  },
+  {
+    label: "Marketing",
+    items: [
+      { href: "/admin/coupons", label: "Coupons", icon: Ticket },
+      { href: "/admin/announcements", label: "Announcements", icon: Megaphone },
+    ],
+  },
+  {
+    label: "Business",
+    items: [
+      { href: "/admin/expenses", label: "Expenses", icon: Banknote },
+      { href: "/admin/settings", label: "Settings", icon: Settings },
+    ],
+  },
 ];
 
 function getNavBadgeCount(
@@ -115,44 +147,53 @@ export function AdminSidebar() {
 
   const NavContent = () => (
     <>
-      <div className="border-b border-white/10 px-4 py-5">
+      <div className="shrink-0 border-b border-white/10 px-4 py-5">
         <p className="font-serif text-lg font-semibold text-white">Sihi Admin</p>
         <p className="text-xs text-white/50">Manage your bakery</p>
       </div>
-      <nav className="flex-1 space-y-1 p-3">
-        {NAV.map(({ href, label, icon: Icon, badge }) => {
-          const active =
-            pathname === href ||
-            (href !== "/admin" && pathname.startsWith(href + "/"));
-          const badgeCount = badge
-            ? getNavBadgeCount(badge, counts, whatsappUnread)
-            : 0;
-          const badgeTone =
-            badge === "whatsappUnread"
-              ? "green"
-              : badge === "newEnquiries"
-                ? "blue"
-                : "amber";
+      <nav className="flex-1 space-y-4 overflow-y-auto p-3">
+        {NAV_GROUPS.map((group) => (
+          <div key={group.label}>
+            <p className="px-3 pb-1.5 text-[10px] font-semibold uppercase tracking-[0.12em] text-white/35">
+              {group.label}
+            </p>
+            <div className="space-y-0.5">
+              {group.items.map(({ href, label, icon: Icon, badge }) => {
+                const active =
+                  pathname === href ||
+                  (href !== "/admin" && pathname.startsWith(href + "/"));
+                const badgeCount = badge
+                  ? getNavBadgeCount(badge, counts, whatsappUnread)
+                  : 0;
+                const badgeTone =
+                  badge === "whatsappUnread"
+                    ? "green"
+                    : badge === "newEnquiries"
+                      ? "blue"
+                      : "amber";
 
-          return (
-            <Link
-              key={href}
-              href={href}
-              onClick={() => setOpen(false)}
-              className={`flex items-center gap-2.5 rounded-lg px-3 py-2.5 text-sm transition ${
-                active
-                  ? "bg-white/15 text-white font-medium"
-                  : "text-white/70 hover:bg-white/10 hover:text-white"
-              }`}
-            >
-              <Icon size={18} />
-              <span className="flex-1">{label}</span>
-              {badge && <NavBadge count={badgeCount} tone={badgeTone} />}
-            </Link>
-          );
-        })}
+                return (
+                  <Link
+                    key={href}
+                    href={href}
+                    onClick={() => setOpen(false)}
+                    className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${
+                      active
+                        ? "bg-white/15 font-medium text-white"
+                        : "text-white/70 hover:bg-white/10 hover:text-white"
+                    }`}
+                  >
+                    <Icon size={18} />
+                    <span className="flex-1">{label}</span>
+                    {badge && <NavBadge count={badgeCount} tone={badgeTone} />}
+                  </Link>
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </nav>
-      <div className="border-t border-white/10 p-3">
+      <div className="shrink-0 border-t border-white/10 p-3">
         <button
           type="button"
           onClick={logout}
