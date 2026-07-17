@@ -1,6 +1,7 @@
 import { formatOrderItems } from "@/lib/order-roster";
 import { BRAND } from "@/lib/constants";
 import { enquiryShortId } from "@/lib/enquiries";
+import { isOfflineOrderSource } from "@/lib/offline-orders";
 import { isSelfDeliveryOrder } from "@/lib/order-status-update";
 import type { Order, OrderItem, OrderStatus, Product } from "@/lib/types";
 import {
@@ -96,6 +97,10 @@ export async function notifyEnquiryReceived(params: {
 
 /** Order placed (payment success) — uses approved Sihi utility template. */
 export async function sendOrderPlacedNotification(order: Order) {
+  if (isOfflineOrderSource(order.order_source)) {
+    return { ok: true, messageId: null, error: null };
+  }
+
   if (await hasSentMessage(order.id, "order_placed")) {
     return { ok: true, messageId: null, error: null };
   }
@@ -129,6 +134,8 @@ export async function sendOrderPlacedNotification(order: Order) {
 }
 
 export async function sendOrderConfirmedNotification(order: Order) {
+  if (isOfflineOrderSource(order.order_source)) return;
+
   if (await hasSentMessage(order.id, "order_confirmed")) return;
   // Payment success already sends order_confirmed template as order_placed.
   if (await hasSentMessage(order.id, "order_placed")) return;
@@ -153,6 +160,9 @@ export async function sendOrderStatusNotification(
   newStatus: OrderStatus,
   extras?: { estimatedArrival?: string }
 ) {
+  // Offline (WhatsApp/IG/admin) orders never get automated customer templates.
+  if (isOfflineOrderSource(order.order_source)) return;
+
   const config = getWhatsAppConfig();
 
   if (newStatus === "confirmed" || newStatus === "preparing") {
@@ -215,8 +225,7 @@ export async function notifyOrderStatusChange(
 
   if (!order) return;
 
-  // Offline (WhatsApp/IG/admin) orders: no automated customer WhatsApp.
-  if (order.order_source === "offline") return;
+  if (isOfflineOrderSource(order.order_source)) return;
 
   try {
     await sendOrderStatusNotification(order as Order, newStatus, extras);
@@ -240,8 +249,7 @@ export async function notifyOrderPlaced(orderId: string) {
     return { ok: false, messageId: null, error: "Order not found" };
   }
 
-  // Offline (WhatsApp/IG/admin) orders: no automated customer WhatsApp.
-  if (order.order_source === "offline") {
+  if (isOfflineOrderSource(order.order_source)) {
     return { ok: true, messageId: null, error: null };
   }
 
@@ -283,6 +291,10 @@ export async function notifyAdminNewOrder(orderId: string) {
   if (!order) {
     console.error("WhatsApp admin new-order alert skipped — order not found:", orderId);
     return { ok: false, messageId: null, error: "Order not found" };
+  }
+
+  if (isOfflineOrderSource(order.order_source)) {
+    return { ok: true, messageId: null, error: null };
   }
 
   const items = (order.order_items ?? []) as (OrderItem & {

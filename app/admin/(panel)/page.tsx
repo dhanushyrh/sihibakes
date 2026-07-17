@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { format } from "date-fns";
 import { isSupabaseConfigured } from "@/lib/mock-data";
 import { DashboardAlertsBanner } from "@/components/admin/dashboard/DashboardAlertsBanner";
+import { DeliveryModeEntry } from "@/components/admin/dashboard/DeliveryModeEntry";
 import { DashboardInsights } from "@/components/admin/dashboard/DashboardInsights";
 import { DashboardProducts } from "@/components/admin/dashboard/DashboardProducts";
 import { DashboardStats } from "@/components/admin/dashboard/DashboardStats";
@@ -33,6 +34,8 @@ export default function AdminDashboard() {
       <p className="mt-1 text-sm text-[#4B2C20]/60">
         {format(new Date(), "EEEE, d MMMM yyyy")}
       </p>
+
+      <DeliveryModeEntry />
 
       <Suspense fallback={null}>
         <DashboardAlertsBanner />
