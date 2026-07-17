@@ -44,6 +44,7 @@ import { shopDateKey } from "@/lib/shop-timezone";
 import {
   markActivityOrderCreated,
 } from "@/lib/customer-activity";
+import { ensureCustomerByPhone } from "@/lib/customers";
 import { parseRequestClientInfo } from "@/lib/request-client-info";
 import { isBorzoConfigured } from "@/lib/borzo/config";
 import { formatCustomerAddress } from "@/lib/borzo/delivery";
@@ -312,7 +313,7 @@ export async function POST(request: Request) {
         .single();
 
       if (coupon) {
-        const firstOrder = await isFirstOrder(phone);
+        const firstOrder = await isFirstOrder(normalizedPhone);
         couponResult = applyCoupon(
           coupon as Coupon,
           subtotal,
@@ -335,14 +336,11 @@ export async function POST(request: Request) {
     );
     const orderNumber = generateOrderNumber();
 
-    const { data: customer } = await admin
-      .from("customers")
-      .upsert(
-        { name: customer_name, phone: normalizedPhone, email: normalizedEmail },
-        { onConflict: "phone" }
-      )
-      .select("id")
-      .single();
+    const customer = await ensureCustomerByPhone(admin, {
+      name: customer_name,
+      phone: normalizedPhone,
+      email: normalizedEmail,
+    });
 
     const { data: order, error: orderError } = await admin
       .from("orders")

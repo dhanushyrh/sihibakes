@@ -504,11 +504,13 @@ export const hasActiveInventoryToday = cache(
 export async function isFirstOrder(phone: string): Promise<boolean> {
   if (!isSupabaseConfigured()) return true;
   const admin = createAdminClient();
+  const normalized = String(phone).replace(/\D/g, "").slice(-10);
   const { count } = await admin
     .from("orders")
     .select("*", { count: "exact", head: true })
-    .eq("phone", phone)
-    .eq("payment_status", "paid");
+    .eq("phone", normalized)
+    // Offline orders count even when unpaid — same returning customer.
+    .or("payment_status.eq.paid,order_source.eq.offline");
   return (count ?? 0) === 0;
 }
 

@@ -102,12 +102,12 @@ export async function queryAdminCustomers(
       admin
         .from("orders")
         .select("customer_id, phone, total_inr")
-        .eq("payment_status", "paid")
+        .or("payment_status.eq.paid,order_source.eq.offline")
         .in("customer_id", customerIds),
       admin
         .from("orders")
         .select("customer_id, phone, total_inr")
-        .eq("payment_status", "paid")
+        .or("payment_status.eq.paid,order_source.eq.offline")
         .is("customer_id", null)
         .in("phone", phones),
     ]);

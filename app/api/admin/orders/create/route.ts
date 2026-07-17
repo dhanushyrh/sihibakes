@@ -5,6 +5,7 @@ import {
   PAYMENT_MODE_SET,
   resolveOfflineDeliverySchedule,
 } from "@/lib/offline-orders";
+import { ensureCustomerByPhone } from "@/lib/customers";
 import {
   calcSubtotal,
   generateOrderNumber,
@@ -205,14 +206,10 @@ export async function POST(request: Request) {
     const paid = Boolean(payment_received);
     const orderNumber = generateOrderNumber();
 
-    const { data: customer } = await admin
-      .from("customers")
-      .upsert(
-        { name, phone: normalizedPhone },
-        { onConflict: "phone" }
-      )
-      .select("id")
-      .single();
+    const customer = await ensureCustomerByPhone(admin, {
+      name,
+      phone: normalizedPhone,
+    });
 
     const { data: order, error: orderError } = await admin
       .from("orders")
