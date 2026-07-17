@@ -63,7 +63,6 @@ export function CreateOfflineOrderForm({
   const [deliveryFee, setDeliveryFee] = useState("0");
   const [paymentReceived, setPaymentReceived] = useState(true);
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("upi");
-  const [sendWhatsApp, setSendWhatsApp] = useState(true);
   const [amount, setAmount] = useState("0");
   const [amountTouched, setAmountTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -234,7 +233,6 @@ export function CreateOfflineOrderForm({
         payment_mode: paymentMode,
         amount_inr: Number(amount),
         delivery_fee_inr: feeNum,
-        send_whatsapp_confirmation: sendWhatsApp,
         items: cartItems.map(({ product, quantity }) => ({
           productId: product.id,
           quantity,
@@ -247,14 +245,6 @@ export function CreateOfflineOrderForm({
 
     if (!res.ok) {
       setError(data.error ?? "Failed to create order");
-      return;
-    }
-
-    if (sendWhatsApp && data.whatsapp && !data.whatsapp.ok) {
-      // Order exists — land on detail with a soft warning via query.
-      router.push(
-        `/admin/orders/${data.id}?created=offline&wa=failed`
-      );
       return;
     }
 
@@ -572,22 +562,6 @@ export function CreateOfflineOrderForm({
                 checked={paymentReceived}
                 onChange={(e) => setPaymentReceived(e.target.checked)}
                 className="h-5 w-5 rounded border-[#4B2C20]/30 text-[#4B2C20] focus:ring-[#4B2C20]/30"
-              />
-            </label>
-            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-[#F5E6D3]/50 px-4 py-3">
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-[#4B2C20]">
-                  Send WhatsApp confirmation
-                </span>
-                <span className="mt-0.5 block text-xs text-[#4B2C20]/50">
-                  Uses the same order confirmed template as online orders
-                </span>
-              </span>
-              <input
-                type="checkbox"
-                checked={sendWhatsApp}
-                onChange={(e) => setSendWhatsApp(e.target.checked)}
-                className="h-5 w-5 shrink-0 rounded border-[#4B2C20]/30 text-[#4B2C20] focus:ring-[#4B2C20]/30"
               />
             </label>
             <div className="grid gap-4 sm:grid-cols-3">

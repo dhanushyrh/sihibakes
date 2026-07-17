@@ -215,6 +215,9 @@ export async function notifyOrderStatusChange(
 
   if (!order) return;
 
+  // Offline (WhatsApp/IG/admin) orders: no automated customer WhatsApp.
+  if (order.order_source === "offline") return;
+
   try {
     await sendOrderStatusNotification(order as Order, newStatus, extras);
   } catch (err) {
@@ -235,6 +238,11 @@ export async function notifyOrderPlaced(orderId: string) {
   if (!order) {
     console.error("WhatsApp order placed notification skipped — order not found:", orderId);
     return { ok: false, messageId: null, error: "Order not found" };
+  }
+
+  // Offline (WhatsApp/IG/admin) orders: no automated customer WhatsApp.
+  if (order.order_source === "offline") {
+    return { ok: true, messageId: null, error: null };
   }
 
   return sendOrderPlacedNotification(order as Order);

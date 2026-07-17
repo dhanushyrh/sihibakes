@@ -3,10 +3,9 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { ADMIN_ORDER_DETAIL_SELECT } from "@/lib/admin-orders-query";
 import { PAYMENT_MODE_SET } from "@/lib/offline-orders";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notifyOrderPlaced } from "@/lib/whatsapp/notifications";
 import type { PaymentMode } from "@/lib/types";
 
-/** Mark an offline order as paid without touching inventory. */
+/** Mark an offline order as paid without touching inventory or WhatsApp. */
 export async function POST(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -17,7 +16,6 @@ export async function POST(
   const { id } = await params;
   const body = (await request.json().catch(() => ({}))) as {
     payment_mode?: string;
-    send_whatsapp_confirmation?: boolean;
   };
 
   const admin = createAdminClient();
@@ -74,15 +72,6 @@ export async function POST(
       { error: error?.message ?? "Failed to update payment" },
       { status: 500 }
     );
-  }
-
-  // Send confirmation if not already sent at create time (idempotent).
-  if (body.send_whatsapp_confirmation !== false) {
-    try {
-      await notifyOrderPlaced(id);
-    } catch (err) {
-      console.error("WhatsApp confirmation after mark-paid failed:", err);
-    }
   }
 
   return NextResponse.json(data);

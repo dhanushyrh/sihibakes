@@ -11,7 +11,6 @@ import {
   getUnitPrice,
 } from "@/lib/pricing";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { notifyOrderPlaced } from "@/lib/whatsapp/notifications";
 import type { PaymentMode, Product } from "@/lib/types";
 
 type CreateItem = {
@@ -44,7 +43,6 @@ export async function POST(request: Request) {
       payment_mode,
       amount_inr,
       delivery_fee_inr,
-      send_whatsapp_confirmation,
     } = body as {
       items?: CreateItem[];
       customer_name?: string;
@@ -64,7 +62,6 @@ export async function POST(request: Request) {
       payment_mode?: string;
       amount_inr?: number;
       delivery_fee_inr?: number;
-      send_whatsapp_confirmation?: boolean;
     };
 
     const name = String(customer_name ?? "").trim();
@@ -279,35 +276,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: itemsError.message }, { status: 500 });
     }
 
-    // Default on — same order_confirmed template as online checkout.
-    const sendWhatsApp = send_whatsapp_confirmation !== false;
-    let whatsapp: { ok: boolean; error: string | null } | null = null;
-    if (sendWhatsApp) {
-      try {
-        const result = await notifyOrderPlaced(order.id);
-        whatsapp = {
-          ok: result.ok,
-          error: result.error ?? null,
-        };
-        if (!result.ok) {
-          console.error(
-            `WhatsApp confirmation failed for offline order ${order.order_number}:`,
-            result.error
-          );
-        }
-      } catch (err) {
-        console.error("WhatsApp confirmation failed for offline order:", err);
-        whatsapp = {
-          ok: false,
-          error: err instanceof Error ? err.message : "WhatsApp send failed",
-        };
-      }
-    }
-
+    // No automated WhatsApp for offline orders (admin may message manually).
     return NextResponse.json({
       id: order.id,
       order_number: order.order_number,
-      whatsapp,
     });
   } catch (err) {
     console.error("Admin offline order create failed:", err);

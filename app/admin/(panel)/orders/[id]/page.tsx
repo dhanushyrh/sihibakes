@@ -93,11 +93,6 @@ export default function AdminOrderDetailPage() {
     if (params.get("created") === "offline") {
       setCreatedBanner(true);
     }
-    if (params.get("wa") === "failed") {
-      setError(
-        "Order created, but WhatsApp confirmation failed to send. You can message the customer manually."
-      );
-    }
   }, []);
 
   useEffect(() => {
