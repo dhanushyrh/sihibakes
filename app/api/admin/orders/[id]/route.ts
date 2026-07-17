@@ -132,13 +132,18 @@ export async function PATCH(
   const transition = canTransitionOrderStatus(
     order.status as OrderStatus,
     status,
-    order.payment_status
+    order.payment_status,
+    order.order_source
   );
   if (!transition.ok) {
     return NextResponse.json({ error: transition.error }, { status: 400 });
   }
 
-  if (order.payment_status === "pending" && status !== "pending") {
+  if (
+    order.payment_status === "pending" &&
+    order.order_source !== "offline" &&
+    status !== "pending"
+  ) {
     return NextResponse.json(
       { error: "Cannot advance fulfillment until payment is received" },
       { status: 400 }
@@ -148,7 +153,8 @@ export async function PATCH(
   const fulfilling = shouldFulfillOnStatusChange(
     order.status as OrderStatus,
     status,
-    order.payment_status
+    order.payment_status,
+    order.order_source
   );
 
   if (fulfilling) {

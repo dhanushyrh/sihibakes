@@ -17,7 +17,10 @@ import {
   Volume2,
 } from "lucide-react";
 import { useAdminNotifications } from "@/components/admin/AdminNotificationProvider";
-import { OrderStatusBadge } from "@/components/admin/orders/OrderBadges";
+import {
+  OrderSourceBadges,
+  OrderStatusBadge,
+} from "@/components/admin/orders/OrderBadges";
 import { OrderStatusChangeModal } from "@/components/admin/orders/OrderStatusChangeModal";
 import { ListSkeleton } from "@/components/admin/ui/AdminPageSkeleton";
 import { mergeAdminOrderUpdate } from "@/lib/admin-orders-query";
@@ -199,6 +202,10 @@ function PackOrderCard({
               #{orderShortId(order.order_number)}
             </Link>
             <OrderStatusBadge status={order.status} />
+            <OrderSourceBadges
+              orderSource={order.order_source}
+              paymentStatus={order.payment_status}
+            />
             {order.uses_ready_stock ? (
               <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium text-teal-800">
                 From fridge

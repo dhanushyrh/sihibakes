@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { ADMIN_ORDER_LIST_SELECT } from "@/lib/admin-orders-query";
 import { buildKitchenBoard, type KitchenOrder } from "@/lib/kitchen";
+import { KITCHEN_ORDERS_VISIBLE_OR } from "@/lib/offline-orders";
 import { shopDateKey } from "@/lib/shop-timezone";
 import { createAdminClient } from "@/lib/supabase/admin";
 
@@ -23,7 +24,7 @@ export async function GET(request: Request) {
   const { data, error } = await admin
     .from("orders")
     .select(ADMIN_ORDER_LIST_SELECT)
-    .eq("payment_status", "paid")
+    .or(KITCHEN_ORDERS_VISIBLE_OR)
     .eq("delivery_date", dateParam)
     .neq("status", "cancelled")
     .order("delivery_window_start", { ascending: true })

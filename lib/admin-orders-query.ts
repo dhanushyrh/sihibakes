@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { ORDERS_PAGE_SIZE } from "@/lib/constants";
+import { ADMIN_ORDERS_VISIBLE_OR } from "@/lib/offline-orders";
 import type { Order } from "@/lib/types";
 import {
   applyOrderFieldFilters,
@@ -112,7 +113,7 @@ export async function queryAdminOrders(
   let query = admin
     .from("orders")
     .select(ADMIN_ORDER_LIST_SELECT, { count: "exact" })
-    .in("payment_status", ["paid", "refunded"]);
+    .or(ADMIN_ORDERS_VISIBLE_OR);
 
   if (orderBySlot) {
     query = query

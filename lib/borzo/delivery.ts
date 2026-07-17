@@ -219,6 +219,10 @@ export async function dispatchBorzoDelivery(
   settings: ShopSettings,
   options?: { deliveryOtp?: string; partnerName?: string }
 ): Promise<BorzoDispatchResult> {
+  if (order.delivery_lat == null || order.delivery_lng == null) {
+    throw new Error("Order is missing a delivery map pin required for Borzo");
+  }
+
   const deliveryOtp = options?.deliveryOtp?.trim() || generateDeliveryOtp();
   const customerAddress = formatCustomerAddress(order);
 

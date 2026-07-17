@@ -7,11 +7,12 @@ import {
   getAllowedNextStatuses,
   isTerminalOrderStatus,
 } from "@/lib/order-status-transitions";
-import type { OrderStatus, PaymentStatus } from "@/lib/types";
+import type { OrderSource, OrderStatus, PaymentStatus } from "@/lib/types";
 
 type OrderStatusSelectProps = {
   value: OrderStatus;
   paymentStatus?: PaymentStatus | string;
+  orderSource?: OrderSource | string | null;
   onRequestChange: (status: OrderStatus) => void;
   disabled?: boolean;
   fullWidth?: boolean;
@@ -20,11 +21,12 @@ type OrderStatusSelectProps = {
 export function OrderStatusSelect({
   value,
   paymentStatus = "paid",
+  orderSource,
   onRequestChange,
   disabled,
   fullWidth,
 }: OrderStatusSelectProps) {
-  const nextStatuses = getAllowedNextStatuses(value, paymentStatus);
+  const nextStatuses = getAllowedNextStatuses(value, paymentStatus, orderSource);
   const isTerminal = isTerminalOrderStatus(value);
   const currentLabel =
     ORDER_STATUS_OPTIONS.find((option) => option.key === value)?.label ??

@@ -67,7 +67,7 @@ interface OrderRow {
   id: string;
   total_inr: number;
   discount_inr: number;
-  distance_km: number;
+  distance_km: number | null;
   phone: string;
   status: string;
   payment_status: string;
@@ -158,9 +158,12 @@ async function fetchAnalyticsUncached(
       ? Math.round((repeat / phonesInPeriod.size) * 100)
       : 0;
 
+  const distances = orders
+    .map((o) => o.distance_km)
+    .filter((km): km is number => typeof km === "number");
   const avgDeliveryKm =
-    orders.length > 0
-      ? orders.reduce((s, o) => s + o.distance_km, 0) / orders.length
+    distances.length > 0
+      ? distances.reduce((s, km) => s + km, 0) / distances.length
       : 0;
 
   const totalDiscount = orders.reduce((s, o) => s + o.discount_inr, 0);

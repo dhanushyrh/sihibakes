@@ -1,6 +1,6 @@
-import type { Order, OrderStatus, PaymentStatus } from "@/lib/types";
+import type { Order, OrderSource, OrderStatus, PaymentStatus } from "@/lib/types";
 
-export type OrderFilterField = "status" | "payment_status";
+export type OrderFilterField = "status" | "payment_status" | "order_source";
 export type OrderFilterOp = "eq" | "neq";
 
 export type OrderFieldFilter = {
@@ -9,7 +9,11 @@ export type OrderFieldFilter = {
   values: string[];
 };
 
-const FILTER_FIELD_SET = new Set<OrderFilterField>(["status", "payment_status"]);
+const FILTER_FIELD_SET = new Set<OrderFilterField>([
+  "status",
+  "payment_status",
+  "order_source",
+]);
 const FILTER_OP_SET = new Set<OrderFilterOp>(["eq", "neq"]);
 
 export function serializeOrderFieldFilters(filters: OrderFieldFilter[]): string | undefined {
@@ -54,13 +58,13 @@ export function parseLegacyStatusFilter(
 }
 
 export function orderMatchesFieldFilters(
-  order: Pick<Order, "status" | "payment_status">,
+  order: Pick<Order, "status" | "payment_status" | "order_source">,
   filters: OrderFieldFilter[]
 ): boolean {
   for (const filter of filters) {
     if (!filter.values.length) continue;
 
-    const value = order[filter.field];
+    const value = order[filter.field] ?? (filter.field === "order_source" ? "online" : "");
     const matches = filter.values.includes(value);
 
     if (filter.op === "eq" && !matches) return false;
@@ -117,6 +121,14 @@ export const ORDER_FILTER_FIELD_OPTIONS: {
       { key: "refunded", label: "Refunded" },
     ],
   },
+  {
+    key: "order_source",
+    label: "Source",
+    values: [
+      { key: "online", label: "Online" },
+      { key: "offline", label: "Offline" },
+    ],
+  },
 ];
 
 export function filterFieldLabel(field: OrderFilterField): string {
@@ -142,4 +154,4 @@ export function isActiveOrderFieldFilter(filter: OrderFieldFilter): boolean {
   return filter.values.length > 0;
 }
 
-export type { OrderStatus, PaymentStatus };
+export type { OrderSource, OrderStatus, PaymentStatus };

@@ -5,9 +5,10 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { formatCurrency } from "@/lib/delivery";
 import { orderItemTitle } from "@/lib/order-roster";
-import type { Order, OrderItem, OrderStatus } from "@/lib/types";
+import type { Order, OrderItem, OrderStatus, PaymentMode } from "@/lib/types";
 import type { AdminAlert } from "@/lib/alerts/notify-admin";
 import {
+  OrderSourceBadges,
   OrderStatusBadge,
   PaymentStatusBadge,
 } from "@/components/admin/orders/OrderBadges";
@@ -22,6 +23,11 @@ import {
   submitOrderCancel,
   type OrderCancelPayload,
 } from "@/lib/admin-order-cancel";
+import {
+  PAYMENT_MODE_OPTIONS,
+  formatPaymentMode,
+  isOfflineOrderSource,
+} from "@/lib/offline-orders";
 import { format, parseISO } from "date-fns";
 import {
   ArrowLeft,
@@ -40,11 +46,13 @@ export default function AdminOrderDetailPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [createdBanner, setCreatedBanner] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [showRefund, setShowRefund] = useState(false);
   const [refundAmount, setRefundAmount] = useState("");
   const [refundTxnId, setRefundTxnId] = useState("");
   const [refundNotes, setRefundNotes] = useState("");
+  const [markPaidMode, setMarkPaidMode] = useState<PaymentMode>("upi");
   const [statusModalTarget, setStatusModalTarget] = useState<OrderStatus | null>(
     null
   );
@@ -78,6 +86,39 @@ export default function AdminOrderDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("created") === "offline") {
+      setCreatedBanner(true);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (order?.payment_mode) {
+      setMarkPaidMode(order.payment_mode);
+    }
+  }, [order?.payment_mode]);
+
+  const markOfflinePaid = async () => {
+    if (!order) return;
+    setSaving(true);
+    setError(null);
+
+    const res = await fetch(`/api/admin/orders/${order.id}/mark-paid`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ payment_mode: markPaidMode }),
+    });
+    const data = await res.json();
+    if (!res.ok) {
+      setError(data.error ?? "Failed to mark payment received");
+    } else {
+      setOrder(data as Order);
+    }
+    setSaving(false);
+  };
 
   const requestStatusChange = (status: OrderStatus) => {
     if (!order || order.status === status) return;
@@ -216,11 +257,17 @@ export default function AdminOrderDetailPage() {
     );
   }
 
+  const isOffline = isOfflineOrderSource(order.order_source);
   const canCancel = canCancelOrderStatus(order.status);
-  const canConfirm =
-    order.status === "pending" && order.payment_status === "paid";
   const canRefund =
     order.status === "cancelled" && order.payment_status === "paid";
+  const canMarkPaid =
+    isOffline &&
+    order.payment_status === "pending" &&
+    order.status !== "cancelled";
+  const canConfirm =
+    order.status === "pending" &&
+    (order.payment_status === "paid" || (isOffline && !canMarkPaid));
 
   const address = [
     order.house,
@@ -230,6 +277,8 @@ export default function AdminOrderDetailPage() {
   ]
     .filter(Boolean)
     .join(", ");
+  const hasMapPin =
+    order.delivery_lat != null && order.delivery_lng != null;
 
   return (
     <div className="mx-auto max-w-3xl">
@@ -251,12 +300,29 @@ export default function AdminOrderDetailPage() {
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <OrderStatusBadge status={order.status} size="md" />
             <PaymentStatusBadge status={order.payment_status} size="md" />
+            <OrderSourceBadges orderSource={order.order_source} size="md" />
           </div>
         </div>
         <p className="text-2xl font-semibold text-[#4B2C20]">
           {formatCurrency(order.total_inr)}
         </p>
       </header>
+
+      {createdBanner && (
+        <div className="mt-4 flex items-start justify-between gap-3 rounded-xl bg-teal-50 px-4 py-3 text-sm text-teal-900 ring-1 ring-teal-200">
+          <p>Offline order created — it will appear in Kitchen for this delivery date.</p>
+          <button
+            type="button"
+            onClick={() => {
+              setCreatedBanner(false);
+              router.replace(`/admin/orders/${order.id}`);
+            }}
+            className="shrink-0 text-xs font-medium underline"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
 
       {error && !statusModalTarget && (
         <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -282,14 +348,55 @@ export default function AdminOrderDetailPage() {
         </div>
       )}
 
+      {canMarkPaid && (
+        <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-4 ring-1 ring-amber-200">
+          <p className="text-sm font-medium text-amber-950">
+            Payment not received yet
+          </p>
+          <p className="mt-1 text-sm text-amber-900/80">
+            Kitchen can still prepare this offline order. Mark paid when money is
+            collected.
+          </p>
+          <div className="mt-3 flex flex-wrap items-end gap-3">
+            <div>
+              <label className="text-xs text-amber-950/70" htmlFor="mark-paid-mode">
+                Mode
+              </label>
+              <select
+                id="mark-paid-mode"
+                value={markPaidMode}
+                onChange={(e) => setMarkPaidMode(e.target.value as PaymentMode)}
+                className="mt-1 block rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm text-[#4B2C20]"
+              >
+                {PAYMENT_MODE_OPTIONS.map((opt) => (
+                  <option key={opt.key} value={opt.key}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="button"
+              disabled={saving}
+              onClick={markOfflinePaid}
+              className="rounded-full bg-[#4B2C20] px-5 py-2.5 text-sm font-medium text-white disabled:opacity-50"
+            >
+              Mark payment received
+            </button>
+          </div>
+        </div>
+      )}
+
       {canConfirm && (
         <div className="mt-4 rounded-2xl bg-amber-50 px-4 py-4 ring-1 ring-amber-200">
           <p className="text-sm font-medium text-amber-950">
-            Payment received — awaiting your confirmation
+            {order.payment_status === "paid"
+              ? "Payment received — awaiting your confirmation"
+              : "Offline order — awaiting your confirmation"}
           </p>
           <p className="mt-1 text-sm text-amber-900/80">
-            Review the order details, then confirm to start preparation and notify
-            the customer.
+            Review the order details, then confirm to start preparation
+            {isOffline ? "." : " and notify the customer."}
           </p>
           <button
             type="button"
@@ -335,14 +442,16 @@ export default function AdminOrderDetailPage() {
               <span>{address}</span>
             </li>
           </ul>
-          <a
-            href={`https://www.google.com/maps?q=${order.delivery_lat},${order.delivery_lng}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mt-3 inline-flex items-center gap-1 text-xs text-[#4B2C20]/60 hover:text-[#4B2C20]"
-          >
-            <ExternalLink size={12} /> Open in Maps
-          </a>
+          {hasMapPin ? (
+            <a
+              href={`https://www.google.com/maps?q=${order.delivery_lat},${order.delivery_lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-3 inline-flex items-center gap-1 text-xs text-[#4B2C20]/60 hover:text-[#4B2C20]"
+            >
+              <ExternalLink size={12} /> Open in Maps
+            </a>
+          ) : null}
         </section>
 
         <section className="rounded-2xl bg-white p-5 ring-1 ring-[#4B2C20]/10">
@@ -364,9 +473,19 @@ export default function AdminOrderDetailPage() {
             <div className="flex justify-between gap-4">
               <dt className="text-[#4B2C20]/50">Distance</dt>
               <dd className="font-medium text-[#4B2C20]">
-                {order.distance_km.toFixed(1)} km
+                {order.distance_km != null
+                  ? `${order.distance_km.toFixed(1)} km`
+                  : "—"}
               </dd>
             </div>
+            {isOffline ? (
+              <div className="flex justify-between gap-4">
+                <dt className="text-[#4B2C20]/50">Payment mode</dt>
+                <dd className="font-medium text-[#4B2C20]">
+                  {formatPaymentMode(order.payment_mode)}
+                </dd>
+              </div>
+            ) : null}
           </dl>
         </section>
       </div>
@@ -558,6 +677,7 @@ export default function AdminOrderDetailPage() {
                 fullWidth
                 value={order.status}
                 paymentStatus={order.payment_status}
+                orderSource={order.order_source}
                 disabled={saving}
                 onRequestChange={requestStatusChange}
               />

@@ -42,6 +42,8 @@ function makeOrder(
     delivery_window_end: "18:00:00",
     delivery_slot_id: "slot-1",
     uses_ready_stock: false,
+    order_source: "online",
+    payment_mode: null,
     payment_status: "paid",
     razorpay_order_id: null,
     razorpay_payment_id: null,

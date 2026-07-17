@@ -11,6 +11,8 @@ export type ExpenseCategory =
   | "transport"
   | "others";
 export type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
+export type OrderSource = "online" | "offline";
+export type PaymentMode = "cash" | "upi" | "bank_transfer" | "other";
 export type OrderStatus =
   | "pending"
   | "confirmed"
@@ -147,9 +149,9 @@ export interface Order {
   street: string;
   landmark: string | null;
   pincode: string;
-  delivery_lat: number;
-  delivery_lng: number;
-  distance_km: number;
+  delivery_lat: number | null;
+  delivery_lng: number | null;
+  distance_km: number | null;
   delivery_fee_inr: number;
   subtotal_inr: number;
   discount_inr: number;
@@ -160,6 +162,8 @@ export interface Order {
   delivery_window_end: string;
   delivery_slot_id?: string | null;
   uses_ready_stock?: boolean;
+  order_source: OrderSource;
+  payment_mode: PaymentMode | null;
   payment_status: PaymentStatus;
   razorpay_order_id: string | null;
   razorpay_payment_id: string | null;

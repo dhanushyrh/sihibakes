@@ -1,4 +1,5 @@
-import type { OrderStatus, PaymentStatus } from "@/lib/types";
+import type { OrderSource, OrderStatus, PaymentStatus } from "@/lib/types";
+import { isOfflineOrderSource } from "@/lib/offline-orders";
 import { statusChangeLabel } from "@/lib/order-status-update";
 
 /** Forward-only transitions allowed in admin. */
@@ -30,15 +31,23 @@ export function isTerminalOrderStatus(status: OrderStatus): boolean {
   return TERMINAL_STATUSES.has(status);
 }
 
+function paymentAllowsFulfillment(
+  paymentStatus: PaymentStatus | string,
+  orderSource?: OrderSource | string | null
+): boolean {
+  return paymentStatus === "paid" || isOfflineOrderSource(orderSource);
+}
+
 export function getAllowedNextStatuses(
   current: OrderStatus,
-  paymentStatus: PaymentStatus | string
+  paymentStatus: PaymentStatus | string,
+  orderSource?: OrderSource | string | null
 ): OrderStatus[] {
   if (isTerminalOrderStatus(current)) return [];
 
   const next = [...(ALLOWED_TRANSITIONS[current] ?? [])];
 
-  if (current === "pending" && paymentStatus !== "paid") {
+  if (current === "pending" && !paymentAllowsFulfillment(paymentStatus, orderSource)) {
     return next.filter((status) => status !== "confirmed");
   }
 
@@ -48,7 +57,8 @@ export function getAllowedNextStatuses(
 export function canTransitionOrderStatus(
   from: OrderStatus,
   to: OrderStatus,
-  paymentStatus: PaymentStatus | string
+  paymentStatus: PaymentStatus | string,
+  orderSource?: OrderSource | string | null
 ): { ok: true } | { ok: false; error: string } {
   if (from === to) {
     return { ok: false, error: "Status is already set" };
@@ -61,12 +71,16 @@ export function canTransitionOrderStatus(
     };
   }
 
-  const allowed = getAllowedNextStatuses(from, paymentStatus);
+  const allowed = getAllowedNextStatuses(from, paymentStatus, orderSource);
   if (!allowed.includes(to)) {
     const fromLabel = statusChangeLabel(from).toLowerCase();
     const toLabel = statusChangeLabel(to).toLowerCase();
 
-    if (from === "pending" && to === "confirmed" && paymentStatus !== "paid") {
+    if (
+      from === "pending" &&
+      to === "confirmed" &&
+      !paymentAllowsFulfillment(paymentStatus, orderSource)
+    ) {
       return {
         ok: false,
         error: "Payment must be received before confirming the order",

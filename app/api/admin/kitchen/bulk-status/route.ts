@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { requireAdmin } from "@/lib/admin-auth";
 import { ADMIN_ORDER_LIST_SELECT } from "@/lib/admin-orders-query";
+import { KITCHEN_ORDERS_VISIBLE_OR } from "@/lib/offline-orders";
 import { canTransitionOrderStatus } from "@/lib/order-status-transitions";
 import { notifyOrderStatusChange } from "@/lib/whatsapp/notifications";
 import { createAdminClient } from "@/lib/supabase/admin";
@@ -60,8 +61,8 @@ export async function POST(request: Request) {
 
   const { data: orders, error } = await admin
     .from("orders")
-    .select("id, status, payment_status")
-    .eq("payment_status", "paid")
+    .select("id, status, payment_status, order_source")
+    .or(KITCHEN_ORDERS_VISIBLE_OR)
     .eq("delivery_date", date)
     .eq("delivery_window_start", normalizeTime(windowStart))
     .eq("delivery_window_end", normalizeTime(windowEnd))
@@ -75,7 +76,8 @@ export async function POST(request: Request) {
     const transition = canTransitionOrderStatus(
       order.status as OrderStatus,
       status,
-      order.payment_status
+      order.payment_status,
+      order.order_source
     );
     return transition.ok;
   });

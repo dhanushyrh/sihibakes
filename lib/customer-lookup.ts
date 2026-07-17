@@ -59,7 +59,7 @@ export async function lookupCustomerCheckoutProfile(
         "customer_name, alt_phone, house, street, landmark, pincode, delivery_lat, delivery_lng"
       )
       .eq("phone", normalized)
-      .eq("payment_status", "paid")
+      .or("payment_status.eq.paid,order_source.eq.offline")
       .order("created_at", { ascending: false })
       .limit(1)
       .maybeSingle(),

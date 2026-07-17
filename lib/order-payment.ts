@@ -81,9 +81,14 @@ export async function fulfillPaidOrder(orderId: string): Promise<void> {
   const admin = createAdminClient();
   const { data: order } = await admin
     .from("orders")
-    .select("inventory_hold_status")
+    .select("inventory_hold_status, order_source")
     .eq("id", orderId)
     .single();
+
+  // Offline (WhatsApp/IG) orders never count against daily availability.
+  if (order?.order_source === "offline") {
+    return;
+  }
 
   if (order?.inventory_hold_status === "committed") {
     return;
@@ -95,8 +100,10 @@ export async function fulfillPaidOrder(orderId: string): Promise<void> {
 export function shouldFulfillOnStatusChange(
   previousStatus: OrderStatus,
   nextStatus: OrderStatus,
-  paymentStatus: string
+  paymentStatus: string,
+  orderSource?: string | null
 ): boolean {
+  if (orderSource === "offline") return false;
   return (
     previousStatus === "pending" &&
     nextStatus === "confirmed" &&

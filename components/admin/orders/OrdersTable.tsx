@@ -8,6 +8,7 @@ import {
   formatDeliveryWindow,
   formatOrderItems,
 } from "@/lib/order-roster";
+import { OrderSourceBadges } from "@/components/admin/orders/OrderBadges";
 import { OrderStatusSelect } from "@/components/admin/orders/OrderStatusSelect";
 import type { Order, OrderStatus } from "@/lib/types";
 import { format, parseISO } from "date-fns";
@@ -33,13 +34,19 @@ function OrderCard({
     <li className="rounded-2xl bg-white p-4 ring-1 ring-[#4B2C20]/10">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <Link
-            href={`/admin/orders/${order.id}`}
-            title={order.order_number}
-            className="font-medium text-[#4B2C20] hover:underline"
-          >
-            #{orderShortId(order.order_number)}
-          </Link>
+          <div className="flex flex-wrap items-center gap-1.5">
+            <Link
+              href={`/admin/orders/${order.id}`}
+              title={order.order_number}
+              className="font-medium text-[#4B2C20] hover:underline"
+            >
+              #{orderShortId(order.order_number)}
+            </Link>
+            <OrderSourceBadges
+              orderSource={order.order_source}
+              paymentStatus={order.payment_status}
+            />
+          </div>
           <p className="mt-1 font-medium text-[#4B2C20]">{order.customer_name}</p>
           <p className="text-xs text-[#4B2C20]/50">{order.phone}</p>
         </div>
@@ -81,6 +88,7 @@ function OrderCard({
           <OrderStatusSelect
             value={order.status}
             paymentStatus={order.payment_status}
+            orderSource={order.order_source}
             disabled={isUpdating}
             fullWidth
             onRequestChange={(status) => onStatusRequest(order.id, status)}
@@ -180,13 +188,19 @@ export function OrdersTable({
                   className="border-b border-[#4B2C20]/5 transition last:border-0 hover:bg-[#F5E6D3]/20"
                 >
                   <td className="px-4 py-3">
-                    <Link
-                      href={`/admin/orders/${order.id}`}
-                      title={order.order_number}
-                      className="font-medium text-[#4B2C20] hover:underline"
-                    >
-                      #{orderShortId(order.order_number)}
-                    </Link>
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <Link
+                        href={`/admin/orders/${order.id}`}
+                        title={order.order_number}
+                        className="font-medium text-[#4B2C20] hover:underline"
+                      >
+                        #{orderShortId(order.order_number)}
+                      </Link>
+                      <OrderSourceBadges
+                        orderSource={order.order_source}
+                        paymentStatus={order.payment_status}
+                      />
+                    </div>
                   </td>
                   <td className="px-4 py-3">
                     <p className="font-medium text-[#4B2C20]">
@@ -223,6 +237,7 @@ export function OrdersTable({
                       <OrderStatusSelect
                         value={order.status}
                         paymentStatus={order.payment_status}
+                        orderSource={order.order_source}
                         disabled={isUpdating}
                         onRequestChange={(status) =>
                           onStatusRequest(order.id, status)

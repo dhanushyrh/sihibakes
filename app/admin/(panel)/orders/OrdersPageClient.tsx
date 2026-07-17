@@ -26,7 +26,7 @@ import {
   submitOrderCancel,
   type OrderCancelPayload,
 } from "@/lib/admin-order-cancel";
-import { ArrowLeft, Download, Search, ShoppingBag, X } from "lucide-react";
+import { ArrowLeft, Download, Plus, Search, ShoppingBag, X } from "lucide-react";
 import { shopDateKey, shopDatePlusDays } from "@/lib/shop-timezone";
 
 type DateFilterType = "delivery" | "placed";
@@ -340,6 +340,13 @@ export function OrdersPageClient({
         {!customerFilter && (
           <div className="flex flex-wrap gap-2">
             <Link
+              href="/admin/orders/new"
+              className="inline-flex h-[42px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#4B2C20] px-4 text-sm font-medium text-white transition hover:bg-[#3d2319]"
+            >
+              <Plus size={16} />
+              Create offline order
+            </Link>
+            <Link
               href="/admin/kitchen"
               className="inline-flex h-[42px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-white px-4 text-sm font-medium text-[#4B2C20] ring-1 ring-[#4B2C20]/10 transition hover:ring-[#4B2C20]/20"
             >
@@ -347,7 +354,7 @@ export function OrdersPageClient({
             </Link>
             <Link
               href="/admin/orders/roster"
-              className="inline-flex h-[42px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-[#4B2C20] px-4 text-sm font-medium text-white transition hover:bg-[#3d2319]"
+              className="inline-flex h-[42px] shrink-0 items-center justify-center gap-2 whitespace-nowrap rounded-xl bg-white px-4 text-sm font-medium text-[#4B2C20] ring-1 ring-[#4B2C20]/10 transition hover:ring-[#4B2C20]/20"
             >
               <Download size={16} />
               Download roster
