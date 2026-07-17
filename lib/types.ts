@@ -12,7 +12,12 @@ export type ExpenseCategory =
   | "others";
 export type PaymentStatus = "pending" | "paid" | "failed" | "refunded";
 export type OrderSource = "online" | "offline";
-export type PaymentMode = "cash" | "upi" | "bank_transfer" | "other";
+export type PaymentMode =
+  | "cash"
+  | "upi"
+  | "bank_transfer"
+  | "other"
+  | "barter_collab";
 export type OrderStatus =
   | "pending"
   | "confirmed"

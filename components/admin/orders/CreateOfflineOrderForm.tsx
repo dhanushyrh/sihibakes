@@ -9,13 +9,18 @@ import { IndianPhoneInput } from "@/components/store/IndianPhoneInput";
 import { formatCurrency } from "@/lib/delivery";
 import { isValidIndianPhone, isValidIndianPincode } from "@/lib/checkout-validation";
 import {
+  OFFLINE_NO_SLOT_WINDOW,
   PAYMENT_MODE_OPTIONS,
   formatPaymentMode,
+  isBarterCollabMode,
 } from "@/lib/offline-orders";
 import { calcLineTotal, calcSubtotal, getUnitPrice } from "@/lib/pricing";
+import { shopDateKey } from "@/lib/shop-timezone";
 import type { DeliverySlot, PaymentMode, Product } from "@/lib/types";
 
 type CartQty = Record<string, number>;
+
+const NO_SLOT = "__none__";
 
 const inputClass =
   "mt-1 w-full rounded-xl border border-[#4B2C20]/10 bg-white px-3 py-2 text-sm text-[#4B2C20] outline-none focus:border-[#4B2C20]/30";
@@ -35,6 +40,7 @@ export function CreateOfflineOrderForm({
   slots: DeliverySlot[];
 }) {
   const router = useRouter();
+  const today = shopDateKey();
   const [name, setName] = useState("");
   const [phone, setPhone] = useState("");
   const [altPhone, setAltPhone] = useState("");
@@ -46,11 +52,18 @@ export function CreateOfflineOrderForm({
   const [lat, setLat] = useState("");
   const [lng, setLng] = useState("");
   const [cart, setCart] = useState<CartQty>({});
-  const [deliveryDate, setDeliveryDate] = useState("");
-  const [slotId, setSlotId] = useState("");
+  const [deliveryDate, setDeliveryDate] = useState(today);
+  const [slotId, setSlotId] = useState(NO_SLOT);
+  const [windowStart, setWindowStart] = useState(
+    OFFLINE_NO_SLOT_WINDOW.start.slice(0, 5)
+  );
+  const [windowEnd, setWindowEnd] = useState(
+    OFFLINE_NO_SLOT_WINDOW.end.slice(0, 5)
+  );
   const [deliveryFee, setDeliveryFee] = useState("0");
   const [paymentReceived, setPaymentReceived] = useState(true);
   const [paymentMode, setPaymentMode] = useState<PaymentMode>("upi");
+  const [sendWhatsApp, setSendWhatsApp] = useState(true);
   const [amount, setAmount] = useState("0");
   const [amountTouched, setAmountTouched] = useState(false);
   const [submitting, setSubmitting] = useState(false);
@@ -58,18 +71,18 @@ export function CreateOfflineOrderForm({
   const [lookupHint, setLookupHint] = useState<string | null>(null);
   const lastLookupPhone = useRef("");
 
-  const dates = useMemo(() => {
-    const set = new Set(slots.map((s) => s.slot_date));
-    return [...set].sort();
-  }, [slots]);
-
   const slotsForDate = useMemo(
     () =>
-      slots.filter((s) => s.slot_date === deliveryDate).sort((a, b) =>
-        a.window_start.localeCompare(b.window_start)
-      ),
+      slots
+        .filter((s) => s.slot_date === deliveryDate)
+        .sort((a, b) => a.window_start.localeCompare(b.window_start)),
     [slots, deliveryDate]
   );
+
+  const useNoSlot = slotId === NO_SLOT;
+  const selectedSlot = useNoSlot
+    ? null
+    : slots.find((s) => s.id === slotId) ?? null;
 
   const cartItems = useMemo(() => {
     return products
@@ -83,7 +96,9 @@ export function CreateOfflineOrderForm({
   const itemCount = cartItems.reduce((n, i) => n + i.quantity, 0);
   const { subtotal } = useMemo(() => calcSubtotal(cartItems), [cartItems]);
   const feeNum = Math.max(0, Math.floor(Number(deliveryFee) || 0));
-  const suggestedTotal = subtotal + feeNum;
+  const suggestedTotal = isBarterCollabMode(paymentMode)
+    ? 0
+    : subtotal + feeNum;
 
   useEffect(() => {
     if (!amountTouched) {
@@ -92,14 +107,8 @@ export function CreateOfflineOrderForm({
   }, [suggestedTotal, amountTouched]);
 
   useEffect(() => {
-    if (!deliveryDate && dates[0]) {
-      setDeliveryDate(dates[0]);
-    }
-  }, [dates, deliveryDate]);
-
-  useEffect(() => {
-    if (!slotsForDate.some((s) => s.id === slotId)) {
-      setSlotId(slotsForDate[0]?.id ?? "");
+    if (slotId !== NO_SLOT && !slotsForDate.some((s) => s.id === slotId)) {
+      setSlotId(slotsForDate[0]?.id ?? NO_SLOT);
     }
   }, [slotsForDate, slotId]);
 
@@ -110,6 +119,18 @@ export function CreateOfflineOrderForm({
       else copy[productId] = next;
       return copy;
     });
+  };
+
+  const onPaymentModeChange = (mode: PaymentMode) => {
+    setPaymentMode(mode);
+    if (isBarterCollabMode(mode)) {
+      setAmountTouched(true);
+      setAmount("0");
+      setDeliveryFee("0");
+      setPaymentReceived(true);
+    } else {
+      setAmountTouched(false);
+    }
   };
 
   const lookupCustomer = async () => {
@@ -149,8 +170,6 @@ export function CreateOfflineOrderForm({
     }
   };
 
-  const selectedSlot = slots.find((s) => s.id === slotId);
-
   const validate = (): string | null => {
     if (!name.trim()) return "Enter customer name";
     if (!isValidIndianPhone(phone)) return "Enter a valid 10-digit phone number";
@@ -163,7 +182,14 @@ export function CreateOfflineOrderForm({
     if (itemCount === 0) return "Add at least one item";
     if (!house.trim() || !street.trim()) return "Enter house and street";
     if (!isValidIndianPincode(pincode)) return "Enter a valid 6-digit pincode";
-    if (!slotId) return "Select a delivery slot";
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(deliveryDate)) return "Select a delivery date";
+    if (!useNoSlot && !selectedSlot) return "Select a delivery slot";
+    if (useNoSlot) {
+      if (!/^\d{2}:\d{2}$/.test(windowStart) || !/^\d{2}:\d{2}$/.test(windowEnd)) {
+        return "Enter a valid time window";
+      }
+      if (windowStart >= windowEnd) return "Window end must be after start";
+    }
     if (!paymentMode) return "Select a payment mode";
     const total = Number(amount);
     if (!Number.isFinite(total) || total < 0 || !Number.isInteger(total)) {
@@ -200,11 +226,15 @@ export function CreateOfflineOrderForm({
         pincode: pincode.trim(),
         delivery_lat: lat ? Number(lat) : null,
         delivery_lng: lng ? Number(lng) : null,
-        delivery_slot_id: slotId,
+        delivery_slot_id: useNoSlot ? null : slotId,
+        delivery_date: deliveryDate,
+        delivery_window_start: useNoSlot ? windowStart : undefined,
+        delivery_window_end: useNoSlot ? windowEnd : undefined,
         payment_received: paymentReceived,
         payment_mode: paymentMode,
         amount_inr: Number(amount),
         delivery_fee_inr: feeNum,
+        send_whatsapp_confirmation: sendWhatsApp,
         items: cartItems.map(({ product, quantity }) => ({
           productId: product.id,
           quantity,
@@ -220,8 +250,25 @@ export function CreateOfflineOrderForm({
       return;
     }
 
+    if (sendWhatsApp && data.whatsapp && !data.whatsapp.ok) {
+      // Order exists — land on detail with a soft warning via query.
+      router.push(
+        `/admin/orders/${data.id}?created=offline&wa=failed`
+      );
+      return;
+    }
+
     router.push(`/admin/orders/${data.id}?created=offline`);
   };
+
+  const scheduleSummary = selectedSlot
+    ? `${format(parseISO(selectedSlot.slot_date), "d MMM")} · ${formatSlotWindow(
+        selectedSlot.window_start,
+        selectedSlot.window_end
+      )}`
+    : deliveryDate
+      ? `${format(parseISO(deliveryDate), "d MMM")} · ${windowStart} – ${windowEnd}`
+      : "Select a date";
 
   return (
     <div className="pb-28">
@@ -235,7 +282,8 @@ export function CreateOfflineOrderForm({
         Create offline order
       </h1>
       <p className="mt-1 text-sm text-[#4B2C20]/60">
-        WhatsApp / Instagram orders — does not count against daily stock.
+        WhatsApp / Instagram / barter — past dates and no-slot allowed; does not
+        count against daily stock.
       </p>
 
       <div className="mt-6 space-y-4">
@@ -440,27 +488,21 @@ export function CreateOfflineOrderForm({
 
         <section className={sectionClass}>
           <h2 className="font-medium text-[#4B2C20]">Delivery</h2>
+          <p className="mt-1 text-xs text-[#4B2C20]/50">
+            Past dates allowed. Slot is optional — use custom times when none exist.
+          </p>
           <div className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>
               <label className={labelClass} htmlFor="offline-date">
                 Date
               </label>
-              <select
+              <input
                 id="offline-date"
+                type="date"
                 className={inputClass}
                 value={deliveryDate}
                 onChange={(e) => setDeliveryDate(e.target.value)}
-              >
-                {dates.length === 0 ? (
-                  <option value="">No slots available</option>
-                ) : (
-                  dates.map((d) => (
-                    <option key={d} value={d}>
-                      {format(parseISO(d), "EEE, d MMM yyyy")}
-                    </option>
-                  ))
-                )}
-              </select>
+              />
             </div>
             <div>
               <label className={labelClass} htmlFor="offline-slot">
@@ -472,17 +514,47 @@ export function CreateOfflineOrderForm({
                 value={slotId}
                 onChange={(e) => setSlotId(e.target.value)}
               >
-                {slotsForDate.length === 0 ? (
-                  <option value="">No slots for this date</option>
-                ) : (
-                  slotsForDate.map((slot) => (
-                    <option key={slot.id} value={slot.id}>
-                      {formatSlotWindow(slot.window_start, slot.window_end)}
-                    </option>
-                  ))
-                )}
+                <option value={NO_SLOT}>No slot (custom window)</option>
+                {slotsForDate.map((slot) => (
+                  <option key={slot.id} value={slot.id}>
+                    {formatSlotWindow(slot.window_start, slot.window_end)}
+                  </option>
+                ))}
               </select>
+              {slotsForDate.length === 0 ? (
+                <p className="mt-1 text-xs text-[#4B2C20]/45">
+                  No saved slots for this date — custom window will be used.
+                </p>
+              ) : null}
             </div>
+            {useNoSlot ? (
+              <>
+                <div>
+                  <label className={labelClass} htmlFor="offline-window-start">
+                    Window start
+                  </label>
+                  <input
+                    id="offline-window-start"
+                    type="time"
+                    className={inputClass}
+                    value={windowStart}
+                    onChange={(e) => setWindowStart(e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className={labelClass} htmlFor="offline-window-end">
+                    Window end
+                  </label>
+                  <input
+                    id="offline-window-end"
+                    type="time"
+                    className={inputClass}
+                    value={windowEnd}
+                    onChange={(e) => setWindowEnd(e.target.value)}
+                  />
+                </div>
+              </>
+            ) : null}
           </div>
         </section>
 
@@ -491,13 +563,31 @@ export function CreateOfflineOrderForm({
           <div className="mt-4 space-y-4">
             <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-[#F5E6D3]/50 px-4 py-3">
               <span className="text-sm font-medium text-[#4B2C20]">
-                Payment received
+                {isBarterCollabMode(paymentMode)
+                  ? "Barter settled"
+                  : "Payment received"}
               </span>
               <input
                 type="checkbox"
                 checked={paymentReceived}
                 onChange={(e) => setPaymentReceived(e.target.checked)}
                 className="h-5 w-5 rounded border-[#4B2C20]/30 text-[#4B2C20] focus:ring-[#4B2C20]/30"
+              />
+            </label>
+            <label className="flex cursor-pointer items-center justify-between gap-3 rounded-xl bg-[#F5E6D3]/50 px-4 py-3">
+              <span className="min-w-0">
+                <span className="block text-sm font-medium text-[#4B2C20]">
+                  Send WhatsApp confirmation
+                </span>
+                <span className="mt-0.5 block text-xs text-[#4B2C20]/50">
+                  Uses the same order confirmed template as online orders
+                </span>
+              </span>
+              <input
+                type="checkbox"
+                checked={sendWhatsApp}
+                onChange={(e) => setSendWhatsApp(e.target.checked)}
+                className="h-5 w-5 shrink-0 rounded border-[#4B2C20]/30 text-[#4B2C20] focus:ring-[#4B2C20]/30"
               />
             </label>
             <div className="grid gap-4 sm:grid-cols-3">
@@ -509,7 +599,9 @@ export function CreateOfflineOrderForm({
                   id="offline-mode"
                   className={inputClass}
                   value={paymentMode}
-                  onChange={(e) => setPaymentMode(e.target.value as PaymentMode)}
+                  onChange={(e) =>
+                    onPaymentModeChange(e.target.value as PaymentMode)
+                  }
                 >
                   {PAYMENT_MODE_OPTIONS.map((opt) => (
                     <option key={opt.key} value={opt.key}>
@@ -517,6 +609,11 @@ export function CreateOfflineOrderForm({
                     </option>
                   ))}
                 </select>
+                {isBarterCollabMode(paymentMode) ? (
+                  <p className="mt-1 text-xs text-[#4B2C20]/50">
+                    Amount defaults to ₹0 for barter / collab orders.
+                  </p>
+                ) : null}
               </div>
               <div>
                 <label className={labelClass} htmlFor="offline-fee">
@@ -546,7 +643,9 @@ export function CreateOfflineOrderForm({
                     setAmount(e.target.value.replace(/[^\d]/g, ""));
                   }}
                 />
-                {amountTouched && Number(amount) !== suggestedTotal ? (
+                {amountTouched &&
+                !isBarterCollabMode(paymentMode) &&
+                Number(amount) !== suggestedTotal ? (
                   <button
                     type="button"
                     onClick={() => {
@@ -574,16 +673,16 @@ export function CreateOfflineOrderForm({
         <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
           <div className="min-w-0 text-sm text-[#4B2C20]">
             <p className="font-medium">
-              {itemCount} item{itemCount === 1 ? "" : "s"} · {formatCurrency(Number(amount) || 0)}
-              {paymentReceived ? "" : " · Unpaid"}
+              {itemCount} item{itemCount === 1 ? "" : "s"} ·{" "}
+              {formatCurrency(Number(amount) || 0)}
+              {isBarterCollabMode(paymentMode)
+                ? " · Barter"
+                : paymentReceived
+                  ? ""
+                  : " · Unpaid"}
             </p>
             <p className="truncate text-xs text-[#4B2C20]/60">
-              {selectedSlot
-                ? `${format(parseISO(selectedSlot.slot_date), "d MMM")} · ${formatSlotWindow(
-                    selectedSlot.window_start,
-                    selectedSlot.window_end
-                  )} · ${formatPaymentMode(paymentMode)}`
-                : "Select a slot"}
+              {scheduleSummary} · {formatPaymentMode(paymentMode)}
             </p>
           </div>
           <button

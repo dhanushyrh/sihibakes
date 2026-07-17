@@ -7,7 +7,7 @@ import {
   formatOrderStatus,
   formatPaymentStatus,
 } from "@/lib/order-badges";
-import { isOfflineOrderSource } from "@/lib/offline-orders";
+import { isBarterCollabMode, isOfflineOrderSource } from "@/lib/offline-orders";
 
 export function OrderStatusBadge({
   status,
@@ -78,19 +78,38 @@ export function UnpaidOfflineBadge({
   );
 }
 
+export function BarterCollabBadge({
+  size = "sm",
+}: {
+  size?: "sm" | "md";
+}) {
+  return (
+    <span
+      className={`inline-flex items-center rounded-full bg-violet-100 font-medium text-violet-800 ${
+        size === "md" ? "px-3 py-1 text-xs" : "px-2 py-0.5 text-[10px]"
+      }`}
+    >
+      Barter
+    </span>
+  );
+}
+
 export function OrderSourceBadges({
   orderSource,
   paymentStatus,
+  paymentMode,
   size = "sm",
 }: {
   orderSource?: string | null;
   paymentStatus?: PaymentStatus | string;
+  paymentMode?: string | null;
   size?: "sm" | "md";
 }) {
   if (!isOfflineOrderSource(orderSource)) return null;
   return (
     <>
       <OfflineOrderBadge size={size} />
+      {isBarterCollabMode(paymentMode) ? <BarterCollabBadge size={size} /> : null}
       {paymentStatus === "pending" ? <UnpaidOfflineBadge size={size} /> : null}
     </>
   );

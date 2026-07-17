@@ -3,6 +3,7 @@ import { requireAdmin } from "@/lib/admin-auth";
 import { isValidIndianPhone, isValidIndianPincode } from "@/lib/checkout-validation";
 import {
   PAYMENT_MODE_SET,
+  resolveOfflineDeliverySchedule,
 } from "@/lib/offline-orders";
 import {
   calcSubtotal,
@@ -10,6 +11,7 @@ import {
   getUnitPrice,
 } from "@/lib/pricing";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notifyOrderPlaced } from "@/lib/whatsapp/notifications";
 import type { PaymentMode, Product } from "@/lib/types";
 
 type CreateItem = {
@@ -35,10 +37,14 @@ export async function POST(request: Request) {
       delivery_lat,
       delivery_lng,
       delivery_slot_id,
+      delivery_date,
+      delivery_window_start,
+      delivery_window_end,
       payment_received,
       payment_mode,
       amount_inr,
       delivery_fee_inr,
+      send_whatsapp_confirmation,
     } = body as {
       items?: CreateItem[];
       customer_name?: string;
@@ -50,20 +56,20 @@ export async function POST(request: Request) {
       pincode?: string;
       delivery_lat?: number | null;
       delivery_lng?: number | null;
-      delivery_slot_id?: string;
+      delivery_slot_id?: string | null;
+      delivery_date?: string;
+      delivery_window_start?: string;
+      delivery_window_end?: string;
       payment_received?: boolean;
       payment_mode?: string;
       amount_inr?: number;
       delivery_fee_inr?: number;
+      send_whatsapp_confirmation?: boolean;
     };
 
     const name = String(customer_name ?? "").trim();
     if (!items?.length || !name || !phone || !house || !street || !pincode) {
       return NextResponse.json({ error: "Missing required fields" }, { status: 400 });
-    }
-
-    if (!delivery_slot_id) {
-      return NextResponse.json({ error: "Select a delivery slot" }, { status: 400 });
     }
 
     const normalizedPhone = String(phone).replace(/\D/g, "").slice(-10);
@@ -130,15 +136,37 @@ export async function POST(request: Request) {
 
     const admin = createAdminClient();
 
-    const { data: slot } = await admin
-      .from("delivery_slots")
-      .select("*")
-      .eq("id", delivery_slot_id)
-      .eq("is_active", true)
-      .single();
+    const slotId = delivery_slot_id ? String(delivery_slot_id).trim() : "";
+    let slot: {
+      id: string;
+      slot_date: string;
+      window_start: string;
+      window_end: string;
+    } | null = null;
 
-    if (!slot) {
-      return NextResponse.json({ error: "Invalid delivery slot" }, { status: 400 });
+    if (slotId) {
+      const { data } = await admin
+        .from("delivery_slots")
+        .select("id, slot_date, window_start, window_end")
+        .eq("id", slotId)
+        .eq("is_active", true)
+        .single();
+
+      if (!data) {
+        return NextResponse.json({ error: "Invalid delivery slot" }, { status: 400 });
+      }
+      slot = data;
+    }
+
+    const schedule = resolveOfflineDeliverySchedule({
+      delivery_slot_id: slotId || null,
+      delivery_date,
+      delivery_window_start,
+      delivery_window_end,
+      slot,
+    });
+    if (!schedule.ok) {
+      return NextResponse.json({ error: schedule.error }, { status: 400 });
     }
 
     const productIds = items.map((i) => String(i.productId ?? ""));
@@ -209,10 +237,10 @@ export async function POST(request: Request) {
         discount_inr: 0,
         total_inr: totalInr,
         coupon_id: null,
-        delivery_date: slot.slot_date,
-        delivery_window_start: slot.window_start,
-        delivery_window_end: slot.window_end,
-        delivery_slot_id: slot.id,
+        delivery_date: schedule.delivery_date,
+        delivery_window_start: schedule.delivery_window_start,
+        delivery_window_end: schedule.delivery_window_end,
+        delivery_slot_id: schedule.delivery_slot_id,
         uses_ready_stock: false,
         order_source: "offline",
         payment_mode: mode,
@@ -251,9 +279,35 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: itemsError.message }, { status: 500 });
     }
 
+    // Default on — same order_confirmed template as online checkout.
+    const sendWhatsApp = send_whatsapp_confirmation !== false;
+    let whatsapp: { ok: boolean; error: string | null } | null = null;
+    if (sendWhatsApp) {
+      try {
+        const result = await notifyOrderPlaced(order.id);
+        whatsapp = {
+          ok: result.ok,
+          error: result.error ?? null,
+        };
+        if (!result.ok) {
+          console.error(
+            `WhatsApp confirmation failed for offline order ${order.order_number}:`,
+            result.error
+          );
+        }
+      } catch (err) {
+        console.error("WhatsApp confirmation failed for offline order:", err);
+        whatsapp = {
+          ok: false,
+          error: err instanceof Error ? err.message : "WhatsApp send failed",
+        };
+      }
+    }
+
     return NextResponse.json({
       id: order.id,
       order_number: order.order_number,
+      whatsapp,
     });
   } catch (err) {
     console.error("Admin offline order create failed:", err);

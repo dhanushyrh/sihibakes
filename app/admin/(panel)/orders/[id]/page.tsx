@@ -93,6 +93,11 @@ export default function AdminOrderDetailPage() {
     if (params.get("created") === "offline") {
       setCreatedBanner(true);
     }
+    if (params.get("wa") === "failed") {
+      setError(
+        "Order created, but WhatsApp confirmation failed to send. You can message the customer manually."
+      );
+    }
   }, []);
 
   useEffect(() => {
@@ -300,7 +305,11 @@ export default function AdminOrderDetailPage() {
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <OrderStatusBadge status={order.status} size="md" />
             <PaymentStatusBadge status={order.payment_status} size="md" />
-            <OrderSourceBadges orderSource={order.order_source} size="md" />
+            <OrderSourceBadges
+              orderSource={order.order_source}
+              paymentMode={order.payment_mode}
+              size="md"
+            />
           </div>
         </div>
         <p className="text-2xl font-semibold text-[#4B2C20]">

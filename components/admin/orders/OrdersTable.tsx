@@ -45,6 +45,7 @@ function OrderCard({
             <OrderSourceBadges
               orderSource={order.order_source}
               paymentStatus={order.payment_status}
+              paymentMode={order.payment_mode}
             />
           </div>
           <p className="mt-1 font-medium text-[#4B2C20]">{order.customer_name}</p>
@@ -199,6 +200,7 @@ export function OrdersTable({
                       <OrderSourceBadges
                         orderSource={order.order_source}
                         paymentStatus={order.payment_status}
+                        paymentMode={order.payment_mode}
                       />
                     </div>
                   </td>

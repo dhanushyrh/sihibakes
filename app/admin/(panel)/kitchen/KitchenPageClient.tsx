@@ -205,6 +205,7 @@ function PackOrderCard({
             <OrderSourceBadges
               orderSource={order.order_source}
               paymentStatus={order.payment_status}
+              paymentMode={order.payment_mode}
             />
             {order.uses_ready_stock ? (
               <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-medium text-teal-800">
