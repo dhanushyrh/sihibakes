@@ -3,6 +3,7 @@ import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { Cormorant_Garamond, Sora } from "next/font/google";
 import "./globals.css";
+import { MetaPixel } from "@/components/analytics/MetaPixel";
 import { siteMetadata } from "@/lib/site-metadata";
 
 const sora = Sora({
@@ -32,6 +33,7 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col antialiased">
         {children}
+        <MetaPixel />
         <Analytics />
         <SpeedInsights />
       </body>
