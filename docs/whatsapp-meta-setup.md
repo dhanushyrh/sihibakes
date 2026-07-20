@@ -63,7 +63,7 @@ Ensure these templates exist in WhatsApp Manager (names must match env vars). Al
 | `order_confirmed` | — | `en_US` | name, order #, total, slot | Legacy |
 | `order_preparing` | `WHATSAPP_TEMPLATE_ORDER_PREPARING` | `en_US` | order # | Status → preparing |
 | `order_delivered` | `WHATSAPP_TEMPLATE_ORDER_DELIVERED` | `en_US` | order # | Status → delivered |
-| `order_review_request_v1` | `WHATSAPP_TEMPLATE_ORDER_REVIEW` | `en_US` | first name + URL button | **Not auto-sent yet** — Google review ask (MARKETING) |
+| `order_review_request_v1` | `WHATSAPP_TEMPLATE_ORDER_REVIEW` | `en_US` | first name + URL button | After **Delivered** (online only) |
 | `order_status_update` | `WHATSAPP_TEMPLATE_ORDER_STATUS` | `en_US` | order #, status label, note | Admin manual status |
 | `order_on_the_way_v2` | `WHATSAPP_TEMPLATE_ORDER_DISPATCH` | `en_US` | order #, partner, ref, ETA | Partner out for delivery |
 | `order_self_on_the_way_v2` | `WHATSAPP_TEMPLATE_ORDER_SELF_DISPATCH` | `en_US` | order #, ETA | Self-delivery out for delivery |
@@ -82,7 +82,7 @@ Template list:
 - `order_confirmed` (legacy)
 - `order_preparing` (sent when admin moves order to preparing)
 - `order_delivered` (sent when admin marks order delivered)
-- `order_review_request_v1` (MARKETING — Google review CTA; seed after setting `WHATSAPP_GOOGLE_REVIEW_URL`; not auto-sent until wired)
+- `order_review_request_v1` (MARKETING — Google review CTA; auto-sent after delivered for online orders)
 - `order_status_update` (legacy — admin manual sends)
 - `order_on_the_way_v2` (partner out for delivery — partner, ref code, ETA)
 - `order_self_on_the_way_v2` (self-delivery out for delivery — order # and ETA)
@@ -173,14 +173,13 @@ Sent when admin marks an order **Delivered** or **Self delivered**:
 
 - `{{1}}` — order number
 
-### Google review request (`order_review_request_v1`) — pending wire-up
+### Google review request (`order_review_request_v1`)
 
-**MARKETING** template with a **Leave a review** URL button. Not sent automatically yet — after Meta approves it, we can wire it to send after delivery (or on a delay).
+**MARKETING** template with a **Leave a review** URL button. Sent automatically right after the delivered message when an **online** order is marked delivered / self-delivered (skipped for offline orders; idempotent per order).
 
 1. Review button URL defaults to `https://g.page/r/CayJs7pha_2gEBM/review` (override with `WHATSAPP_GOOGLE_REVIEW_URL` if needed). The URL is baked into the Meta template at create time.
-2. Run **Admin → WhatsApp → Templates → Create Sihi defaults** (or seed API).
-3. Wait for Meta approval (`APPROVED`).
-4. Tell the team to wire auto-send / timing.
+2. Template must be **APPROVED** in Meta (already approved for Sihi).
+3. Env: `WHATSAPP_TEMPLATE_ORDER_REVIEW=order_review_request_v1` (default).
 
 Body:
 

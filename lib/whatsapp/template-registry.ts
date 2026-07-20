@@ -21,7 +21,7 @@ export const WHATSAPP_ORDER_PREPARING_TEMPLATE = "order_preparing";
 /** Order delivered — sent when status moves to delivered or self_delivered. */
 export const WHATSAPP_ORDER_DELIVERED_TEMPLATE = "order_delivered";
 
-/** Post-delivery Google review ask — not auto-sent until Meta-approved + wired. */
+/** Post-delivery Google review ask (MARKETING) — sent after delivered. */
 export const WHATSAPP_ORDER_REVIEW_REQUEST_TEMPLATE = "order_review_request_v1";
 
 /** Order out for delivery with partner, ref code, and ETA. */

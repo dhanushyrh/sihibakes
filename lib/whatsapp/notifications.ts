@@ -15,6 +15,7 @@ import { hasSentMessage, sendWhatsAppTemplate } from "@/lib/whatsapp/client";
 import {
   resolveTemplateComponents,
   WHATSAPP_ENQUIRY_RECEIVED_TEMPLATE,
+  WHATSAPP_ORDER_REVIEW_REQUEST_TEMPLATE,
   WHATSAPP_ORDER_SELF_DISPATCH_TEMPLATE,
   WHATSAPP_REACH_CONFIRMATION_TEMPLATE,
 } from "@/lib/whatsapp/template-components";
@@ -209,6 +210,48 @@ export async function sendOrderStatusNotification(
   });
 }
 
+/** Google review ask after delivery (MARKETING template). Online orders only. */
+export async function sendOrderReviewRequest(order: Order) {
+  if (isOfflineOrderSource(order.order_source)) {
+    return { ok: true, messageId: null, error: null };
+  }
+
+  if (await hasSentMessage(order.id, "order_review_request")) {
+    return { ok: true, messageId: null, error: null };
+  }
+
+  const config = getWhatsAppConfig();
+  const templateName =
+    config?.templates.orderReviewRequest ?? WHATSAPP_ORDER_REVIEW_REQUEST_TEMPLATE;
+  const resolved = resolveTemplateComponents(templateName, { order });
+  if (!resolved) {
+    const error = `Could not build template parameters for "${templateName}"`;
+    console.error(
+      `WhatsApp review request failed for ${order.order_number}:`,
+      error
+    );
+    return { ok: false, messageId: null, error };
+  }
+
+  const result = await sendWhatsAppTemplate({
+    phone: order.phone,
+    messageType: "order_review_request",
+    templateName,
+    components: resolved.components,
+    orderId: order.id,
+    languageCode: resolved.languageCode,
+  });
+
+  if (!result.ok) {
+    console.error(
+      `WhatsApp review request failed for ${order.order_number}:`,
+      result.error
+    );
+  }
+
+  return result;
+}
+
 export async function notifyOrderStatusChange(
   orderId: string,
   newStatus: OrderStatus,
@@ -231,6 +274,14 @@ export async function notifyOrderStatusChange(
     await sendOrderStatusNotification(order as Order, newStatus, extras);
   } catch (err) {
     console.error(`WhatsApp status notification failed (${newStatus}):`, err);
+  }
+
+  if (newStatus === "delivered" || newStatus === "self_delivered") {
+    try {
+      await sendOrderReviewRequest(order as Order);
+    } catch (err) {
+      console.error("WhatsApp review request failed:", err);
+    }
   }
 }
 
